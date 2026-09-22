@@ -1,0 +1,387 @@
+<!DOCTYPE html><html class="dark" lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"secondary-container":"#00a572","inverse-surface":"#dfe2ee","on-tertiary-container":"#3e2400","on-primary":"#1000a9","on-secondary-fixed-variant":"#005236","surface-container-lowest":"#0a0e16","on-tertiary-fixed-variant":"#653e00","tertiary-container":"#ca8100","primary-fixed":"#e1e0ff","on-surface-variant":"#c7c4d7","error-container":"#93000a","on-error-container":"#ffdad6","primary-container":"#8083ff","outline":"#908fa0","on-background":"#dfe2ee","outline-variant":"#464554","on-error":"#690005","primary":"#c0c1ff","surface-bright":"#353942","surface-variant":"#31353e","surface":"#0f131c","on-tertiary":"#472a00","tertiary":"#ffb95f","secondary-fixed-dim":"#4edea3","secondary":"#4edea3","surface-container-high":"#262a33","on-secondary-container":"#00311f","on-primary-container":"#0d0096","on-primary-fixed-variant":"#2f2ebe","error":"#ffb4ab","on-tertiary-fixed":"#2a1700","tertiary-fixed-dim":"#ffb95f","on-surface":"#dfe2ee","secondary-fixed":"#6ffbbe","primary-fixed-dim":"#c0c1ff","on-secondary-fixed":"#002113","surface-container-low":"#181c24","surface-container":"#1c2028","on-secondary":"#003824","on-primary-fixed":"#07006c","surface-container-highest":"#31353e","background":"#0f131c","inverse-on-surface":"#2c3039","surface-tint":"#c0c1ff","inverse-primary":"#494bd6","tertiary-fixed":"#ffddb8","surface-dim":"#0f131c"},borderRadius:{DEFAULT:"0.125rem",lg:"0.25rem",xl:"0.5rem",full:"0.75rem"},spacing:{"space-lg":"1rem","space-xl":"1.5rem","space-md":"0.75rem",margin:"1rem","gutter-dense":"0.25rem","margin-screen":"0px","space-sm":"0.5rem",gutter:"0.5rem","space-xs":"0.25rem"},fontFamily:{"ui-medium":["Inter"],"ui-micro":["Inter"],"mono-code":["JetBrains Mono"],"display-workbench":["Inter"],"ui-base":["Inter"],"prose-h2":["Noto Serif"],"panel-caps":["Inter"],"prose-body":["Noto Serif"],"prose-h1":["Noto Serif"],"mono-stats":["JetBrains Mono"],"headline-panel":["Inter"]},fontSize:{"ui-medium":["13px",{lineHeight:"18px",letterSpacing:"0",fontWeight:"500"}],"ui-micro":["11px",{lineHeight:"14px",letterSpacing:"0.02em",fontWeight:"500"}],"mono-code":["12px",{lineHeight:"18px",letterSpacing:"0",fontWeight:"400"}],"display-workbench":["20px",{lineHeight:"28px",letterSpacing:"-0.015em",fontWeight:"600"}],"ui-base":["13px",{lineHeight:"18px",letterSpacing:"0",fontWeight:"400"}],"prose-h2":["20px",{lineHeight:"30px",letterSpacing:"-0.005em",fontWeight:"600"}],"panel-caps":["11px",{lineHeight:"16px",letterSpacing:"0.05em",fontWeight:"700"}],"prose-body":["16px",{lineHeight:"30px",letterSpacing:"0.01em",fontWeight:"400"}],"prose-h1":["24px",{lineHeight:"36px",letterSpacing:"-0.01em",fontWeight:"700"}],"mono-stats":["11px",{lineHeight:"14px",letterSpacing:"0.02em",fontWeight:"500"}],"headline-panel":["14px",{lineHeight:"20px",letterSpacing:"-0.005em",fontWeight:"600"}]}}}};</script></head><body class="bg-surface font-ui-base text-ui-base text-on-surface antialiased min-h-screen"><header class="fixed top-0 left-0 right-0 h-14 bg-surface/90 backdrop-blur-xl z-50 shadow-[0_1px_8px_rgba(0,0,0,0.25)]"><div class="h-14 w-full px-space-lg flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md min-w-0"><img alt="Brand logo. - Primary color: #6366f1
+- Font: inter
+- Mode: dark
+- Roundness: rounded-sm
+" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1XrnZkL5TH2fOV9hJOsEDm9phasCYMYtuk8erSeeRNYJiyEFqCw7BMTfqYFqdWneUzimRnsFXym_bXjl1yhJwE4ZKKYYVBaEzHKiYlm-slk9gecn6RYBWwFlwouaWYq9JfalMbO_i4KC8XPULgtzJ-tnb4XXLUCkI0yLpG7qmd-V6XpVLTxq0WiGOxzrNPJq6Y0WHRoPj4CMRQEd8Ynh5pXBsRYNBqsJ8vuFdVukIM"><span class="font-display-workbench text-display-workbench text-on-surface tracking-tight truncate">Novel Studio</span><div class="hidden md:flex items-center gap-space-xs px-space-sm py-0.5 rounded-full bg-surface-container-high/70"><span class="w-1.5 h-1.5 rounded-full bg-secondary"></span><span class="font-mono-stats text-mono-stats text-secondary">ainovel-core v1.4.2</span><span class="font-mono-stats text-mono-stats text-outline">·</span><span class="font-ui-micro text-ui-micro text-on-surface-variant">Local Engine Connected</span></div></div><div class="flex items-center gap-space-sm"><div class="hidden lg:flex items-center rounded-xl bg-surface-container-low p-0.5"><a class="px-space-md py-1 rounded-lg font-ui-medium text-ui-medium text-on-surface-variant hover:text-on-surface transition-colors" data-path="projects" href="#">Projects</a></div><button class="w-8 h-8 rounded-lg flex items-center justify-center bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="Toggle Theme" type="button"><span class="material-symbols-outlined text-[18px]">dark_mode</span></button><a class="w-8 h-8 rounded-lg flex items-center justify-center bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="workbench-settings" href="#" title="Settings"><span class="material-symbols-outlined text-[18px]">settings</span></a><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><aside class="fixed left-0 top-14 bottom-6 w-64 bg-surface-container-lowest z-40 flex flex-col justify-between py-space-md shadow-[1px_0_12px_rgba(0,0,0,0.2)]"><div class="flex flex-col gap-space-md px-space-sm"><div class="px-space-sm pt-space-xs"><span class="font-panel-caps text-panel-caps uppercase tracking-wider text-outline">Launcher Bays</span></div><nav class="flex flex-col gap-space-xs" data-active-classes="bg-primary-container text-on-primary-container font-ui-medium text-ui-medium rounded-lg"><a aria-current="page" class="flex items-center gap-space-sm px-space-sm py-2 transition-colors bg-primary-container text-on-primary-container font-ui-medium text-ui-medium rounded-lg" data-path="projects" href="#"><span class="material-symbols-outlined text-[18px]">folder_open</span><span class="font-ui-medium text-ui-medium">Workspace Hub</span></a><a class="flex items-center gap-space-sm px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="new-story-wizard" href="#"><span class="material-symbols-outlined text-[18px]">auto_awesome</span><span class="font-ui-medium text-ui-medium">Story Wizard</span></a></nav></div><div class="px-space-sm flex flex-col gap-space-sm"><nav class="flex flex-col gap-space-xs" data-active-classes="bg-primary-container text-on-primary-container font-ui-medium text-ui-medium rounded-lg"><a class="flex items-center gap-space-sm px-space-sm py-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="workbench-settings" href="#"><span class="material-symbols-outlined text-[18px]">manufacturing</span><span class="font-ui-medium text-ui-medium">Preferences</span></a></nav></div></aside><div class="pl-64"><main class="relative w-full pt-14 pb-6 bg-surface min-h-[calc(100vh-1.5rem)]"><div class="flex flex-col w-full">
+<div class="relative w-full overflow-hidden px-space-xl py-space-xl">
+<div class="pointer-events-none absolute -top-40 right-20 w-96 h-96 rounded-full bg-primary-container/10 blur-3xl"></div>
+<div class="pointer-events-none absolute top-60 left-10 w-72 h-72 rounded-full bg-secondary-container/10 blur-3xl"></div>
+<!-- Top Hero Banner & System Stat Row -->
+<div class="flex flex-col xl:flex-row items-start xl:items-end justify-between gap-space-lg mb-space-xl">
+<div class="flex flex-col gap-space-xs max-w-3xl">
+<div class="flex items-center gap-space-sm mb-space-xs">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface-container-high text-secondary font-mono-stats text-mono-stats">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
+            ainovel-cli v1.4.2 daemon active
+          </span>
+<span class="font-ui-micro text-ui-micro text-outline">|</span>
+<span class="font-ui-micro text-ui-micro text-on-surface-variant">Multi-Agent Long-form Orchestrator</span>
+</div>
+<h1 class="font-display-workbench text-display-workbench text-on-surface tracking-tight">
+          欢迎进入 Novel Studio
+        </h1>
+<p class="font-ui-base text-ui-base text-on-surface-variant leading-relaxed">
+          长篇小说 AI 架构与多 Agent 协同创作工作台 · 统一监管大纲拓扑、世界观因果图谱与实时执笔推演
+        </p>
+</div>
+<!-- Quick Action Bay -->
+<div class="flex items-center flex-wrap gap-space-sm">
+<button class="group flex items-center gap-space-sm h-8 px-space-md rounded-xl bg-surface-container-high text-on-surface hover:bg-surface-bright transition-all shadow-sm" type="button">
+<span class="material-symbols-outlined text-[17px] text-primary">folder_open</span>
+<span class="font-ui-medium text-ui-medium">打开本地目录</span>
+</button>
+
+<button class="flex items-center gap-space-sm h-8 px-space-md rounded-xl bg-primary text-on-primary hover:bg-primary-fixed-dim transition-all shadow-sm" type="button"><span class="material-symbols-outlined text-[18px]">add</span><span class="font-ui-medium text-ui-medium">新建小说</span></button>
+</div>
+</div>
+<!-- Search + Filter Bar (Command Palette Trigger) -->
+<div class="mb-space-xl p-space-sm rounded-xl bg-surface-container-low shadow-sm flex flex-col md:flex-row items-center justify-between gap-space-md">
+<!-- Search Input Simulation -->
+<div class="relative w-full md:w-96 flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">search</span>
+<input class="w-full h-8 pl-9 pr-14 rounded-lg bg-surface-container-lowest text-on-surface placeholder:text-outline font-ui-base text-ui-base focus:outline-none focus:ring-1 focus:ring-primary-container" placeholder="搜索项目、分卷、角色或剧情标记 (⌘K)" type="text">
+<kbd class="absolute right-2 px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant font-mono-stats text-mono-stats">⌘K</kbd>
+</div>
+<!-- Category Filter Pills -->
+<div class="flex items-center gap-space-xs overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
+<button class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-container text-on-primary-container font-ui-medium text-ui-medium shadow-sm" type="button">
+<span class="">全部项目</span>
+<span class="w-4 h-4 rounded-full bg-surface/20 flex items-center justify-center font-mono-stats text-[10px]">4</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-ui-medium text-ui-medium transition-colors" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span class="">进行中</span>
+<span class="font-mono-stats text-mono-stats text-outline">2</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-ui-medium text-ui-medium transition-colors" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+<span class="">等待审核</span>
+<span class="font-mono-stats text-mono-stats text-outline">1</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-ui-medium text-ui-medium transition-colors" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+<span class="">存在未同步</span>
+<span class="font-mono-stats text-mono-stats text-outline">1</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-ui-medium text-ui-medium transition-colors" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+<span class="">已归档</span>
+<span class="font-mono-stats text-mono-stats text-outline">1</span>
+</button>
+</div>
+</div>
+<!-- Section 1: Three Distinct Creation Modes (PRD Section 7) -->
+<div class="mb-space-xl">
+<div class="flex items-center justify-between mb-space-md">
+<div class="flex items-center gap-space-sm">
+<span class="font-panel-caps text-panel-caps uppercase text-outline tracking-wider">Start A Narrative Pipeline</span>
+<span class="h-1 w-1 rounded-full bg-outline"></span>
+<span class="font-ui-micro text-ui-micro text-on-surface-variant">3 种启笔范式</span>
+</div>
+<span class="font-mono-stats text-mono-stats text-outline">PRD_V1.4_ARCH</span>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-space-md">
+<!-- Mode A: Quick Spark -->
+<div class="group relative flex flex-col justify-between p-space-lg rounded-xl bg-surface-container-low hover:bg-surface-container transition-all shadow-md">
+<div class="flex flex-col gap-space-md">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">bolt</span>
+</div>
+<div>
+<h3 class="font-headline-panel text-headline-panel text-on-surface font-bold">快速开始 · Quick Spark</h3>
+<span class="font-ui-micro text-ui-micro text-outline">一句话启动 · 5秒生成全景骨架</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-mono-stats text-mono-stats">Fast Track</span>
+</div>
+<!-- Brainstorm Input -->
+<div class="flex flex-col gap-space-xs">
+<label class="font-ui-micro text-ui-micro text-on-surface-variant">一句话梗概 / 设定脑洞</label>
+<textarea class="w-full p-2 rounded-lg bg-surface-container-lowest text-on-surface placeholder:text-outline font-ui-base text-ui-base focus:outline-none focus:ring-1 focus:ring-primary-container resize-none" placeholder="例如：赛博朋克世界里被遗忘的第009号归墟执行者，发现自己的意识矩阵来自死去的帝国女帝..." rows="2"></textarea>
+</div>
+<div class="grid grid-cols-2 gap-space-sm">
+<div class="flex flex-col gap-1">
+<span class="font-ui-micro text-ui-micro text-outline">规划体量</span>
+<div class="flex items-center justify-between px-2 py-1.5 rounded-lg bg-surface-container-lowest font-mono-stats text-mono-stats text-on-surface">
+<span class="">120万字</span>
+<span class="text-outline">3卷/120章</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="font-ui-micro text-ui-micro text-outline">核心基调</span>
+<div class="flex items-center justify-between px-2 py-1.5 rounded-lg bg-surface-container-lowest font-ui-micro text-ui-micro text-on-surface">
+<span class="">冷硬科幻 / 暗黑</span>
+<span class="material-symbols-outlined text-[14px] text-outline">expand_more</span>
+</div>
+</div>
+</div>
+</div>
+<button class="mt-space-md w-full h-8 rounded-lg bg-primary-container text-on-primary-container font-ui-medium text-ui-medium flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-[0.98] transition-all shadow-sm" type="button">
+<span class="material-symbols-outlined text-[16px]">auto_awesome</span>
+<span class="">5秒启动创作 (Generate Spark)</span>
+</button>
+</div>
+<!-- Mode B: Blueprint Wizard -->
+<div class="group relative flex flex-col justify-between p-space-lg rounded-xl bg-surface-container-low hover:bg-surface-container transition-all shadow-md">
+<div class="flex flex-col gap-space-md">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-xl bg-secondary/10 text-secondary flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">account_tree</span>
+</div>
+<div>
+<h3 class="font-headline-panel text-headline-panel text-on-surface font-bold">共创规划向导 · Blueprint</h3>
+<span class="font-ui-micro text-ui-micro text-outline">5步深度推演 · 严密世界观建构</span>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-high text-secondary font-mono-stats text-mono-stats">Recommended</span>
+</div>
+<!-- Step Progress Rail Visual -->
+<div class="p-space-sm rounded-lg bg-surface-container-lowest flex flex-col gap-space-xs">
+<div class="flex items-center justify-between text-outline font-ui-micro text-ui-micro">
+<span class="text-secondary font-medium">Step 1: 故事主轴</span>
+<span class="">Step 5: 模型策略</span>
+</div>
+<div class="grid grid-cols-5 gap-1 py-1">
+<div class="h-1.5 rounded-full bg-secondary"></div>
+<div class="h-1.5 rounded-full bg-secondary-container"></div>
+<div class="h-1.5 rounded-full bg-surface-container-highest"></div>
+<div class="h-1.5 rounded-full bg-surface-container-highest"></div>
+<div class="h-1.5 rounded-full bg-surface-container-highest"></div>
+</div>
+<p class="font-mono-stats text-mono-stats text-on-surface-variant truncate">
+                法则链条推演 → 主角人物弧光 → 首卷冲突节拍
+              </p>
+</div>
+<div class="flex items-center gap-space-sm text-outline font-ui-micro text-ui-micro">
+<span class="material-symbols-outlined text-[16px] text-secondary">verified</span>
+<span class="">内置 14 套行业级长篇网文 / 出版物节拍模型</span>
+</div>
+</div>
+<button class="mt-space-md w-full h-8 rounded-lg bg-surface-container-highest text-on-surface hover:bg-surface-bright font-ui-medium text-ui-medium flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all" type="button">
+<span class="material-symbols-outlined text-[16px]">play_arrow</span>
+<span class="">进入向导 (5 Steps Blueprint)</span>
+</button>
+</div>
+<!-- Mode C: Import Pipeline -->
+<div class="group relative flex flex-col justify-between p-space-lg rounded-xl bg-surface-container-low hover:bg-surface-container transition-all shadow-md">
+<div class="flex flex-col gap-space-md">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-xl bg-tertiary/10 text-tertiary flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">dataset</span>
+</div>
+<div>
+<h3 class="font-headline-panel text-headline-panel text-on-surface font-bold">已有文本拆解 · Import Pipeline</h3>
+<span class="font-ui-micro text-ui-micro text-outline">自动切分 · 因果提取 · 结构化入库</span>
+</div>
+</div>
+
+</div>
+<!-- Pipeline Drop zone / status simulation -->
+<div class="p-space-sm rounded-lg bg-surface-container-lowest flex flex-col items-center justify-center text-center gap-1 py-3.5">
+<span class="material-symbols-outlined text-outline text-[24px]">upload_file</span>
+<p class="font-ui-medium text-ui-medium text-on-surface">拖拽 TXT / Markdown / JSON / Scrivener</p>
+<span class="font-ui-micro text-ui-micro text-outline">ainovel-cli 原生分章与角色设定导入流水线</span>
+</div>
+<div class="flex items-center justify-between font-mono-stats text-mono-stats text-outline">
+<span class="">支持单文件最大 5,000,000 字</span>
+
+</div>
+</div>
+<button class="mt-space-md w-full h-8 rounded-lg bg-surface-container-highest text-on-surface hover:bg-surface-bright font-ui-medium text-ui-medium flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all" type="button">
+<span class="material-symbols-outlined text-[16px]">file_open</span>
+<span class="">选择文件开始导入 (Ingest File)</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Main Grid: Projects Matrix + Right Telemetry Sidebar -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-xl">
+<!-- Left 8 Cols: Project Dashboard -->
+<div class="xl:col-span-8 flex flex-col gap-space-md">
+<div class="flex items-center justify-between mb-space-xs">
+<div class="flex items-center gap-space-sm">
+<span class="font-panel-caps text-panel-caps uppercase text-outline tracking-wider">Active Workspaces</span>
+<span class="h-1 w-1 rounded-full bg-outline"></span>
+<span class="font-ui-micro text-ui-micro text-on-surface-variant">最近创作工程</span>
+</div>
+<span class="font-mono-stats text-mono-stats text-outline">DISK USAGE: 412 MB</span>
+</div>
+<!-- Project 1: Primary Featured Active Project (Nebula Chronicles) -->
+<div class="relative rounded-xl bg-surface-container-low p-space-lg shadow-lg flex flex-col gap-space-md overflow-hidden">
+<div class="pointer-events-none absolute right-0 top-0 w-80 h-full bg-gradient-to-l from-primary/5 to-transparent"></div>
+<!-- Card Header -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-sm relative z-10">
+<div class="flex items-center gap-space-md min-w-0">
+<div class="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-on-primary shadow-md shrink-0">
+<span class="material-symbols-outlined text-[26px]">cyclone</span>
+</div>
+<div class="min-w-0">
+<div class="flex items-center gap-space-sm flex-wrap">
+<h2 class="font-prose-h2 text-prose-h2 text-on-surface font-bold tracking-tight truncate">《星渊纪元》</h2>
+<span class="font-mono-stats text-mono-stats text-outline">Nebula Chronicles</span>
+<!-- Running Active Badge -->
+<div class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary/15 text-secondary font-ui-micro text-ui-micro">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
+<span class="">🟢 Writer 执笔中 (Claude-3.5-Sonnet)</span>
+</div>
+</div>
+<div class="flex items-center gap-space-sm text-outline font-mono-stats text-mono-stats mt-0.5">
+<span class="material-symbols-outlined text-[14px]">terminal</span>
+<span class="">~/Novels/nebula-chronicles-vol1</span>
+<span class="">·</span>
+<span class="text-secondary">ainovel-core v1.4.2</span>
+</div>
+</div>
+</div>
+<!-- Quick Action Enter Primary Button -->
+<button class="flex items-center gap-space-sm px-space-lg h-9 rounded-xl bg-primary text-on-primary font-ui-medium text-ui-medium hover:bg-primary-fixed-dim shadow-md active:scale-[0.98] transition-all shrink-0" type="button">
+<span class="material-symbols-outlined text-[18px]">edit_note</span>
+<span class="">继续写作 (Enter Workspace)</span>
+</button>
+</div>
+<!-- Novel Progress & Arc Status -->
+<div class="p-space-md rounded-xl bg-surface-container-lowest grid grid-cols-1 md:grid-cols-3 gap-space-md relative z-10">
+<div class="flex flex-col gap-1 min-w-0">
+<span class="font-ui-micro text-ui-micro text-outline">当前推进节点</span>
+<p class="font-ui-medium text-ui-medium text-on-surface truncate">
+                第一卷 Arc 01: 边陲觉醒 · 第014章 裂隙深潜
+              </p>
+<div class="flex items-center gap-2 mt-1">
+<span class="px-1.5 py-0.5 rounded bg-surface-container text-tertiary font-mono-stats text-[10px]">待定稿审阅</span>
+<span class="font-mono-stats text-mono-stats text-on-surface-variant">正文 2,845 字</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<span class="font-ui-micro text-ui-micro text-outline">全书总进度</span>
+<span class="font-mono-stats text-mono-stats text-secondary">65% (14 / 20 章)</span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container overflow-hidden mt-1.5">
+<div class="h-full bg-secondary w-[65%] rounded-full"></div>
+</div>
+<span class="font-ui-micro text-ui-micro text-outline mt-0.5">规划 3 卷 / 120 章 (120万字)</span>
+</div>
+<div class="flex flex-col gap-1"><span class="font-ui-micro text-ui-micro text-outline">运行消耗统计</span><div class="flex items-center gap-space-sm mt-0.5"><div class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px] text-secondary">check_circle</span><span class="font-mono-stats text-mono-stats text-on-surface font-semibold">本章已就绪</span></div><span class="text-outline">·</span><div class="flex items-center gap-1 font-mono-stats text-mono-stats text-on-surface-variant"><span class="">18 条伏笔追踪</span></div></div><span class="font-mono-stats text-mono-stats text-outline mt-1">Token 成本: $14.28 / $50.00</span></div>
+</div>
+<!-- Secondary Toolbar Actions -->
+<div class="flex items-center justify-between pt-1 relative z-10">
+<div class="flex items-center gap-space-xs">
+<button class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-ui-micro text-ui-micro transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">folder</span>
+<span class="">打开目录</span>
+</button>
+
+<button class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-ui-micro text-ui-micro transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">settings</span>
+<span class="">项目配置</span>
+</button>
+</div>
+<div class="flex items-center gap-2 font-mono-stats text-mono-stats text-outline">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="">48.2 tok/s</span>
+</div>
+</div>
+</div>
+<!-- Project 2: Clockwork Echoes (Review State) -->
+<div class="rounded-xl bg-surface-container-low p-space-md hover:bg-surface-container transition-all flex flex-col md:flex-row md:items-center justify-between gap-space-md shadow-sm">
+<div class="flex items-start gap-space-md min-w-0">
+<div class="w-10 h-10 rounded-xl bg-surface-container-highest text-tertiary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[22px]">history_edu</span>
+</div>
+<div class="min-w-0">
+<div class="flex items-center gap-space-sm flex-wrap">
+<h3 class="font-headline-panel text-headline-panel text-on-surface font-semibold truncate">《旧神残响与发条死局》</h3>
+<span class="font-mono-stats text-mono-stats text-outline">Clockwork Echoes</span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-tertiary/15 text-tertiary font-ui-micro text-ui-micro">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+<span class="">等待逐章审核 (Editor 标记 2 处伏笔冲突)</span>
+</span>
+</div>
+<p class="font-ui-base text-ui-base text-on-surface-variant truncate mt-0.5">
+                蒸汽朋克 / 奇幻 · 第042章 齿轮教廷的告解 (已完成 18.6万字) · ~/Novels/clockwork-echoes
+              </p>
+</div>
+</div>
+<div class="flex items-center gap-space-xs shrink-0 self-end md:self-auto">
+<button class="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-surface-container-high text-on-surface hover:bg-surface-bright font-ui-medium text-ui-medium transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px] text-tertiary">rate_review</span>
+<span class="">进入审稿 (Review)</span>
+</button>
+<button class="w-8 h-8 rounded-xl bg-surface-container flex items-center justify-center text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors" title="归档" type="button">
+<span class="material-symbols-outlined text-[18px]">archive</span>
+</button>
+</div>
+</div>
+<!-- Project 3: Silicon Ascension (Unsynced Mod State) -->
+<div class="rounded-xl bg-surface-container-low p-space-md hover:bg-surface-container transition-all flex flex-col md:flex-row md:items-center justify-between gap-space-md shadow-sm"><div class="flex items-start gap-space-md min-w-0"><div class="w-10 h-10 rounded-xl bg-surface-container-highest text-error flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-[22px]">warning</span></div><div class="min-w-0"><div class="flex items-center gap-space-sm flex-wrap"><h3 class="font-headline-panel text-headline-panel text-on-surface font-semibold truncate">《黑客与机械飞升指南》</h3><span class="font-mono-stats text-mono-stats text-outline">Silicon Ascension</span><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-error/15 text-error font-ui-micro text-ui-micro"><span class="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span><span class="">⚠ 存在未同步人工修改 · 创作已挂起</span></span></div><p class="font-ui-base text-ui-base text-on-surface-variant truncate mt-0.5">短篇集 · 第007章 (已完成 3.2万字) · ~/Novels/silicon-ascension</p></div></div><div class="flex items-center gap-space-xs shrink-0 self-end md:self-auto"><button class="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-error text-on-error hover:bg-error/90 font-ui-medium text-ui-medium transition-colors shadow-sm" type="button"><span class="material-symbols-outlined text-[16px]">sync</span><span class="">立即同步</span></button><button class="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-surface-container text-outline font-ui-medium text-ui-medium cursor-pointer opacity-50" disabled="" title="需先同步人工修改" type="button"><span class="material-symbols-outlined text-[16px]">lock</span><span class="">创作已挂起</span></button></div></div>
+<!-- Project 4: Dao of Void (Archived State) -->
+<div class="rounded-xl bg-surface-container-low/60 p-space-md hover:bg-surface-container transition-all flex flex-col md:flex-row md:items-center justify-between gap-space-md opacity-75">
+<div class="flex items-start gap-space-md min-w-0">
+<div class="w-10 h-10 rounded-xl bg-surface-container text-outline flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[22px]">inventory_2</span>
+</div>
+<div class="min-w-0">
+<div class="flex items-center gap-space-sm flex-wrap">
+<h3 class="font-headline-panel text-headline-panel text-on-surface-variant font-semibold truncate">《太虚道主》</h3>
+<span class="font-mono-stats text-mono-stats text-outline">Dao of Void</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-surface-container text-outline font-ui-micro text-ui-micro">
+                  已封卷归档
+                </span>
+</div>
+<p class="font-ui-base text-ui-base text-outline truncate mt-0.5">
+                古典仙侠 · 第一卷完结 · 42万字 · 因果闭环已锁定
+              </p>
+</div>
+</div>
+<div class="flex items-center gap-space-xs shrink-0 self-end md:self-auto">
+<button class="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-ui-medium text-ui-medium transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">unarchive</span>
+<span class="">解封工程</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Right 4 Cols: System Telemetry & Aux Panels -->
+<div class="xl:col-span-4 flex flex-col gap-space-lg">
+<!-- Engine & Provider Health Monitor -->
+<div class="rounded-xl bg-surface-container-low p-space-md flex flex-col gap-space-md shadow-sm"><div class="flex items-center justify-between"><div class="flex items-center gap-space-xs"><span class="material-symbols-outlined text-secondary text-[18px]">check_circle</span><span class="font-headline-panel text-headline-panel text-on-surface font-semibold">系统运行状态</span></div><span class="font-mono-stats text-mono-stats text-secondary">READY</span></div><div class="flex flex-col gap-space-sm"><div class="p-space-sm rounded-lg bg-surface-container-lowest flex items-center justify-between"><div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-secondary"></span><span class="font-ui-medium text-ui-medium text-on-surface">Core Ready</span></div><span class="font-mono-stats text-mono-stats text-on-surface-variant">ainovel-core v1.4.2 在线</span></div><div class="p-space-sm rounded-lg bg-surface-container-lowest flex flex-col gap-1.5"><div class="flex items-center justify-between"><span class="font-panel-caps text-panel-caps uppercase text-outline">Provider Ready 连通延迟</span><span class="font-mono-stats text-mono-stats text-secondary text-[10px]">全部可用</span></div><div class="flex items-center justify-between font-mono-stats text-mono-stats"><span class="text-on-surface">Anthropic Claude 3.5</span><span class="text-secondary">182ms · OK</span></div><div class="flex items-center justify-between font-mono-stats text-mono-stats"><span class="text-on-surface">DeepSeek V3 (Reasoner)</span><span class="text-secondary">95ms · OK</span></div><div class="flex items-center justify-between font-mono-stats text-mono-stats"><span class="text-on-surface">OpenAI GPT-4o</span><span class="text-secondary">240ms · OK</span></div></div><div class="p-space-sm rounded-lg bg-surface-container-lowest flex items-center justify-between"><div class="flex flex-col"><span class="font-ui-micro text-ui-micro text-outline">最近执笔推演耗时</span><span class="font-mono-stats text-mono-stats text-on-surface font-semibold">14.2s (48.2 tok/s)</span></div><div class="flex flex-col text-right"><span class="font-ui-micro text-ui-micro text-outline">本次会话消耗</span><span class="font-mono-stats text-mono-stats text-tertiary font-semibold">$0.42 (18.6k tok)</span></div></div></div></div>
+<!-- Story Template Presets -->
+
+<!-- CLI Cheatsheet for Devs / Authors -->
+<div class="rounded-xl bg-surface-container-low p-space-md flex flex-col gap-space-sm shadow-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-outline text-[18px]">terminal</span>
+<span class="font-headline-panel text-headline-panel text-on-surface font-semibold">CLI 常用指令对照</span>
+</div>
+<span class="font-mono-stats text-mono-stats text-outline">ainovel-cli</span>
+</div>
+<div class="flex flex-col gap-space-xs font-mono-code text-mono-code">
+<div class="p-2 rounded bg-surface-container-lowest flex items-center justify-between text-on-surface">
+<code>ainovel run --chapter 015</code>
+<span class="text-outline text-[10px]">执笔推演</span>
+</div>
+<div class="p-2 rounded bg-surface-container-lowest flex items-center justify-between text-on-surface">
+<code>ainovel sync --apply</code>
+<span class="text-outline text-[10px]">手工变更入库</span>
+</div>
+<div class="p-2 rounded bg-surface-container-lowest flex items-center justify-between text-on-surface">
+<code>ainovel review --strict</code>
+<span class="text-outline text-[10px]">伏笔因果校验</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div></main></div><footer class="fixed bottom-0 left-0 right-0 h-6 bg-surface-container-lowest z-50 flex items-center justify-between px-space-md shadow-[0_-1px_6px_rgba(0,0,0,0.3)]"><div class="flex items-center gap-space-md"><span class="font-mono-stats text-mono-stats text-outline">STATUS: IDLE</span><span class="font-mono-stats text-mono-stats text-outline">|</span><span class="font-mono-stats text-mono-stats text-on-surface-variant">PORT 49152</span></div><div class="flex items-center gap-space-md"><span class="font-mono-stats text-mono-stats text-on-surface-variant">LATENCY 14ms</span><span class="font-mono-stats text-mono-stats text-secondary">READY</span></div></footer>
+
+
+
+</body></html>
