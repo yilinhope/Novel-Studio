@@ -48,6 +48,25 @@
   - `findings.md`
   - `progress.md`
 
+### Phase 5: PR 卫生与 CI 补强（进行中）
+
+- **Status:** in_progress
+- **Started:** 2026-09-22
+- Actions taken:
+  - 核对 PR #1 当前 head、远端分支和 GitHub checks 状态。
+  - 确认 Go CI 已存在，但前端测试/构建和 Wails Windows production build 尚未纳入门禁。
+  - 确认嵌套 Stitch ZIP 只在 `97f698d` 引入，且尚未合并到 `main`，具备清理 PR 历史的窗口。
+  - 将章节树的长篇性能问题拆为后续测量与优化阶段。
+- Files created/modified:
+  - `task_plan.md`
+  - `findings.md`
+  - `progress.md`
+
+### Phase 5 Errors
+
+- 首次读取 planning 文件时 PowerShell 外层引号剥离变量；已改用独立单引号命令。
+- 旧版 catch-up 脚本路径不存在；已记录环境差异，未阻断当前工作。
+
 ## Test Results
 
 | Test | Input | Expected | Actual | Status |

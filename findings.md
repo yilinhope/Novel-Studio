@@ -56,6 +56,10 @@
 - Wails bridge 不可用时能显示明确错误状态。
 - 浏览器 mock bridge QA 已覆盖上述状态；未将其等同于原生 Wails 窗口点击验证。
 - 设计 review 未发现紫色渐变、`!important`、缺少焦点态或明显响应式断点问题。
+- 当前 `.github/workflows/ci.yml` 已覆盖跨平台 Go format、vet、test 和 Linux race，但未覆盖 `desktop/frontend` 的 `npm ci`、Vitest、Vite build，也未覆盖 Wails Windows production build。
+- `Novel_Studio_Codex_Handoff/design/source/stitch_ai_novel_studio_latest.zip` 在 `97f698d` 引入，大小约 11.6 MB；仅删除工作树文件会继续保留该 blob 在未合并 PR 历史中。
+- 该 ZIP 的 SHA256 为 `2b213cbb137fac33f46de0fdcb4ab5cb9f01079b24a60938c7d3aa0c981a0647`，`MANIFEST.md` 和 `00_README_FIRST.md` 目前仍引用它，清理时需要同步改写引用。
+- ProjectTree 当前递归渲染完整 Volume/Arc/Chapter 树并默认全部展开；应先把大规模章节树作为单独性能阶段，用真实数据测量后再决定折叠和局部虚拟化。
 
 ---
 
