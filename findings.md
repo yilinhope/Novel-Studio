@@ -62,6 +62,7 @@
 - ProjectTree 当前递归渲染完整 Volume/Arc/Chapter 树并默认全部展开；应先把大规模章节树作为单独性能阶段，用真实数据测量后再决定折叠和局部虚拟化。
 - 清理后的重建分支历史不再包含该 ZIP blob；handoff 仍保留精选 `design/v1_reference/` 和 `docs/` 内容。
 - CI 已在现有跨平台 Go job 之外增加 Ubuntu 前端 job，以及 Windows Wails production build job；GitHub checks 需在推送后由 Actions 实际回报。
+- 推送后 GitHub PR head 已更新到 `ad50480`，但 `gh api repos/yilinhope/Novel-Studio/actions/workflows` 返回 `total_count: 0`；同时仓库内容 API 能看到 `main` 上的 `ci.yml`、`docker.yml`、`release.yml`，说明当前 Checks 0 是 GitHub workflow 注册/触发层问题，不是本地文件未推送。
 
 ---
 

@@ -73,6 +73,8 @@
 - 已删除 `Novel_Studio_Codex_Handoff/design/source/stitch_ai_novel_studio_latest.zip`，并同步更新 README、MANIFEST 的引用与校验值。
 - 已在 `.github/workflows/ci.yml` 增加前端 `npm ci`、`npm test`、`npm run build` job，以及 Windows Wails production build job。
 - 原始 PR 分支留有本地备份引用，待新分支验证并强制更新远端后再清理。
+- 已完成 `--force-with-lease` 更新，远端 PR head 为 `ad50480`；本地旧备份和临时 worktree 已清理。
+- GitHub Actions 权限 API 返回 enabled，但 workflow 列表为 `total_count: 0`，PR 仍显示 `Checks 0`；该项保留为外部平台阻塞。
 
 ## Test Results
 
@@ -89,6 +91,7 @@
 | GitHub checks | `gh pr checks 1` | 获取 CI 状态 | 当前无 checks 报告 | — |
 | 清理后 ZIP 路径 | `git rev-list --objects HEAD` | 不包含嵌套 ZIP | 新分支 HEAD 不包含 | ✓ |
 | Workflow lint | `actionlint .github/workflows/ci.yml` | YAML/Action 语法通过 | 待工具可用性检查 | — |
+| GitHub workflow registration | `gh api repos/yilinhope/Novel-Studio/actions/workflows` | 至少发现 CI workflow | `total_count: 0`，平台层待处理 | — |
 
 ## Error Log
 
