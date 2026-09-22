@@ -531,10 +531,9 @@ func runtimeFromSnapshot(core host.UISnapshot, state viewmodel.RuntimeState, sta
 		runtime.Agents = append(runtime.Agents, viewmodel.RuntimeAgent{
 			Name: agent.Name, State: agent.State, Tool: agent.Tool, Summary: agent.Summary,
 		})
-		if agent.State == "working" {
+		if runtime.Agent == "" && agent.State == "working" {
 			runtime.Agent = agent.Name
 			runtime.Step = agent.Tool
-			break
 		}
 	}
 	if runtime.Chapter == 0 {

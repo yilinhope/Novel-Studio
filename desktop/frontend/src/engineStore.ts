@@ -62,7 +62,11 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
     const next = get()
     if (event.log) {
       const log = event.log
-      const logs = [...next.logs, log].slice(-logLimit)
+      const existingLog = log.ID ? next.logs.findIndex(item => item.ID === log.ID) : -1
+      const logs = [...next.logs]
+      if (existingLog >= 0) logs[existingLog] = log
+      else logs.push(log)
+      if (logs.length > logLimit) logs.splice(0, logs.length - logLimit)
       let pipeline = next.pipeline
       if (log.Category === 'TOOL' && log.Tool) {
         const state: PipelineStep['state'] = log.Failed
