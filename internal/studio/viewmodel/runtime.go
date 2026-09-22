@@ -19,19 +19,29 @@ const (
 
 // Runtime 是从 Core 当前事实派生的运行时只读视图。
 type Runtime struct {
-	State               RuntimeState `json:"state"`
-	Phase               string       `json:"phase"`
-	Flow                string       `json:"flow"`
-	Agent               string       `json:"agent,omitempty"`
-	Chapter             int          `json:"chapter,omitempty"`
-	Step                string       `json:"step,omitempty"`
-	ElapsedSeconds      int64        `json:"elapsedSeconds"`
-	InputTokens         int          `json:"inputTokens"`
-	OutputTokens        int          `json:"outputTokens"`
-	ProjectInputTokens  int          `json:"projectInputTokens"`
-	ProjectOutputTokens int          `json:"projectOutputTokens"`
-	RunCostUSD          float64      `json:"runCostUsd"`
-	ProjectCostUSD      float64      `json:"projectCostUsd"`
-	Error               string       `json:"error,omitempty"`
-	UpdatedAt           time.Time    `json:"updatedAt"`
+	ProjectID           string         `json:"projectId"`
+	Generation          uint64         `json:"generation"`
+	State               RuntimeState   `json:"state"`
+	Phase               string         `json:"phase"`
+	Flow                string         `json:"flow"`
+	Agent               string         `json:"agent,omitempty"`
+	Chapter             int            `json:"chapter,omitempty"`
+	Step                string         `json:"step,omitempty"`
+	ElapsedSeconds      int64          `json:"elapsedSeconds"`
+	InputTokens         int            `json:"inputTokens"`
+	OutputTokens        int            `json:"outputTokens"`
+	ProjectInputTokens  int            `json:"projectInputTokens"`
+	ProjectOutputTokens int            `json:"projectOutputTokens"`
+	RunCostUSD          float64        `json:"runCostUsd"`
+	ProjectCostUSD      float64        `json:"projectCostUsd"`
+	Error               string         `json:"error,omitempty"`
+	Agents              []RuntimeAgent `json:"agents"`
+	UpdatedAt           time.Time      `json:"updatedAt"`
+}
+
+type RuntimeAgent struct {
+	Name    string `json:"name"`
+	State   string `json:"state"`
+	Tool    string `json:"tool,omitempty"`
+	Summary string `json:"summary,omitempty"`
 }

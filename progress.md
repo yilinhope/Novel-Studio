@@ -2,7 +2,7 @@
 
 ## Session: 2026-09-23 — M3 Engine Bridge 审计
 
-- **Status:** in_progress（M3-A 实施中）
+- **Status:** in_progress（M3-B 实施中）
 - 已读取 `Novel_Studio_V1_M3_Engine_Bridge_Codex.md`，本轮按其第一步执行源码审计和 M3-A 实施方案。
 - 从 M2 创建 `codex/m3-engine-bridge-audit`，开始时工作树干净。
 - 已刷新 GitNexus 索引，并定位 `Host.New`、`Host.Resume/Continue/Abort`、TUI `resumeBook`、`Host.Events` 和 `Host.Snapshot`。
@@ -13,6 +13,11 @@
 - GitNexus 对 `bootstrap.LoadConfig` 上游影响为 LOW（ainovel-cli main 单一调用）；对 Host Event 字段为 CRITICAL（35 个直接依赖），所以本阶段没有修改 Host Event。
 - Go 工具链未在 PATH：先后核对常见安装位置后，在 Codex runtime cache 找到 Go 1.25.11。`gofmt` 和 `go build ./internal/studio/... ./internal/bootstrap` 最终通过；没有运行测试。
 - 已通过 `go build ./...` 与 `git diff --check`；GitNexus `detect-changes --scope all` 报告 LOW、0 个受影响流程。下一步提交 M3-A 阶段。
+- M3-A 已按独立提交完成：`05ca87f feat: 增加 Studio Engine Session 与 Runtime ViewModel`；工作树干净。现在进入 M3-B，沿用 handoff 里 Running/Paused/Error Runtime Center 设计。
+- M3-B 的 `host.Event` 上游影响经新索引确认 CRITICAL：79 个受影响符号、35 个直接依赖、31 条流程、6 个模块。字段只用于新增 Studio 投影；TUI/Engine 逻辑不改。
+- M3-B 已接入 Wails `studio:engine-event` 转发、项目代次/序号过滤的 Zustand Engine Store、Runtime Center（Runtime / Agent / Writer Tool / 用量 / 最近日志）。章节完成后的 Store 复核与控制按钮仍留在 M3-C。
+- M3-B 验证：`go build ./...` 通过；`npm ci` 后 `npm run build` 的 TypeScript 检查与 Vite production build 通过；未运行测试套件。构建产物及本轮 `node_modules` 已清理，`desktop/frontend/dist/.gitkeep` 已恢复。
+- GitNexus 重新索引为 9,301 节点、38,551 关系、316 clusters、664 flows；其流程枚举仍提示截断。精确 `Event` 影响报告仍为 CRITICAL（79 符号/35 直接/31 flows），但 TUI 不读取新增 `Tool` 字段，Engine 路由未改；MCP 查询确认 Studio monitor 事件消费路径，当前进入 M3-B staged 变更检查与提交。
 
 ## Session: 2026-09-22
 

@@ -6,7 +6,7 @@
 
 ## Current Phase
 
-Phase 9: M3-A EngineService 与 Runtime ViewModel
+Phase 10: M3-B Wails Event Bus 与 Runtime Center
 
 ## Phases
 
@@ -65,7 +65,7 @@ Phase 9: M3-A EngineService 与 Runtime ViewModel
 - [x] 增加前端 CI job
 - [x] 增加 Windows Wails production build job
 - [ ] 验证 GitHub PR checks
-- **Status:** in_progress
+- **Status:** complete（提交 05ca87f）
 
 ### Phase 8: M3 Engine Bridge 源码审计
 
@@ -83,14 +83,17 @@ Phase 9: M3-A EngineService 与 Runtime ViewModel
 - [x] 用 Host.Done 确认本轮结束后再发布 Paused / Stopped 等终态
 - [x] 格式化并编译 Go Studio/bootstrap 包
 - [x] GitNexus 全量变更分析
-- [ ] 提交 M3-A
-- **Status:** in_progress
+- [x] 独立提交 M3-A（`05ca87f`）
+- **Status:** complete
 
 ### Phase 10: M3-B Wails Event Bus 与 Runtime Center
 
-- [ ] 实时事件映射与项目代次隔离
-- [ ] Zustand Engine Store 与 Runtime Center 接入
-- **Status:** pending
+- [x] M3-A EngineService 与 Runtime ViewModel（提交 05ca87f）
+- [x] Wails 实时事件映射与项目代次隔离
+- [x] Zustand Engine Store 与 Runtime Center 接入真实数据
+- [x] 全仓 Go 编译、前端类型检查与生产构建
+- [ ] GitNexus 变更分析并独立提交 M3-B
+- **Status:** in_progress
 
 ### Phase 11: M3-C 控制与章节刷新
 
@@ -120,6 +123,8 @@ Phase 9: M3-A EngineService 与 Runtime ViewModel
 |-------|---------|------------|
 | PowerShell 外层引号剥离 `$` 变量，导致计划文件批量读取命令解析失败 | 1 | 改为独立的单引号 `-Command` 读取命令 |
 | 技能文档指定的 `C:\Users\linn\.claude\skills\planning-with-files\scripts\session-catchup.py` 不存在 | 1 | 记录为环境差异，继续按当前仓库状态初始化计划文件 |
+| 前端首次 build 缺少 TypeScript 依赖且 `StudioState` 未声明 runtime action | 1 | `npm ci` 后补齐接口声明，`npm run build` 通过 |
+| GitNexus 刷新索引时扫描了新安装的 node_modules 和 Vite 产物 | 1 | 清理本轮生成目录并重建索引；保留已跟踪的 `dist/.gitkeep` |
 
 ## Notes
 

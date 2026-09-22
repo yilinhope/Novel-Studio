@@ -28,13 +28,14 @@ func (o *observer) handleToolUpdate(ev agentcore.Event) {
 		}
 		toolName := displayToolName(ev.Progress.Tool, ev.Progress.Args)
 		id := nextEventID()
-		o.toolStarts[ev.Progress.Agent] = &activeCall{id: id, start: time.Now(), summary: toolName, depth: 1}
+		o.toolStarts[ev.Progress.Agent] = &activeCall{id: id, start: time.Now(), summary: toolName, tool: ev.Progress.Tool, depth: 1}
 		o.emitAndLog(Event{
 			ID:       id,
 			Time:     time.Now(),
 			Category: "TOOL",
 			Agent:    ev.Progress.Agent,
 			Summary:  toolName,
+			Tool:     ev.Progress.Tool,
 			Level:    "info",
 			Depth:    1,
 		})
@@ -63,6 +64,7 @@ func (o *observer) handleToolUpdate(ev agentcore.Event) {
 			Category:   "TOOL",
 			Agent:      ev.Progress.Agent,
 			Summary:    call.summary,
+			Tool:       call.tool,
 			Level:      "info",
 			Depth:      call.depth,
 			Duration:   time.Since(call.start),
@@ -111,6 +113,7 @@ func (o *observer) handleToolUpdate(ev agentcore.Event) {
 				Category:   "TOOL",
 				Agent:      ev.Progress.Agent,
 				Summary:    fmt.Sprintf("%s 错误: %s", call.summary, utils.TruncateRunes(msg, 100)),
+				Tool:       call.tool,
 				Detail:     detail,
 				Kind:       errorKind(nil, msg),
 				Level:      "error",
@@ -127,6 +130,7 @@ func (o *observer) handleToolUpdate(ev agentcore.Event) {
 			Category: "ERROR",
 			Agent:    ev.Progress.Agent,
 			Summary:  fmt.Sprintf("%s 错误: %s", ev.Progress.Tool, utils.TruncateRunes(msg, 100)),
+			Tool:     ev.Progress.Tool,
 			Detail:   fmt.Sprintf("%s 错误: %s", ev.Progress.Tool, msg),
 			Kind:     errorKind(nil, msg),
 			Level:    "error",
@@ -204,6 +208,7 @@ func (o *observer) emitCallFinish(call *activeCall, category, agentName string, 
 		Category:   category,
 		Agent:      agentName,
 		Summary:    summary,
+		Tool:       call.tool,
 		Detail:     detail,
 		Kind:       kind,
 		Level:      level,

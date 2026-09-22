@@ -21,6 +21,7 @@ type Event struct {
 	Agent      string    // 产生事件的 agent
 	Summary    string
 	Detail     string        // 完整文案，写入日志不截断供排查；为空回退 Summary。UI 只读 Summary
+	Tool       string        // 结构化工具名；可选字段，缺省不影响旧 TUI 与队列回放
 	Kind       string        // 错误分类（如 stream_idle），随日志输出供过滤/告警；为空不输出
 	Level      string        // info / warn / error / success
 	Depth      int           // 0 = Engine 层, 1 = Worker 层

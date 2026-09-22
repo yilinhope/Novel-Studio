@@ -57,6 +57,7 @@ type activeCall struct {
 	id      string
 	start   time.Time
 	summary string
+	tool    string
 	depth   int
 }
 

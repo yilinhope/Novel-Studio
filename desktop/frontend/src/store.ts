@@ -1,11 +1,12 @@
 import { create } from 'zustand'
 import { bridge } from './services'
+import { useEngineStore } from './engineStore'
 import type { Chapter, Project } from './types'
 
 interface StudioState {
   project: Project | null; chapter: Chapter | null; busy: boolean; error: string
-  view: 'overview' | 'chapter'; chapterLoading: boolean
-  open(path?: string): Promise<void>; read(number: number): Promise<void>; overview(): void
+  view: 'overview' | 'chapter' | 'runtime'; chapterLoading: boolean
+  open(path?: string): Promise<void>; read(number: number): Promise<void>; overview(): void; runtime(): void
 }
 let request = 0
 export const useStudio = create<StudioState>((set, get) => ({
@@ -19,7 +20,10 @@ export const useStudio = create<StudioState>((set, get) => ({
       const selected = path ?? await api.SelectProjectDirectory()
       if (!selected) return
       const project = await api.OpenProject(selected)
-      if (ticket === request) set({project, chapter: null, view: 'overview'})
+      if (ticket === request) {
+        set({project, chapter: null, view: 'overview'})
+        void useEngineStore.getState().selectProject(project.overview.path, api.GetRuntimeState)
+      }
     } catch (error) { if (ticket === request) set({error: String(error)}) }
     finally { if (ticket === request) set({busy: false}) }
   },
@@ -34,4 +38,5 @@ export const useStudio = create<StudioState>((set, get) => ({
     finally { if (ticket === request) set({chapterLoading: false}) }
   },
   overview() { ++request; set({view:'overview', chapterLoading:false, error:''}) },
+  runtime() { ++request; set({view:'runtime', chapterLoading:false, error:''}) },
 }))

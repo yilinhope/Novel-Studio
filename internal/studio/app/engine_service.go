@@ -19,36 +19,54 @@ import (
 
 type EngineHostFactory func(projectDir, outputDir string) (*host.Host, error)
 
+type StudioEngineEvent struct {
+	ProjectID  string             `json:"projectId"`
+	Generation uint64             `json:"generation"`
+	RunID      uint64             `json:"runId"`
+	Sequence   uint64             `json:"sequence"`
+	Timestamp  time.Time          `json:"timestamp"`
+	Type       string             `json:"type"`
+	Log        *host.Event        `json:"log,omitempty"`
+	Runtime    *viewmodel.Runtime `json:"runtime,omitempty"`
+}
+
 // EngineService 在用户明确恢复创作时才创建 Host，并独占消费它的运行通道。
 type EngineService struct {
 	mu        sync.Mutex
 	closeOnce sync.Once
 	factory   EngineHostFactory
 
-	engine       *host.Host
-	projectDir   string
-	outputDir    string
-	starting     bool
-	closing      bool
-	startDone    chan struct{}
-	runActive    bool
-	runID        uint64
-	finishedRun  uint64
-	requestedEnd viewmodel.RuntimeState
-	runStarted   time.Time
-	baseInput    int
-	baseOutput   int
-	baseCost     float64
-	lastError    string
-	runtime      viewmodel.Runtime
-	monitorDone  chan struct{}
+	engine            *host.Host
+	projectDir        string
+	outputDir         string
+	starting          bool
+	closing           bool
+	startDone         chan struct{}
+	runActive         bool
+	runID             uint64
+	finishedRun       uint64
+	requestedEnd      viewmodel.RuntimeState
+	runStarted        time.Time
+	baseInput         int
+	baseOutput        int
+	baseCost          float64
+	lastError         string
+	runtime           viewmodel.Runtime
+	monitorDone       chan struct{}
+	sessionGeneration uint64
+	eventSequence     uint64
+	events            chan StudioEngineEvent
 }
 
 func NewEngineService(factory EngineHostFactory) *EngineService {
 	if factory == nil {
 		factory = newHostForProject
 	}
-	return &EngineService{factory: factory, runtime: viewmodel.Runtime{State: viewmodel.RuntimeIdle}}
+	return &EngineService{
+		factory: factory,
+		runtime: viewmodel.Runtime{State: viewmodel.RuntimeIdle},
+		events:  make(chan StudioEngineEvent, 512),
+	}
 }
 
 // ResumeWriting 从项目 Store 事实恢复 Engine；此方法是创建 Host 的唯一入口。
@@ -92,6 +110,7 @@ func (s *EngineService) ResumeWriting(projectDir, outputDir string) (viewmodel.R
 	s.startDone = make(chan struct{})
 	engine := s.engine
 	isNew := engine == nil
+	generation := s.sessionGeneration
 	s.mu.Unlock()
 
 	if isNew {
@@ -119,17 +138,20 @@ func (s *EngineService) ResumeWriting(projectDir, outputDir string) (viewmodel.R
 		s.engine = engine
 		s.projectDir = projectDir
 		s.outputDir = outputDir
+		s.sessionGeneration++
+		generation = s.sessionGeneration
 		s.baseInput = baseline.TotalInputTokens
 		s.baseOutput = baseline.TotalOutputTokens
 		s.baseCost = baseline.TotalCostUSD
 		s.lastError = ""
 		s.monitorDone = make(chan struct{})
-		go s.monitor(engine, s.monitorDone)
+		go s.monitor(engine, s.monitorDone, generation)
 		s.mu.Unlock()
 	} else {
 		baseline := engine.Snapshot()
 		s.mu.Lock()
 		s.projectDir = projectDir
+		generation = s.sessionGeneration
 		s.baseInput = baseline.TotalInputTokens
 		s.baseOutput = baseline.TotalOutputTokens
 		s.baseCost = baseline.TotalCostUSD
@@ -173,8 +195,11 @@ func (s *EngineService) ResumeWriting(projectDir, outputDir string) (viewmodel.R
 	if s.finishedRun != runID {
 		s.runtime = runtimeFromSnapshot(engine.Snapshot(), viewmodel.RuntimeRunning, s.runStarted, s.baseInput, s.baseOutput, s.baseCost, "")
 	}
+	s.runtime.ProjectID = outputDir
+	s.runtime.Generation = generation
 	runtime := s.runtime
 	s.mu.Unlock()
+	s.emit(generation, "runtime", nil, &runtime)
 	return runtime, nil
 }
 
@@ -188,6 +213,8 @@ func (s *EngineService) RuntimeState() viewmodel.Runtime {
 	}
 	return runtime
 }
+
+func (s *EngineService) Events() <-chan StudioEngineEvent { return s.events }
 
 // Close 等待 Core 收尾后释放 Host 与小说目录租约。
 func (s *EngineService) Close() {
@@ -229,7 +256,7 @@ func (s *EngineService) closeSession(engine *host.Host) {
 	s.mu.Unlock()
 }
 
-func (s *EngineService) monitor(engine *host.Host, done chan struct{}) {
+func (s *EngineService) monitor(engine *host.Host, done chan struct{}, generation uint64) {
 	defer close(done)
 	events := engine.Events()
 	stream := engine.Stream()
@@ -241,6 +268,7 @@ func (s *EngineService) monitor(engine *host.Host, done chan struct{}) {
 				events = nil
 				continue
 			}
+			s.publishLog(generation, event)
 			if event.Category == "ERROR" || event.Level == "error" {
 				s.mu.Lock()
 				s.lastError = event.Detail
@@ -248,6 +276,9 @@ func (s *EngineService) monitor(engine *host.Host, done chan struct{}) {
 					s.lastError = event.Summary
 				}
 				s.mu.Unlock()
+			}
+			if event.Category == "TOOL" || (event.Category == "MODEL" && !event.FinishedAt.IsZero()) {
+				s.refreshRuntime(engine, generation)
 			}
 		case _, ok := <-stream:
 			if !ok {
@@ -258,12 +289,23 @@ func (s *EngineService) monitor(engine *host.Host, done chan struct{}) {
 				finished = nil
 				continue
 			}
-			s.completeRun(engine)
+			drainHostEvents(events, func(event host.Event) {
+				s.publishLog(generation, event)
+				if event.Category == "ERROR" || event.Level == "error" {
+					s.mu.Lock()
+					s.lastError = event.Detail
+					if s.lastError == "" {
+						s.lastError = event.Summary
+					}
+					s.mu.Unlock()
+				}
+			})
+			s.completeRun(engine, generation)
 		}
 	}
 }
 
-func (s *EngineService) completeRun(engine *host.Host) {
+func (s *EngineService) completeRun(engine *host.Host, generation uint64) {
 	s.mu.Lock()
 	runID := s.runID
 	requestedEnd := s.requestedEnd
@@ -288,8 +330,63 @@ func (s *EngineService) completeRun(engine *host.Host) {
 		s.finishedRun = runID
 		s.requestedEnd = ""
 		s.runtime = runtimeFromSnapshot(core, state, startedAt, baseInput, baseOutput, baseCost, lastError)
+		s.runtime.ProjectID = s.outputDir
+		s.runtime.Generation = generation
 	}
+	runtime := s.runtime
 	s.mu.Unlock()
+	s.emit(generation, "runtime", nil, &runtime)
+}
+
+func (s *EngineService) refreshRuntime(engine *host.Host, generation uint64) {
+	core := engine.Snapshot()
+	s.mu.Lock()
+	if s.engine != engine || !s.runActive {
+		s.mu.Unlock()
+		return
+	}
+	state := s.runtime.State
+	if state != viewmodel.RuntimePausing && state != viewmodel.RuntimeStopping {
+		state = viewmodel.RuntimeRunning
+	}
+	s.runtime = runtimeFromSnapshot(core, state, s.runStarted, s.baseInput, s.baseOutput, s.baseCost, s.lastError)
+	s.runtime.ProjectID = s.outputDir
+	s.runtime.Generation = generation
+	runtime := s.runtime
+	s.mu.Unlock()
+	s.emit(generation, "runtime", nil, &runtime)
+}
+
+func (s *EngineService) publishLog(generation uint64, event host.Event) {
+	s.emit(generation, "log", &event, nil)
+}
+
+func (s *EngineService) emit(generation uint64, eventType string, log *host.Event, runtime *viewmodel.Runtime) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.eventSequence++
+	event := StudioEngineEvent{
+		ProjectID:  s.outputDir,
+		Generation: generation,
+		RunID:      s.runID,
+		Sequence:   s.eventSequence,
+		Timestamp:  time.Now(),
+		Type:       eventType,
+		Log:        log,
+		Runtime:    runtime,
+	}
+	select {
+	case s.events <- event:
+	default:
+		select {
+		case <-s.events:
+		default:
+		}
+		select {
+		case s.events <- event:
+		default:
+		}
+	}
 }
 
 func runtimeFromSnapshot(core host.UISnapshot, state viewmodel.RuntimeState, startedAt time.Time, baseInput, baseOutput int, baseCost float64, lastError string) viewmodel.Runtime {
@@ -306,6 +403,7 @@ func runtimeFromSnapshot(core host.UISnapshot, state viewmodel.RuntimeState, sta
 		ProjectCostUSD:      core.TotalCostUSD,
 		Error:               lastError,
 		UpdatedAt:           time.Now(),
+		Agents:              make([]viewmodel.RuntimeAgent, 0, len(core.Agents)),
 	}
 	if startedAt.IsZero() {
 		startedAt = time.Now()
@@ -316,6 +414,9 @@ func runtimeFromSnapshot(core host.UISnapshot, state viewmodel.RuntimeState, sta
 	agents := append([]host.AgentSnapshot(nil), core.Agents...)
 	sort.Slice(agents, func(i, j int) bool { return agents[i].Name < agents[j].Name })
 	for _, agent := range agents {
+		runtime.Agents = append(runtime.Agents, viewmodel.RuntimeAgent{
+			Name: agent.Name, State: agent.State, Tool: agent.Tool, Summary: agent.Summary,
+		})
 		if agent.State == "working" {
 			runtime.Agent = agent.Name
 			runtime.Step = agent.Tool
@@ -326,6 +427,20 @@ func runtimeFromSnapshot(core host.UISnapshot, state viewmodel.RuntimeState, sta
 		runtime.Chapter = core.CurrentChapter
 	}
 	return runtime
+}
+
+func drainHostEvents(events <-chan host.Event, consume func(host.Event)) {
+	for {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				return
+			}
+			consume(event)
+		default:
+			return
+		}
+	}
 }
 
 func newHostForProject(projectDir, outputDir string) (*host.Host, error) {
