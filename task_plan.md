@@ -6,7 +6,7 @@
 
 ## Current Phase
 
-Phase 5: PR 卫生与 CI 补强
+Phase 7: PR 卫生与 CI 补强
 
 ## Phases
 
@@ -60,10 +60,10 @@ Phase 5: PR 卫生与 CI 补强
 
 ### Phase 7: PR 卫生与 CI 补强
 
-- [ ] 从未合并 PR 历史中移除嵌套 Stitch ZIP
-- [ ] 精简 handoff 清单，保留精选设计参考与文档
-- [ ] 增加前端 CI job
-- [ ] 增加 Windows Wails production build job
+- [x] 从未合并 PR 历史中移除嵌套 Stitch ZIP
+- [x] 精简 handoff 清单，保留精选设计参考与文档
+- [x] 增加前端 CI job
+- [x] 增加 Windows Wails production build job
 - [ ] 验证 GitHub PR checks
 - **Status:** in_progress
 

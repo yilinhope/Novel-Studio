@@ -60,6 +60,8 @@
 - `Novel_Studio_Codex_Handoff/design/source/stitch_ai_novel_studio_latest.zip` 在 `97f698d` 引入，大小约 11.6 MB；仅删除工作树文件会继续保留该 blob 在未合并 PR 历史中。
 - 该 ZIP 的 SHA256 为 `2b213cbb137fac33f46de0fdcb4ab5cb9f01079b24a60938c7d3aa0c981a0647`，`MANIFEST.md` 和 `00_README_FIRST.md` 目前仍引用它，清理时需要同步改写引用。
 - ProjectTree 当前递归渲染完整 Volume/Arc/Chapter 树并默认全部展开；应先把大规模章节树作为单独性能阶段，用真实数据测量后再决定折叠和局部虚拟化。
+- 清理后的重建分支历史不再包含该 ZIP blob；handoff 仍保留精选 `design/v1_reference/` 和 `docs/` 内容。
+- CI 已在现有跨平台 Go job 之外增加 Ubuntu 前端 job，以及 Windows Wails production build job；GitHub checks 需在推送后由 Actions 实际回报。
 
 ---
 
