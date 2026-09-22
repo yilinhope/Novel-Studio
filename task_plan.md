@@ -6,7 +6,7 @@
 
 ## Current Phase
 
-Phase 7: PR 卫生与 CI 补强
+Phase 8: M3 Engine Bridge 源码审计
 
 ## Phases
 
@@ -66,6 +66,14 @@ Phase 7: PR 卫生与 CI 补强
 - [x] 增加 Windows Wails production build job
 - [ ] 验证 GitHub PR checks
 - **Status:** in_progress
+
+### Phase 8: M3 Engine Bridge 源码审计
+
+- [x] 从 M2 基线创建 `codex/m3-engine-bridge-audit`
+- [x] 映射 Host/Engine/TUI 生命周期与真实事件、用量、章节提交信号
+- [x] 用 GitNexus 核对关键调用链及改动风险（MCP 故障时使用 CLI）
+- [x] 写出 M3-A 代码级实施方案与验证边界：`docs/studio-m3-engine-audit.md`
+- **Status:** complete（等待用户审计确认后进入 M3-A）
 
 ## Key Questions
 

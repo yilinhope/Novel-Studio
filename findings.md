@@ -9,6 +9,21 @@
 
 ## Research Findings
 
+### M3 源码审计（2026-09-23，已形成映射）
+
+- 完整源码映射、12 项审计结论和 M3-A 实施顺序见 `docs/studio-m3-engine-audit.md`。
+- `Host.startEngine` 的 GitNexus 上游风险为 CRITICAL（5 个直接调用者、11 个流程）；`Host.Resume` 为 HIGH（2 个直接调用者、3 个流程）。本阶段不更改它们的语义。MCP 返回 `Transport closed`，已用 CLI 查询。
+- `Host.Abort()` 仅发取消请求；须等待 `Host.Done()` 才能确认停机。当前无独立强制 Stop；建议 Stop=安全取消+`Host.Close()` 释放租约。
+- Writer 工具真实集合为 7 项，含 `edit_chapter`，六步并非固定必经；Runtime 按真实 Tool 事件展示。
+- `Host.New` 具有租约、迁移、RunMeta、Usage 落盘等副作用，不得在只读 `OpenProject` 隐式调用。
+- 章节 commit 应在 Tool 成功后核验 Progress、PendingCommit 和 checkpoint；`SaveLastCommit` 目前无写入调用。
+
+- 新分支 `codex/m3-engine-bridge-audit` 从当前 M2 分支创建，开始时工作树干净。
+- 当前 Host 构造入口在 `internal/host/host.go:102`；构造时会取得小说目录租约、初始化 Store/RunMeta、模型和 UsageTracker，并建立有缓冲的 Event/Stream/Done 通道。
+- Engine 是 `internal/host/engine.go` 的私有 `engine`；Host 的 `startEngine`、`Resume`、`Continue`、`Abort` 为现有控制面。TUI 的 `bootstrapRuntime` / `resumeBook` 调用 `Host.Resume`，`listenEvents` 消费 `Host.Events`。
+- `host.UISnapshot` 已包含 lifecycle、Phase/Flow、章节、Agent、Token、Cost 等 UI 事实；M2 `internal/studio/app.Service` 当前只持有 `*store.Store`，不持有 Host，仍为只读边界。
+- GitNexus 首次查询显示旧索引落后 6 个提交；已运行 `node .gitnexus/run.cjs analyze --index-only`，刷新到 9,080 nodes、37,902 edges。分析器提示流程截断，因此图中缺失调用链不能作为不存在的证据。
+
 - 当前项目根目录：`E:\workspace\Novel-Studio`。
 - 当前分支：`codex/m2-novel-studio-readonly`。
 - 已交付提交：`88cae4f`（M2 桌面工作台）和 `97f698d`（交接包与 GitNexus 指导）。

@@ -1,5 +1,14 @@
 # Progress Log
 
+## Session: 2026-09-23 — M3 Engine Bridge 审计
+
+- **Status:** complete（M3-A 尚未实施）
+- 已读取 `Novel_Studio_V1_M3_Engine_Bridge_Codex.md`，本轮按其第一步执行源码审计和 M3-A 实施方案。
+- 从 M2 创建 `codex/m3-engine-bridge-audit`，开始时工作树干净。
+- 已刷新 GitNexus 索引，并定位 `Host.New`、`Host.Resume/Continue/Abort`、TUI `resumeBook`、`Host.Events` 和 `Host.Snapshot`。
+- 已核对生命周期、review gate、usage、日志、commit 信号与 M2 边界；源码级结论和 M3-A 实施方案写入 `docs/studio-m3-engine-audit.md`。
+- 下一步：审计确认后实施 M3-A；本轮未改 Core 或 GUI 实现。
+
 ## Session: 2026-09-22
 
 ### Phase 1: 项目上下文恢复
