@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/voocel/ainovel-cli/internal/domain"
 	"github.com/voocel/ainovel-cli/internal/store"
@@ -115,6 +117,58 @@ func (s *Service) GetChapter(number int) (viewmodel.Chapter, error) {
 		return viewmodel.Chapter{}, fmt.Errorf("读取章节正文失败：%w", err)
 	}
 	return viewmodel.Chapter{Number: number, Title: selected.Title, Content: content, WordCount: domain.WordCount(content), HasContent: content != ""}, nil
+}
+
+// ConfirmChapterCommit 在前端收到 commit_chapter 成功事件后，重新从磁盘 Store
+// 核验 Progress、PendingCommit、终稿与 checkpoint，再返回可刷新的项目快照。
+func (s *Service) ConfirmChapterCommit(chapter int, startedAt time.Time) (viewmodel.Project, bool, error) {
+	if chapter <= 0 || startedAt.IsZero() {
+		return viewmodel.Project{}, false, nil
+	}
+	current, err := s.currentStore()
+	if err != nil {
+		return viewmodel.Project{}, false, err
+	}
+	// 新建 Store 以从磁盘重载只追加 checkpoint 镜像；当前 UI Store 可能早于 Engine 提交。
+	fresh := store.NewStore(current.Dir())
+	if err := fresh.Checkpoints.InitError(); err != nil {
+		return viewmodel.Project{}, false, fmt.Errorf("读取章节 checkpoint 失败：%w", err)
+	}
+	progress, err := fresh.Progress.Load()
+	if err != nil {
+		return viewmodel.Project{}, false, fmt.Errorf("复核章节进度失败：%w", err)
+	}
+	if progress == nil || !slices.Contains(progress.CompletedChapters, chapter) {
+		return viewmodel.Project{}, false, nil
+	}
+	pending, err := fresh.Signals.LoadPendingCommit()
+	if err != nil {
+		return viewmodel.Project{}, false, fmt.Errorf("复核待提交状态失败：%w", err)
+	}
+	if pending != nil {
+		return viewmodel.Project{}, false, nil
+	}
+	content, err := fresh.Drafts.LoadChapterText(chapter)
+	if err != nil {
+		return viewmodel.Project{}, false, fmt.Errorf("复核第 %d 章终稿失败：%w", chapter, err)
+	}
+	if strings.TrimSpace(content) == "" {
+		return viewmodel.Project{}, false, nil
+	}
+	checkpoint := fresh.Checkpoints.LatestByStep(domain.ChapterScope(chapter), "commit")
+	if checkpoint == nil || checkpoint.OccurredAt.Before(startedAt) || checkpoint.Artifact != fmt.Sprintf("chapters/%02d.md", chapter) {
+		return viewmodel.Project{}, false, nil
+	}
+	project, err := snapshot(fresh)
+	if err != nil {
+		return viewmodel.Project{}, false, err
+	}
+	s.mu.Lock()
+	if s.current != nil && samePath(s.current.Dir(), current.Dir()) {
+		s.current = fresh
+	}
+	s.mu.Unlock()
+	return project, true, nil
 }
 
 func snapshot(st *store.Store) (viewmodel.Project, error) {

@@ -34,7 +34,7 @@ function LogRow({log}: {readonly log: RuntimeLog}) {
 }
 
 export function RuntimeCenter() {
-  const {runtime, logs, pipeline} = useEngineStore()
+  const {runtime, logs, pipeline, controlBusy, controlError, resumeWriting, pauseWriting, stopWriting} = useEngineStore()
   const tools = useMemo(() => {
     const seen = new Set(Object.keys(pipeline))
     return [...writerSteps.slice(0, 4), ...(seen.has('edit_chapter') ? ['edit_chapter'] : []), ...writerSteps.slice(4)]
@@ -43,7 +43,14 @@ export function RuntimeCenter() {
   return <section className="runtime-center">
     <div className="runtime-heading">
       <div><p className="eyebrow">ENGINE SESSION</p><h1>运行中心</h1><p className="runtime-subtitle">创作流程、用量与运行记录</p></div>
-      <span className={`runtime-state ${stateClass}`}><i/>{runtimeLabel(runtime.state)}</span>
+      <div className="runtime-heading-actions">
+        <span className={`runtime-state ${stateClass}`}><i/>{runtimeLabel(runtime.state)}</span>
+        {runtime.state === 'running' && <button disabled={controlBusy} onClick={() => void pauseWriting()}>暂停</button>}
+        {runtime.state === 'pausing' && <button disabled>正在暂停…</button>}
+        {runtime.state === 'stopping' && <button disabled>正在停止…</button>}
+        {['idle', 'paused', 'stopped', 'error'].includes(runtime.state) && <button className="primary runtime-control-primary" disabled={controlBusy} onClick={() => void resumeWriting()}>{runtime.state === 'idle' ? '开始创作' : runtime.state === 'paused' ? '继续创作' : '恢复创作'}</button>}
+        {['running', 'pausing', 'paused'].includes(runtime.state) && <button disabled={controlBusy || runtime.state === 'stopping'} onClick={() => void stopWriting()}>停止</button>}
+      </div>
     </div>
 
     <section className="runtime-overview" aria-label="当前运行状态">
@@ -61,7 +68,7 @@ export function RuntimeCenter() {
       </div>
     </section>
 
-    {runtime.error && <div className="runtime-error" role="status"><CircleAlert size={16}/><span>{runtime.error}</span></div>}
+    {(runtime.error || controlError) && <div className="runtime-error" role="status"><CircleAlert size={16}/><span>{controlError || runtime.error}</span></div>}
 
     <div className="runtime-grid">
       <section className="runtime-panel runtime-pipeline">

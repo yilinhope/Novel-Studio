@@ -6,6 +6,11 @@ type Project struct {
 	Tree     []Node   `json:"tree"`
 }
 
+type ChapterCommitConfirmation struct {
+	Confirmed bool    `json:"confirmed"`
+	Project   Project `json:"project"`
+}
+
 type Overview struct {
 	Title             string `json:"title"`
 	Synopsis          string `json:"synopsis"`

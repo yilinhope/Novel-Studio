@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { subscribeEngineEvents } from './services'
+import { bridge, subscribeEngineEvents } from './services'
 import type { Runtime, RuntimeLog, RuntimeState, StudioEngineEvent } from './types'
 
 const emptyRuntime = (projectId = '', generation = 0): Runtime => ({
@@ -18,15 +18,25 @@ interface EngineStore {
   logs: RuntimeLog[]
   pipeline: Record<string, PipelineStep>
   lastSequence: number
+  controlBusy: boolean
+  controlError: string
   selectProject(path: string, getRuntime?: (() => Promise<Runtime>) | undefined): Promise<void>
   handleEvent(event: StudioEngineEvent): void
+  resumeWriting(): Promise<void>
+  pauseWriting(): Promise<void>
+  stopWriting(): Promise<void>
 }
 
 let unsubscribe: (() => void) | undefined
 let selection = 0
+let chapterCommitHandler: ((chapter: number, event: StudioEngineEvent) => Promise<void>) | undefined
+
+export function setChapterCommitHandler(handler: typeof chapterCommitHandler) {
+  chapterCommitHandler = handler
+}
 
 export const useEngineStore = create<EngineStore>((set, get) => ({
-  projectId: '', runtime: emptyRuntime(), logs: [], pipeline: {}, lastSequence: 0,
+  projectId: '', runtime: emptyRuntime(), logs: [], pipeline: {}, lastSequence: 0, controlBusy: false, controlError: '',
   async selectProject(path, getRuntime) {
     const ticket = ++selection
     const projectId = path
@@ -64,8 +74,45 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
       }
       set({logs, pipeline})
     }
-    if (event.runtime) set({runtime: event.runtime})
+    if (event.runtime) set({runtime: event.runtime, controlError: ''})
     set({lastSequence: event.sequence})
+    const log = event.log
+    if (log?.Tool === 'commit_chapter' && isFinished(log.FinishedAt) && !log.Failed && chapterCommitHandler) {
+      const match = /第\s*(\d+)\s*章/.exec(log.Summary)
+      if (match) void chapterCommitHandler(Number(match[1]), event).catch(error => {
+        set({controlError: `章节已提交，但项目视图刷新失败：${String(error)}`})
+      })
+    }
+  },
+  async resumeWriting() {
+    set({controlBusy: true, controlError: ''})
+    try {
+      const action = bridge().ResumeWriting
+      if (!action) throw new Error('桌面桥接尚未提供 ResumeWriting')
+      const runtime = await action()
+      set({runtime, controlError: ''})
+    } catch (error) { set({controlError: String(error)}) }
+    finally { set({controlBusy: false}) }
+  },
+  async pauseWriting() {
+    set({controlBusy: true, controlError: ''})
+    try {
+      const action = bridge().PauseWriting
+      if (!action) throw new Error('桌面桥接尚未提供 PauseWriting')
+      const runtime = await action()
+      set({runtime, controlError: ''})
+    } catch (error) { set({controlError: String(error)}) }
+    finally { set({controlBusy: false}) }
+  },
+  async stopWriting() {
+    set({controlBusy: true, controlError: ''})
+    try {
+      const action = bridge().StopWriting
+      if (!action) throw new Error('桌面桥接尚未提供 StopWriting')
+      const runtime = await action()
+      set({runtime, controlError: ''})
+    } catch (error) { set({controlError: String(error)}) }
+    finally { set({controlBusy: false}) }
   },
 }))
 

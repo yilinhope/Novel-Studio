@@ -5,6 +5,7 @@ export interface Overview {
 }
 export interface TreeNode { id: string; kind: string; title: string; chapter: number; children: TreeNode[] }
 export interface Project { overview: Overview; tree: TreeNode[] }
+export interface ChapterCommitConfirmation { confirmed: boolean; project: Project }
 export interface Chapter { number: number; title: string; content: string; wordCount: number; hasContent: boolean }
 export type RuntimeState = 'idle' | 'running' | 'pausing' | 'paused' | 'stopping' | 'stopped' | 'waiting_review' | 'waiting_sync' | 'completed' | 'error'
 export interface RuntimeAgent { name: string; state: string; tool?: string; summary?: string }
@@ -30,6 +31,9 @@ export interface StudioBridge {
   GetChapter(number: number): Promise<Chapter>
   GetRuntimeState?(): Promise<Runtime>
   ResumeWriting?(): Promise<Runtime>
+  PauseWriting?(): Promise<Runtime>
+  StopWriting?(): Promise<Runtime>
+  ConfirmChapterCommit?(chapter: number, startedAt: string): Promise<ChapterCommitConfirmation>
 }
 declare global {
   interface Window {

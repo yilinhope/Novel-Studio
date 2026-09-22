@@ -92,15 +92,16 @@ Phase 10: M3-B Wails Event Bus 与 Runtime Center
 - [x] Wails 实时事件映射与项目代次隔离
 - [x] Zustand Engine Store 与 Runtime Center 接入真实数据
 - [x] 全仓 Go 编译、前端类型检查与生产构建
-- [ ] GitNexus 变更分析并独立提交 M3-B
-- **Status:** in_progress
+- [x] GitNexus 变更分析并独立提交 M3-B（`8cd53d8`）
+- **Status:** complete
 
 ### Phase 11: M3-C 控制与章节刷新
 
-- [ ] Pause / Resume / Stop UI 与过渡态
-- [ ] Store 二次确认章节完成后定向刷新
-- [ ] Error handling 与回归验收
-- **Status:** pending
+- [x] Pause / Resume / Stop UI 与过渡态；继续创作走 `ResumeWriting` → `Host.Resume()`
+- [x] Store 二次确认章节完成（Progress / PendingCommit / 终稿 / commit checkpoint）后定向刷新
+- [x] 错误提示、Go/frontend/Wails 构建验收（未运行测试套件）
+- [x] GitNexus 变更分析并独立提交 M3-C
+- **Status:** complete
 
 ## Key Questions
 

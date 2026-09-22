@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/voocel/ainovel-cli/internal/studio/app"
 	"github.com/voocel/ainovel-cli/internal/studio/viewmodel"
@@ -110,4 +111,38 @@ func (a *App) ResumeWriting() (viewmodel.Runtime, error) {
 		return viewmodel.Runtime{}, fmt.Errorf("Studio Engine Service 尚未启动")
 	}
 	return engine.ResumeWriting(projectDir, outputDir)
+}
+
+func (a *App) PauseWriting() (viewmodel.Runtime, error) {
+	engine := a.engineService()
+	if engine == nil {
+		return viewmodel.Runtime{}, fmt.Errorf("Studio Engine Service 尚未启动")
+	}
+	return engine.PauseWriting()
+}
+
+func (a *App) StopWriting() (viewmodel.Runtime, error) {
+	engine := a.engineService()
+	if engine == nil {
+		return viewmodel.Runtime{}, fmt.Errorf("Studio Engine Service 尚未启动")
+	}
+	return engine.StopWriting()
+}
+
+func (a *App) ConfirmChapterCommit(chapter int, startedAt string) (viewmodel.ChapterCommitConfirmation, error) {
+	started, err := time.Parse(time.RFC3339Nano, startedAt)
+	if err != nil {
+		return viewmodel.ChapterCommitConfirmation{}, fmt.Errorf("章节提交事件时间无效：%w", err)
+	}
+	project, confirmed, err := a.service.ConfirmChapterCommit(chapter, started)
+	if err != nil {
+		return viewmodel.ChapterCommitConfirmation{}, err
+	}
+	return viewmodel.ChapterCommitConfirmation{Confirmed: confirmed, Project: project}, nil
+}
+
+func (a *App) engineService() *app.EngineService {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.engine
 }

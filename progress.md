@@ -2,7 +2,7 @@
 
 ## Session: 2026-09-23 — M3 Engine Bridge 审计
 
-- **Status:** in_progress（M3-B 实施中）
+- **Status:** complete（M3-A / M3-B / M3-C 已分段提交）
 - 已读取 `Novel_Studio_V1_M3_Engine_Bridge_Codex.md`，本轮按其第一步执行源码审计和 M3-A 实施方案。
 - 从 M2 创建 `codex/m3-engine-bridge-audit`，开始时工作树干净。
 - 已刷新 GitNexus 索引，并定位 `Host.New`、`Host.Resume/Continue/Abort`、TUI `resumeBook`、`Host.Events` 和 `Host.Snapshot`。
@@ -17,7 +17,14 @@
 - M3-B 的 `host.Event` 上游影响经新索引确认 CRITICAL：79 个受影响符号、35 个直接依赖、31 条流程、6 个模块。字段只用于新增 Studio 投影；TUI/Engine 逻辑不改。
 - M3-B 已接入 Wails `studio:engine-event` 转发、项目代次/序号过滤的 Zustand Engine Store、Runtime Center（Runtime / Agent / Writer Tool / 用量 / 最近日志）。章节完成后的 Store 复核与控制按钮仍留在 M3-C。
 - M3-B 验证：`go build ./...` 通过；`npm ci` 后 `npm run build` 的 TypeScript 检查与 Vite production build 通过；未运行测试套件。构建产物及本轮 `node_modules` 已清理，`desktop/frontend/dist/.gitkeep` 已恢复。
-- GitNexus 重新索引为 9,301 节点、38,551 关系、316 clusters、664 flows；其流程枚举仍提示截断。精确 `Event` 影响报告仍为 CRITICAL（79 符号/35 直接/31 flows），但 TUI 不读取新增 `Tool` 字段，Engine 路由未改；MCP 查询确认 Studio monitor 事件消费路径，当前进入 M3-B staged 变更检查与提交。
+- GitNexus 重新索引为 9,301 节点、38,551 关系、316 clusters、664 flows；其流程枚举仍提示截断。精确 `Event` 影响报告仍为 CRITICAL（79 符号/35 直接/31 flows），但 TUI 不读取新增 `Tool` 字段，Engine 路由未改；MCP 查询确认 Studio monitor 事件消费路径，并完成 M3-B staged 变更检查。
+- M3-B 已独立提交：`8cd53d8 feat: 接入 Studio Runtime 事件中心`。GitNexus staged 检查 16 文件/211 符号、23 条流程、CRITICAL；影响集中在 Host.Event 共享类型，已按可选 Tool 字段边界检查 TUI/Engine 无消费或路由变化。
+- 进入 M3-C：开始前重新查询 Host 控制与 Studio 项目/章节读取符号影响，实施控制操作及 Store 二次确认刷新。
+- M3-C 已实现 `PauseWriting` / `ResumeWriting` / `StopWriting`。Studio 继续创作仍只调用 `Host.Resume()`；Pause/Stop 先呈现 Pausing/Stopping，只有 monitor 收到 Done 后发布 Paused/Stopped；Stop 完成后关闭 Host 并释放目录租约。控制操作由 control mutex 串行化，避免 Resume/Abort/Done 竞态。
+- M3-C 章节刷新只响应成功的 `commit_chapter` 工具事件；Store 新建磁盘快照并确认 Progress 包含目标章、PendingCommit 已清除、终稿非空、对应 commit checkpoint 在本次工具开始后生成，才返回刷新项目与当前章节。
+- M3-C 验证：`go build ./...`、`go vet ./internal/studio/... ./internal/host`、前端 `tsc --noEmit` + Vite production build、Wails v2.15 Windows/amd64 production build 均通过；未运行测试套件。Wails 绑定生成输出有 `time.Time` 未找到提示，但生产构建成功。
+- M3-C GitNexus：`Host.Resume` HIGH（10 符号/3 流程，既有 TUI 调用链；本阶段只新增 Studio 调用、不改 Host/TUI 行为）；`Host.Abort` LOW（3 符号/1 流程）。当前 staged 前全量变更 11 文件/46 符号/22 流程，CRITICAL 由 Engine/Host 事件路径带入，已复核为明确调用边界和只读 Store 检查；GitNexus 索引 9,385 节点、38,857 关系、325 clusters、667 flows，流程枚举有截断警告。
+- M3-C 已独立提交；三阶段按序为 M3-A → M3-B → M3-C，各阶段保持独立提交。
 
 ## Session: 2026-09-22
 

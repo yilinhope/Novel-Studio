@@ -33,6 +33,7 @@ type StudioEngineEvent struct {
 // EngineService 在用户明确恢复创作时才创建 Host，并独占消费它的运行通道。
 type EngineService struct {
 	mu        sync.Mutex
+	controlMu sync.Mutex
 	closeOnce sync.Once
 	factory   EngineHostFactory
 
@@ -93,6 +94,8 @@ func (s *EngineService) ResumeWriting(projectDir, outputDir string) (viewmodel.R
 		return viewmodel.Runtime{}, fmt.Errorf("当前项目没有可恢复的创作任务")
 	}
 
+	s.controlMu.Lock()
+	defer s.controlMu.Unlock()
 	s.mu.Lock()
 	if s.closing {
 		s.mu.Unlock()
@@ -176,7 +179,7 @@ func (s *EngineService) ResumeWriting(projectDir, outputDir string) (viewmodel.R
 	if err != nil {
 		s.runActive = false
 		s.lastError = err.Error()
-		s.runtime = viewmodel.Runtime{State: viewmodel.RuntimeError, Error: err.Error(), UpdatedAt: time.Now()}
+		s.runtime = viewmodel.Runtime{ProjectID: outputDir, Generation: generation, State: viewmodel.RuntimeError, Error: err.Error(), UpdatedAt: time.Now()}
 		s.mu.Unlock()
 		if isNew {
 			s.closeSession(engine)
@@ -185,7 +188,7 @@ func (s *EngineService) ResumeWriting(projectDir, outputDir string) (viewmodel.R
 	}
 	if label == "" {
 		s.runActive = false
-		s.runtime = viewmodel.Runtime{State: viewmodel.RuntimeIdle, UpdatedAt: time.Now()}
+		s.runtime = viewmodel.Runtime{ProjectID: outputDir, Generation: generation, State: viewmodel.RuntimeIdle, UpdatedAt: time.Now()}
 		s.mu.Unlock()
 		if isNew {
 			s.closeSession(engine)
@@ -214,20 +217,119 @@ func (s *EngineService) RuntimeState() viewmodel.Runtime {
 	return runtime
 }
 
+// PauseWriting 请求 Core 安全暂停；paused 终态只由 monitor 收到 Done 后发布。
+func (s *EngineService) PauseWriting() (viewmodel.Runtime, error) {
+	s.controlMu.Lock()
+	defer s.controlMu.Unlock()
+	s.mu.Lock()
+	if s.starting {
+		s.mu.Unlock()
+		return viewmodel.Runtime{}, fmt.Errorf("Engine Session 正在启动")
+	}
+	if s.engine == nil || !s.runActive {
+		runtime := s.runtime
+		s.mu.Unlock()
+		return runtime, fmt.Errorf("当前没有正在运行的创作任务")
+	}
+	if s.runtime.State == viewmodel.RuntimePausing {
+		runtime := s.runtime
+		s.mu.Unlock()
+		return runtime, nil
+	}
+	engine := s.engine
+	previous := s.runtime.State
+	s.requestedEnd = viewmodel.RuntimePaused
+	s.runtime.State = viewmodel.RuntimePausing
+	s.runtime.UpdatedAt = time.Now()
+	s.mu.Unlock()
+	accepted := engine.Abort()
+	s.mu.Lock()
+	if !accepted {
+		s.requestedEnd = ""
+		if s.engine == engine && s.runActive && s.runtime.State == viewmodel.RuntimePausing {
+			s.runtime.State = previous
+		}
+		runtime := s.runtime
+		s.mu.Unlock()
+		return runtime, fmt.Errorf("Core 当前无法暂停创作")
+	}
+	runtime := s.runtime
+	generation := s.sessionGeneration
+	s.mu.Unlock()
+	s.emit(generation, "runtime", nil, &runtime)
+	return runtime, nil
+}
+
+// StopWriting 请求安全停机。活动运行等待 Done；已暂停会话则关闭 Host 并释放目录租约。
+func (s *EngineService) StopWriting() (viewmodel.Runtime, error) {
+	s.controlMu.Lock()
+	defer s.controlMu.Unlock()
+	s.mu.Lock()
+	engine := s.engine
+	if s.starting {
+		s.mu.Unlock()
+		return viewmodel.Runtime{}, fmt.Errorf("Engine Session 正在启动")
+	}
+	if engine == nil {
+		runtime := s.runtime
+		s.mu.Unlock()
+		return runtime, fmt.Errorf("当前没有可停止的 Engine Session")
+	}
+	if s.runActive {
+		previous := s.runtime.State
+		s.requestedEnd = viewmodel.RuntimeStopped
+		s.runtime.State = viewmodel.RuntimeStopping
+		s.runtime.UpdatedAt = time.Now()
+		s.mu.Unlock()
+		accepted := true
+		if previous != viewmodel.RuntimePausing {
+			accepted = engine.Abort()
+		}
+		s.mu.Lock()
+		if !accepted {
+			s.requestedEnd = ""
+			if s.engine == engine && s.runActive && s.runtime.State == viewmodel.RuntimeStopping {
+				s.runtime.State = previous
+			}
+			runtime := s.runtime
+			s.mu.Unlock()
+			return runtime, fmt.Errorf("Core 当前无法停止创作")
+		}
+		runtime := s.runtime
+		generation := s.sessionGeneration
+		s.mu.Unlock()
+		s.emit(generation, "runtime", nil, &runtime)
+		return runtime, nil
+	}
+	monitorDone := s.monitorDone
+	generation := s.sessionGeneration
+	s.mu.Unlock()
+
+	engine.Close()
+	s.mu.Lock()
+	if s.engine == engine {
+		s.engine = nil
+		s.runtime.State = viewmodel.RuntimeStopped
+		s.runtime.UpdatedAt = time.Now()
+	}
+	runtime := s.runtime
+	s.mu.Unlock()
+	if monitorDone != nil {
+		<-monitorDone
+	}
+	s.emit(generation, "runtime", nil, &runtime)
+	return runtime, nil
+}
+
 func (s *EngineService) Events() <-chan StudioEngineEvent { return s.events }
 
 // Close 等待 Core 收尾后释放 Host 与小说目录租约。
 func (s *EngineService) Close() {
 	s.closeOnce.Do(func() {
+		s.controlMu.Lock()
 		s.mu.Lock()
 		s.closing = true
 		startDone := s.startDone
-		s.mu.Unlock()
-		if startDone != nil {
-			<-startDone
-		}
-
-		s.mu.Lock()
 		engine := s.engine
 		monitorDone := s.monitorDone
 		if engine != nil && s.runActive {
@@ -236,6 +338,11 @@ func (s *EngineService) Close() {
 			s.runtime.UpdatedAt = time.Now()
 		}
 		s.mu.Unlock()
+		s.controlMu.Unlock()
+
+		if startDone != nil {
+			<-startDone
+		}
 		if engine == nil {
 			return
 		}
@@ -300,7 +407,9 @@ func (s *EngineService) monitor(engine *host.Host, done chan struct{}, generatio
 					s.mu.Unlock()
 				}
 			})
+			s.controlMu.Lock()
 			s.completeRun(engine, generation)
+			s.controlMu.Unlock()
 		}
 	}
 }
@@ -316,7 +425,7 @@ func (s *EngineService) completeRun(engine *host.Host, generation uint64) {
 	core := engine.Snapshot()
 	state := viewmodel.RuntimePaused
 	switch {
-	case requestedEnd == viewmodel.RuntimeStopping:
+	case requestedEnd == viewmodel.RuntimeStopping || requestedEnd == viewmodel.RuntimeStopped:
 		state = viewmodel.RuntimeStopped
 	case core.Phase == string(domain.PhaseComplete):
 		state = viewmodel.RuntimeCompleted
@@ -324,10 +433,12 @@ func (s *EngineService) completeRun(engine *host.Host, generation uint64) {
 		state = viewmodel.RuntimeIdle
 	}
 
+	shouldClose := false
 	s.mu.Lock()
 	if s.engine == engine && s.runID == runID {
 		s.runActive = false
 		s.finishedRun = runID
+		shouldClose = requestedEnd == viewmodel.RuntimeStopping || requestedEnd == viewmodel.RuntimeStopped
 		s.requestedEnd = ""
 		s.runtime = runtimeFromSnapshot(core, state, startedAt, baseInput, baseOutput, baseCost, lastError)
 		s.runtime.ProjectID = s.outputDir
@@ -336,6 +447,9 @@ func (s *EngineService) completeRun(engine *host.Host, generation uint64) {
 	runtime := s.runtime
 	s.mu.Unlock()
 	s.emit(generation, "runtime", nil, &runtime)
+	if shouldClose {
+		s.closeSession(engine)
+	}
 }
 
 func (s *EngineService) refreshRuntime(engine *host.Host, generation uint64) {
