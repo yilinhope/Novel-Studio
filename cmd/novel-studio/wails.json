@@ -1,0 +1,12 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "Novel Studio",
+  "outputfilename": "Novel-Studio",
+  "frontend:dir": "../../desktop/frontend",
+  "frontend:install": "npm ci",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "wailsjsdir": "../../desktop/frontend/src/generated",
+  "author": {"name":"Novel Studio"}
+}

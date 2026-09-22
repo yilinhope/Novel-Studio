@@ -38,8 +38,14 @@ go.work.sum
 
 # GoReleaser artifacts
 dist/
+!/desktop/
+!/desktop/frontend/
+!/desktop/frontend/dist/
+!/desktop/frontend/dist/.gitkeep
 release-notes.md
 /ainovel-cli
+/cmd/novel-studio/build/
+/desktop/frontend/package.json.md5
 
 tasks
 refer/

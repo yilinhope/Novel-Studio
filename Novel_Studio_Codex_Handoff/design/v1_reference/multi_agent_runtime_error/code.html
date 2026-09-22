@@ -1,0 +1,606 @@
+<!DOCTYPE html><html class="dark" lang="zh-CN"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Serif:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-surface-variant": "#c7c4d7", "primary-container": "#8083ff", "on-background": "#dfe2ee", "on-secondary-container": "#00311f", "surface": "#0f131c", "surface-variant": "#31353e", "on-secondary-fixed": "#002113", "inverse-primary": "#494bd6", "tertiary-fixed-dim": "#ffb95f", "primary": "#c0c1ff", "outline-variant": "#464554", "error-container": "#93000a", "on-tertiary-container": "#3e2400", "on-secondary": "#003824", "surface-tint": "#c0c1ff", "surface-container-high": "#262a33", "surface-container-low": "#181c24", "on-secondary-fixed-variant": "#005236", "surface-bright": "#353942", "secondary": "#4edea3", "on-tertiary-fixed": "#2a1700", "error": "#ffb4ab", "tertiary": "#ffb95f", "inverse-surface": "#dfe2ee", "outline": "#908fa0", "on-error": "#690005", "tertiary-fixed": "#ffddb8", "on-tertiary-fixed-variant": "#653e00", "secondary-container": "#00a572", "on-tertiary": "#472a00", "on-primary-fixed-variant": "#2f2ebe", "on-primary": "#1000a9", "on-surface": "#dfe2ee", "on-error-container": "#ffdad6", "background": "#0f131c", "surface-container": "#1c2028", "on-primary-container": "#0d0096", "primary-fixed-dim": "#c0c1ff", "surface-container-highest": "#31353e", "primary-fixed": "#e1e0ff", "tertiary-container": "#ca8100", "surface-dim": "#0f131c", "inverse-on-surface": "#2c3039", "secondary-fixed": "#6ffbbe", "on-primary-fixed": "#07006c", "surface-container-lowest": "#0a0e16", "secondary-fixed-dim": "#4edea3" }, "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, "spacing": { "space-sm": "0.5rem", "space-md": "0.75rem", "space-xl": "1.5rem", "margin-screen": "0px", "space-lg": "1rem", "space-xs": "0.25rem", "margin": "1rem", "gutter": "0.5rem", "gutter-dense": "0.25rem" }, "fontFamily": { "ui-micro": [ "Inter" ], "mono-code": [ "JetBrains Mono" ], "ui-medium": [ "Inter" ], "prose-h1": [ "Noto Serif" ], "display-workbench": [ "Inter" ], "headline-panel": [ "Inter" ], "ui-base": [ "Inter" ], "prose-h2": [ "Noto Serif" ], "panel-caps": [ "Inter" ], "prose-body": [ "Noto Serif" ], "mono-stats": [ "JetBrains Mono" ] }, "fontSize": { "ui-micro": [ "11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "500" } ], "mono-code": [ "12px", { "lineHeight": "18px", "letterSpacing": "0", "fontWeight": "400" } ], "ui-medium": [ "13px", { "lineHeight": "18px", "letterSpacing": "0", "fontWeight": "500" } ], "prose-h1": [ "24px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700" } ], "display-workbench": [ "20px", { "lineHeight": "28px", "letterSpacing": "-0.015em", "fontWeight": "600" } ], "headline-panel": [ "14px", { "lineHeight": "20px", "letterSpacing": "-0.005em", "fontWeight": "600" } ], "ui-base": [ "13px", { "lineHeight": "18px", "letterSpacing": "0", "fontWeight": "400" } ], "prose-h2": [ "20px", { "lineHeight": "30px", "letterSpacing": "-0.005em", "fontWeight": "600" } ], "panel-caps": [ "11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" } ], "prose-body": [ "16px", { "lineHeight": "30px", "letterSpacing": "0.01em", "fontWeight": "400" } ], "mono-stats": [ "11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "500" } ] } } } };</script></head><body class="bg-background font-ui-base text-ui-base text-on-surface select-none antialiased min-h-screen"><header class="fixed top-0 left-0 right-0 h-10 z-50 bg-surface-container-lowest/90 backdrop-blur-md shadow-[0_1px_8px_rgba(0,0,0,0.4)] flex items-center justify-between px-space-md select-none"><div class="flex items-center gap-space-md min-w-0"><img alt="Novel Studio Logo" class="h-6 w-auto object-contain flex-shrink-0" src="https://lh3.googleusercontent.com/aida/AEtjO1XQmSQdrvnUM6agnVDGTnx8sy-DhijiOJIaT1OtQYyUCAtCLChn7hJ7S9EG_d8IhfpCs-i9ciEh1rgwXgk5uHN2BT2WwbedSKZHOSGaT-8PtpNVAfbv_QelRsmd8kf7UswRu44fyIA7Dd8LECfVurSS8pEzr1lCg3lL7CJDPl_2QZJOGycCQkxZhNd_8WsoNCSPTLp_gIWAhXjtR_Y5hzHqrGsoMTLcHm5-TOMkA-e-"><div class="flex items-center gap-space-xs font-headline-panel text-headline-panel text-on-surface whitespace-nowrap"><span class="font-display-workbench text-headline-panel tracking-tight text-primary font-bold">Novel Studio</span><span class="text-outline text-ui-micro font-ui-micro px-1 py-0.5 rounded bg-surface-container-high">V1</span></div><div class="h-4 w-[1px] bg-surface-variant flex-shrink-0"></div><div class="flex items-center gap-space-xs font-mono-stats text-mono-stats text-on-surface-variant overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-sm text-outline">auto_stories</span><span class="hover:text-primary transition-colors">《星渊纪元》</span><span class="text-outline">/</span><span class="hover:text-primary transition-colors">第一卷 · 灰烬破晓</span><span class="text-outline">/</span><span class="hover:text-primary transition-colors">Arc 01</span><span class="text-outline">/</span><span class="text-on-surface font-semibold bg-surface-container-high px-space-xs py-0.5 rounded">第014章</span><span class="material-symbols-outlined text-xs text-outline">expand_more</span></div></div><div class="flex items-center gap-space-xs"><div class="flex items-center gap-1 px-space-sm py-1 rounded-full bg-error-container text-on-error-container font-mono-stats text-mono-stats font-semibold"><span class="h-1.5 w-1.5 rounded-full bg-error animate-ping"></span><span class="">状态: Error</span></div><div class="flex items-center bg-surface-container-low p-0.5 rounded-lg shadow-inner"><a class="flex items-center gap-1 px-space-sm py-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-ui-medium text-ui-micro rounded transition-colors" href="#runtime-log-anchor"><span class="material-symbols-outlined text-xs text-tertiary">terminal</span><span class="">查看错误</span></a><button class="flex items-center gap-1 px-space-sm py-1 bg-primary text-on-primary hover:bg-inverse-primary font-ui-medium text-ui-micro rounded transition-all active:scale-[0.97]" type="button"><span class="material-symbols-outlined text-xs">refresh</span><span class="">重试</span></button><button class="flex items-center gap-1 px-space-sm py-1 text-on-surface-variant hover:text-error hover:bg-surface-container-high font-ui-medium text-ui-micro rounded transition-colors" type="button"><span class="material-symbols-outlined text-xs text-error">stop</span><span class="">停止</span></button></div></div><div class="flex items-center gap-space-md"><button class="w-7 h-7 flex items-center justify-center rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" title="项目同步" type="button"><span class="material-symbols-outlined text-base">sync</span></button><div class="flex items-center gap-1 font-mono-stats text-mono-stats text-on-surface-variant px-space-sm py-1 rounded bg-surface-container-low"><span class="text-secondary font-semibold">$14.28</span><span class="text-outline">/</span><span class="">50K</span></div><button class="flex items-center gap-1 px-space-sm py-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-ui-micro text-ui-micro transition-colors" type="button"><span class="material-symbols-outlined text-sm">tune</span><span class="">模型与设置</span></button><div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0"><span class="material-symbols-outlined text-on-primary text-[16px]">person</span></div></div></header><aside class="fixed left-0 top-10 bottom-6 w-64 bg-surface-container-lowest z-40 flex flex-col shadow-[1px_0_12px_rgba(0,0,0,0.3)]"><div class="p-space-sm"><div class="relative flex items-center"><span class="material-symbols-outlined absolute left-2 text-outline text-sm pointer-events-none">search</span><input class="w-full h-7 pl-7 pr-space-xs bg-surface-container-low text-on-surface placeholder:text-outline font-ui-micro text-ui-micro rounded focus:outline-none focus:bg-surface-container-high transition-all" placeholder="搜索大纲、章节、实体 (⌘K)..." type="text"></div></div><div class="flex-1 overflow-y-auto px-space-xs space-y-space-md"><nav class="space-y-0.5" data-active-classes="bg-surface-container-high text-on-surface font-semibold border-l-2 border-primary"><div class="px-space-sm py-1 font-panel-caps text-panel-caps uppercase tracking-wider text-outline flex items-center justify-between"><span class="">项目导航</span></div><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="workbench" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">space_dashboard</span>总览看板</span><span class="font-mono-stats text-mono-stats text-outline">⌘1</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="story-premise" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">lightbulb</span>故事前提</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="characters" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">group</span>人物矩阵</span><span class="font-mono-stats text-mono-stats text-outline">12</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="world-building" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">public</span>世界观设定</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="grand-outline" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">account_tree</span>全书大纲</span></a></nav><div class="space-y-1"><div class="px-space-sm py-1 font-panel-caps text-panel-caps uppercase tracking-wider text-outline flex items-center justify-between"><span class="">长篇规划</span><span class="material-symbols-outlined text-xs text-outline cursor-pointer hover:text-on-surface">add</span></div><div class="space-y-0.5"><div class="flex items-center justify-between px-space-sm py-1 text-on-surface font-ui-medium text-ui-micro rounded hover:bg-surface-container cursor-pointer"><div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-xs text-outline">expand_more</span><span class="material-symbols-outlined text-xs text-primary">folder_open</span><span class="truncate font-semibold">第一卷 · 灰烬破晓</span></div><span class="font-ui-micro text-ui-micro text-primary-fixed-dim bg-primary/10 px-1 py-0.2 rounded">进行中</span></div><div class="pl-3 space-y-0.5"><div class="flex items-center justify-between px-space-sm py-1 text-on-surface font-ui-medium text-ui-micro rounded hover:bg-surface-container cursor-pointer"><div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-xs text-outline">expand_more</span><span class="truncate">Arc 01: 边陲觉醒</span></div><span class="font-mono-stats text-mono-stats text-outline">14/20</span></div><nav class="pl-3 space-y-0.5" data-active-classes="bg-surface-container-high text-on-surface font-semibold border-l-2 border-primary"><a class="flex items-center justify-between px-space-sm py-1 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-base text-ui-micro" data-path="chapter-012" href="#"><span class="truncate">第012章 迷雾旧港</span><span class="h-1.5 w-1.5 rounded-full bg-secondary" title="已保存"></span></a><a class="flex items-center justify-between px-space-sm py-1 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-base text-ui-micro" data-path="chapter-013" href="#"><span class="truncate">第013章 机械之心</span><span class="h-1.5 w-1.5 rounded-full bg-secondary" title="已保存"></span></a><a class="flex items-center justify-between px-space-sm py-1 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-base text-ui-micro" data-path="workbench" href="#"><span class="truncate flex items-center gap-1"><span class="">第014章 裂隙深潜</span></span><span class="flex items-center gap-1 font-mono-stats text-mono-stats text-primary"><span class="h-1.5 w-1.5 rounded-full bg-primary animate-ping"></span></span></a><a class="flex items-center justify-between px-space-sm py-1 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-base text-ui-micro" data-path="chapter-015" href="#"><span class="truncate">第015章 遗落协议</span><span class="font-ui-micro text-ui-micro text-tertiary bg-tertiary/10 px-1 rounded">待审</span></a><a class="flex items-center justify-between px-space-sm py-1 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-base text-ui-micro" data-path="chapter-016" href="#"><span class="truncate text-outline">第016章 未命名</span><span class="material-symbols-outlined text-xs text-tertiary">sync_problem</span></a></nav><div class="flex items-center justify-between px-space-sm py-1 text-outline font-ui-medium text-ui-micro rounded hover:bg-surface-container cursor-pointer"><div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-xs text-outline">chevron_right</span><span class="truncate">Arc 02: 苍穹之坠</span></div><span class="font-ui-micro text-ui-micro text-outline">未开始</span></div></div><div class="flex items-center justify-between px-space-sm py-1 text-outline font-ui-medium text-ui-micro rounded hover:bg-surface-container cursor-pointer"><div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-xs text-outline">chevron_right</span><span class="material-symbols-outlined text-xs text-outline">folder</span><span class="truncate">第二卷 · 星海长夜</span></div><span class="font-ui-micro text-ui-micro text-outline">0/25</span></div></div></div><div class="space-y-0.5"><div class="px-space-sm py-1 font-panel-caps text-panel-caps uppercase tracking-wider text-outline">连续性与状态</div><nav class="space-y-0.5" data-active-classes="bg-surface-container-high text-on-surface font-semibold border-l-2 border-primary"><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="clues-tracker" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">bookmark</span>伏笔与暗线</span><span class="px-1.5 py-0.2 rounded-full bg-primary/10 text-primary font-mono-stats text-mono-stats">18</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="timeline" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">timeline</span>事件时间线</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="character-status" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">badge</span>人物状态网</span></a></nav></div><div class="space-y-0.5"><div class="px-space-sm py-1 font-panel-caps text-panel-caps uppercase tracking-wider text-outline">质量与审稿</div><nav class="space-y-0.5" data-active-classes="bg-surface-container-high text-on-surface font-semibold border-l-2 border-primary"><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="review-center" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">rate_review</span>审稿中心</span><span class="font-ui-micro text-ui-micro text-tertiary bg-tertiary/10 px-1 rounded">2 待审</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="rewriter" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">edit_note</span>重写与润色</span></a></nav></div><div class="space-y-0.5"><div class="px-space-sm py-1 font-panel-caps text-panel-caps uppercase tracking-wider text-outline">系统 &amp; 引擎</div><nav class="space-y-0.5" data-active-classes="bg-surface-container-high text-on-surface font-semibold border-l-2 border-primary"><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="runtime-center" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">terminal</span>运行中心</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="diff-sync" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">difference</span>人工修改同步</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="model-config" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">settings_suggest</span>模型管线配置</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="tokens-cost" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">pie_chart</span>Token 与成本</span></a></nav></div></div></aside><div class="pl-64"><main class="relative pt-10 pb-6 w-full min-h-[calc(100vh-24px)] bg-surface"><div class="flex flex-col w-full">
+<!-- Top Critical Status Banner: Error State Command Header -->
+<section class="w-full bg-surface-container-lowest px-space-xl py-space-lg shadow-md relative overflow-hidden">
+<!-- Deep Red Radial Background Sheen for Emergency Alert -->
+<div class="absolute -right-20 -top-20 w-96 h-96 rounded-full bg-error-container/20 blur-3xl pointer-events-none"></div>
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-lg relative z-10">
+<!-- Title & State Indicator -->
+<div class="flex flex-col gap-space-xs min-w-0">
+<div class="flex items-center gap-space-sm flex-wrap">
+<span class="inline-flex items-center gap-1.5 px-space-md py-1 rounded-full bg-error-container text-on-error-container font-headline-panel text-headline-panel uppercase tracking-wider shadow-sm">
+<span class="material-symbols-outlined text-base leading-none">cancel</span>
+<span class="">ERROR (执行中断)</span>
+</span>
+<span class="font-mono-stats text-mono-stats text-on-surface-variant bg-surface-container-high px-space-sm py-1 rounded">
+            TASK_ID: run-arc01-ch014-08f2
+          </span>
+<span class="font-mono-stats text-mono-stats text-error bg-error/10 px-space-sm py-1 rounded">
+            HTTP 429 · TOKEN_RATE_LIMIT
+          </span>
+</div>
+<div class="flex items-baseline gap-space-md mt-1">
+<h1 class="font-display-workbench text-display-workbench text-on-surface tracking-tight truncate">
+            Chapter 014 · 裂隙深潜
+          </h1>
+<span class="font-ui-medium text-ui-medium text-outline">
+            第一卷 · 灰烬破晓 / Arc 01: 边陲觉醒
+          </span>
+</div>
+<p class="font-ui-base text-ui-base text-on-surface-variant flex items-center gap-1.5">
+<span class="material-symbols-outlined text-error text-sm">warning</span>
+<span class="">Step 4/6 <code class="font-mono-code text-mono-code text-error bg-surface-container-low px-1 py-0.5 rounded">draft_chapter</code> 发生 Provider API 超时与速率限制 (429 Too Many Requests)，管道保护性挂起</span>
+</p>
+</div>
+<!-- Action Button Group (PRD Item 4 Error Mode: [View Log] [Retry] [Stop]) -->
+<div class="flex items-center gap-space-sm flex-shrink-0">
+<!-- View Error Log Button -->
+<a class="flex items-center gap-1.5 px-space-md py-2 bg-surface-container-high hover:bg-surface-variant text-on-surface font-ui-medium text-ui-medium rounded-lg shadow-sm transition-all active:scale-[0.97]" href="#runtime-log-anchor">
+<span class="material-symbols-outlined text-sm text-tertiary">terminal</span>
+<span class="">查看错误详情 (View Log)</span>
+</a>
+<!-- Retry Step Button (Primary Attention Gradient) -->
+<button class="flex items-center gap-1.5 px-space-lg py-2 bg-primary-container hover:bg-inverse-primary text-on-primary font-headline-panel text-ui-medium rounded-lg shadow-[0_0_16px_rgba(128,131,255,0.35)] transition-all active:scale-[0.97]" id="btn-retry-step" type="button">
+<span class="material-symbols-outlined text-base animate-[spin_3s_linear_infinite]">refresh</span>
+<span class="">↻ 重试当前步骤 (Retry Step 4)</span>
+</button>
+<!-- Stop & Abort Button -->
+<button class="flex items-center gap-1.5 px-space-md py-2 bg-surface-container-low hover:bg-error/20 text-on-surface-variant hover:text-error font-ui-medium text-ui-medium rounded-lg transition-colors active:scale-[0.97]" type="button">
+<span class="material-symbols-outlined text-sm text-error">stop_circle</span>
+<span class="">⏹ 终止并保存现场 (Stop &amp; Abort)</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Main Workstation Grid -->
+<div class="p-space-lg space-y-space-lg">
+<!-- Row 1: Agent Focus Diagnostic & Usage Telemetry Split -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-lg">
+<!-- Left: Active Agent Focus Card (Error Diagnostic Focus) -->
+<div class="xl:col-span-8 bg-surface-container-lowest rounded-xl p-space-lg shadow-md flex flex-col justify-between">
+<div>
+<!-- Header metadata -->
+<div class="flex items-center justify-between pb-space-sm">
+<div class="flex items-center gap-space-md">
+<div class="w-10 h-10 rounded-lg bg-error-container text-on-error-container flex items-center justify-center font-display-workbench text-headline-panel shadow-sm">
+<span class="material-symbols-outlined text-xl">psychology_alt</span>
+</div>
+<div>
+<div class="flex items-center gap-space-xs">
+<span class="font-headline-panel text-headline-panel text-on-surface font-semibold">Agent: Writer</span>
+<span class="font-ui-micro text-ui-micro text-outline-variant bg-surface-container px-1.5 py-0.5 rounded">正文执笔</span>
+</div>
+<div class="font-mono-stats text-mono-stats text-on-surface-variant">
+                  模型: <span class="text-primary font-medium">Claude-3.5-Sonnet</span> | 驱动器: <span class="text-on-surface">ainovel-core-v1.4</span>
+</div>
+</div>
+</div>
+<!-- Agent Error Pill -->
+<div class="flex items-center gap-1.5 px-space-md py-1 rounded-full bg-error-container/60 text-error font-mono-stats text-mono-stats font-semibold shadow-sm">
+<span class="h-2 w-2 rounded-full bg-error animate-ping"></span>
+<span class="">✖ ERROR (API Error 429)</span>
+</div>
+</div>
+<!-- Target & Breakpoint Anchor -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-sm bg-surface-container-low p-space-sm rounded-lg mt-space-sm">
+<div class="flex items-center gap-2 font-ui-micro text-ui-micro">
+<span class="text-outline">目标编排:</span>
+<span class="text-on-surface font-ui-medium truncate">Chapter 014 · 裂隙深潜 (全章目标 3,500 字)</span>
+</div>
+<div class="flex items-center gap-2 font-mono-stats text-mono-stats">
+<span class="text-outline">卡点断口:</span>
+<span class="text-error font-semibold">Step 4 / 6 · draft_chapter (断点: 第 1,840 字处)</span>
+</div>
+</div>
+<!-- Deep Red Error Diagnostic Banner (Spec Requirement 2) -->
+<div class="mt-space-md bg-error-container/30 rounded-xl p-space-md shadow-sm relative overflow-hidden">
+<div class="flex items-start gap-space-sm">
+<span class="material-symbols-outlined text-error text-lg flex-shrink-0 mt-0.5">report</span>
+<div class="space-y-space-xs text-on-surface">
+<div class="font-headline-panel text-ui-medium text-error flex items-center justify-between">
+<span class="">错误诊断摘要 (Provider Error Response)</span>
+<span class="font-mono-stats text-mono-stats text-outline">HTTP_STATUS_429</span>
+</div>
+<p class="font-ui-base text-ui-base text-on-surface-variant leading-relaxed">
+                  Provider: <span class="text-primary font-medium">Anthropic</span> 返回 HTTP 429: <code class="font-mono-code text-mono-code text-on-error-container bg-surface-container-lowest px-1.5 py-0.5 rounded">"Rate limit exceeded for token per minute. Please retry after 30 seconds."</code> 现场正文草稿 (<strong class="text-secondary">1,840 字</strong>) 已安全快照落地，无需重新生成前序已生成内容。
+                </p>
+<!-- Intelligent Recovery Suggestion Box -->
+
+</div>
+</div>
+</div>
+</div>
+<!-- Telemetry Diagnostic Sub-Indicators -->
+<div class="grid grid-cols-3 gap-space-md pt-space-md mt-space-md bg-surface-container-low/40 rounded-lg px-space-md py-space-sm">
+<div class="flex flex-col">
+<span class="font-panel-caps text-panel-caps uppercase text-outline">已重试次数</span>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="font-mono-stats text-headline-panel text-tertiary font-bold">1 / 3</span>
+<span class="font-ui-micro text-ui-micro text-outline-variant">(已消耗 1 次自动重试)</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="font-panel-caps text-panel-caps uppercase text-outline">失败执行阶段</span>
+<div class="flex items-center gap-1.5 mt-0.5 font-mono-stats text-mono-stats text-on-surface truncate">
+<span class="h-1.5 w-1.5 rounded-full bg-error"></span>
+<span class="">Chunk 4 Streaming</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="font-panel-caps text-panel-caps uppercase text-outline">已保留现场快照</span>
+<div class="flex items-center gap-1.5 mt-0.5 font-mono-code text-mono-code text-secondary truncate">
+<span class="material-symbols-outlined text-xs">save</span>
+<span class="">ch014_draft_err.snap</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right: Usage & Telemetry Stats Deck (Spec Requirement 5) -->
+<div class="xl:col-span-4 bg-surface-container-lowest rounded-xl p-space-lg shadow-md flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between pb-space-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-base">pie_chart</span>
+<h2 class="font-headline-panel text-headline-panel text-on-surface">Usage 遥测与配额</h2>
+</div>
+<span class="font-mono-stats text-mono-stats text-outline bg-surface-container px-2 py-0.5 rounded">
+              计费通道正常
+            </span>
+</div>
+<!-- Token Gauge Bar Chart Visualization -->
+<div class="space-y-space-md mt-space-sm">
+<div class="bg-surface-container-low p-space-sm rounded-lg">
+<div class="flex justify-between font-mono-stats text-mono-stats mb-1.5">
+<span class="text-outline">Token 吞吐量对比</span>
+<span class="text-on-surface font-semibold">191.0K Tokens 总计</span>
+</div>
+<div class="h-3 w-full bg-surface-container-high rounded-full overflow-hidden flex">
+<div class="h-full bg-primary-container" style="width: 74.7%;" title="Input Tokens: 142.8K (74.7%)"></div>
+<div class="h-full bg-secondary-container" style="width: 25.3%;" title="Output Tokens: 48.2K (25.3%)"></div>
+</div>
+<div class="flex justify-between items-center mt-2 font-mono-stats text-mono-stats">
+<div class="flex items-center gap-1.5">
+<span class="h-2 w-2 rounded-full bg-primary-container"></span>
+<span class="text-on-surface-variant">In: <strong class="text-on-surface">142.8K</strong></span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="h-2 w-2 rounded-full bg-secondary-container"></span>
+<span class="text-on-surface-variant">Out: <strong class="text-on-surface">48.2K</strong></span>
+</div>
+</div>
+</div>
+<!-- Cost & Duration Bento Block -->
+<div class="grid grid-cols-2 gap-space-sm">
+<div class="bg-surface-container-low p-space-sm rounded-lg flex flex-col">
+<span class="font-panel-caps text-panel-caps uppercase text-outline">本次挂起 Cost</span>
+<span class="font-mono-stats text-headline-panel text-secondary font-bold mt-1">$0.34</span>
+<span class="font-ui-micro text-ui-micro text-outline mt-0.5">未虚增重复计费</span>
+</div>
+<div class="bg-surface-container-low p-space-sm rounded-lg flex flex-col">
+<span class="font-panel-caps text-panel-caps uppercase text-outline">全书项目累计 Cost</span>
+<span class="font-mono-stats text-headline-panel text-primary font-bold mt-1">$14.28</span>
+<span class="font-ui-micro text-ui-micro text-outline mt-0.5">预算限额: $50.00</span>
+</div>
+</div>
+<!-- Latency / Duration Clock -->
+<div class="bg-surface-container-low p-space-sm rounded-lg flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-outline text-base">timer_off</span>
+<div class="flex flex-col">
+<span class="font-panel-caps text-panel-caps uppercase text-outline">运行中断时长 (Elapsed)</span>
+<span class="font-mono-stats text-mono-stats text-on-surface font-semibold">00:42:50 (出错处挂起)</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-error text-xl animate-pulse">pause_circle</span>
+</div>
+</div>
+</div>
+<!-- Metric Footer Status -->
+<div class="pt-space-sm mt-space-sm flex items-center justify-between text-outline font-mono-stats text-mono-stats">
+<span class="">Rate Limit TPM: 80,000 / 80,000</span>
+<span class="text-error font-medium">Cap Exceeded (100%)</span>
+</div>
+</div>
+</div>
+<!-- Row 2: ainovel-core Pipeline Execution Flow (Spec Requirement 3) -->
+<div class="bg-surface-container-lowest rounded-xl p-space-lg shadow-md">
+<div class="flex items-center justify-between pb-space-sm">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-base">alt_route</span>
+<h2 class="font-headline-panel text-headline-panel text-on-surface">ainovel-core Pipeline 流水线状态 (Chapter 014 编排)</h2>
+</div>
+<div class="flex items-center gap-space-xs font-mono-stats text-mono-stats text-outline">
+<span class="">总步数: 6</span>
+<span class="">|</span>
+<span class="text-secondary font-medium">已完成: 3</span>
+<span class="">|</span>
+<span class="text-error font-medium">报错: 1</span>
+<span class="">|</span>
+<span class="">挂起阻塞: 2</span>
+</div>
+</div>
+<!-- Pipeline Steps Row Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-space-sm mt-space-md">
+<!-- Step 1: novel_context - DONE -->
+<div class="bg-surface-container-low rounded-lg p-space-sm flex flex-col justify-between transition-all">
+<div>
+<div class="flex items-center justify-between mb-1">
+<span class="font-mono-stats text-mono-stats text-outline">01</span>
+<span class="flex items-center gap-1 font-mono-stats text-ui-micro text-secondary bg-secondary/10 px-1 rounded">
+<span class="material-symbols-outlined text-xs">check_circle</span>
+<span class="">DONE</span>
+</span>
+</div>
+<div class="font-headline-panel text-ui-medium text-on-surface truncate">novel_context</div>
+<p class="font-ui-micro text-ui-micro text-on-surface-variant mt-1 line-clamp-2">提取世界观与人物记忆实体网</p>
+</div>
+<div class="mt-space-sm pt-space-xs flex items-center justify-between font-mono-stats text-mono-stats text-outline">
+<span class="">耗时 1.8s</span>
+<span class="text-secondary">OK</span>
+</div>
+</div>
+<!-- Step 2: read_chapter - DONE -->
+<div class="bg-surface-container-low rounded-lg p-space-sm flex flex-col justify-between transition-all">
+<div>
+<div class="flex items-center justify-between mb-1">
+<span class="font-mono-stats text-mono-stats text-outline">02</span>
+<span class="flex items-center gap-1 font-mono-stats text-ui-micro text-secondary bg-secondary/10 px-1 rounded">
+<span class="material-symbols-outlined text-xs">check_circle</span>
+<span class="">DONE</span>
+</span>
+</div>
+<div class="font-headline-panel text-ui-medium text-on-surface truncate">read_chapter</div>
+<p class="font-ui-micro text-ui-micro text-on-surface-variant mt-1 line-clamp-2">读取 Ch.013 结尾断点与伏笔钩子</p>
+</div>
+<div class="mt-space-sm pt-space-xs flex items-center justify-between font-mono-stats text-mono-stats text-outline">
+<span class="">耗时 2.4s</span>
+<span class="text-secondary">OK</span>
+</div>
+</div>
+<!-- Step 3: plan_chapter - DONE -->
+<div class="bg-surface-container-low rounded-lg p-space-sm flex flex-col justify-between transition-all">
+<div>
+<div class="flex items-center justify-between mb-1">
+<span class="font-mono-stats text-mono-stats text-outline">03</span>
+<span class="flex items-center gap-1 font-mono-stats text-ui-micro text-secondary bg-secondary/10 px-1 rounded">
+<span class="material-symbols-outlined text-xs">check_circle</span>
+<span class="">DONE</span>
+</span>
+</div>
+<div class="font-headline-panel text-ui-medium text-on-surface truncate">plan_chapter</div>
+<p class="font-ui-micro text-ui-micro text-on-surface-variant mt-1 line-clamp-2">生成本章 3 条冲突节拍大纲</p>
+</div>
+<div class="mt-space-sm pt-space-xs flex items-center justify-between font-mono-stats text-mono-stats text-outline">
+<span class="">3 Beats</span>
+<span class="text-secondary">OK</span>
+</div>
+</div>
+<!-- Step 4: draft_chapter - ERROR 429 RateLimit (Active Focus Step) -->
+<div class="bg-surface-container-high rounded-lg p-space-sm flex flex-col justify-between shadow-lg relative overflow-hidden">
+<div class="absolute top-0 left-0 right-0 h-1 bg-error"></div>
+<div>
+<div class="flex items-center justify-between mb-1">
+<span class="font-mono-stats text-mono-stats text-error font-bold">04</span>
+<span class="flex items-center gap-1 font-mono-stats text-ui-micro text-error bg-error-container/40 px-1 rounded animate-pulse">
+<span class="material-symbols-outlined text-xs">error</span>
+<span class="">ERROR 429</span>
+</span>
+</div>
+<div class="font-headline-panel text-ui-medium text-error font-bold truncate">draft_chapter</div>
+<p class="font-ui-micro text-ui-micro text-on-surface-variant mt-1">正文多块流式草拟 (1,840/3,500字中断)</p>
+</div>
+<div class="mt-space-sm pt-space-xs flex items-center justify-between">
+<span class="font-mono-stats text-mono-stats text-error">RateLimit</span>
+<button class="font-ui-micro text-ui-micro text-on-primary bg-primary hover:bg-inverse-primary px-1.5 py-0.5 rounded font-medium transition-colors shadow-sm" type="button">
+              重试该步
+            </button>
+</div>
+</div>
+<!-- Step 5: check_consistency - BLOCKED -->
+<div class="bg-surface-container-lowest rounded-lg p-space-sm flex flex-col justify-between opacity-50">
+<div>
+<div class="flex items-center justify-between mb-1">
+<span class="font-mono-stats text-mono-stats text-outline">05</span>
+<span class="font-mono-stats text-ui-micro text-outline bg-surface-container px-1 rounded">
+                BLOCKED
+              </span>
+</div>
+<div class="font-headline-panel text-ui-medium text-outline truncate">check_consistency</div>
+<p class="font-ui-micro text-ui-micro text-outline-variant mt-1 line-clamp-2">一致性校验与伏笔触发扫描</p>
+</div>
+<div class="mt-space-sm pt-space-xs flex items-center justify-between font-mono-stats text-mono-stats text-outline">
+<span class="">前序阻塞</span>
+<span class="material-symbols-outlined text-xs">lock</span>
+</div>
+</div>
+<!-- Step 6: commit_chapter - BLOCKED -->
+<div class="bg-surface-container-lowest rounded-lg p-space-sm flex flex-col justify-between opacity-50">
+<div>
+<div class="flex items-center justify-between mb-1">
+<span class="font-mono-stats text-mono-stats text-outline">06</span>
+<span class="font-mono-stats text-ui-micro text-outline bg-surface-container px-1 rounded">
+                BLOCKED
+              </span>
+</div>
+<div class="font-headline-panel text-ui-medium text-outline truncate">commit_chapter</div>
+<p class="font-ui-micro text-ui-micro text-outline-variant mt-1 line-clamp-2">章节归档、落盘与状态广播</p>
+</div>
+<div class="mt-space-sm pt-space-xs flex items-center justify-between font-mono-stats text-mono-stats text-outline">
+<span class="">前序阻塞</span>
+<span class="material-symbols-outlined text-xs">lock</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Row 3: Multi-Agent Matrix & Runtime Terminal Log Split -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-lg">
+<!-- Left: Multi-Agent State Matrix (Spec Requirement 4) -->
+<div class="xl:col-span-4 bg-surface-container-lowest rounded-xl p-space-lg shadow-md flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between pb-space-sm">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-base">hub</span>
+<h2 class="font-headline-panel text-headline-panel text-on-surface">Multi-Agent 协作矩阵</h2>
+</div>
+<span class="font-mono-stats text-mono-stats text-outline">4 Nodes</span>
+</div>
+<div class="space-y-space-sm mt-space-sm">
+<!-- Agent 1: Architect (总纲架构师) -->
+<div class="flex items-center justify-between bg-surface-container-low p-space-sm rounded-lg">
+<div class="flex items-center gap-space-sm">
+<div class="w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-outline">
+<span class="material-symbols-outlined text-sm">architecture</span>
+</div>
+<div>
+<div class="font-headline-panel text-ui-medium text-on-surface">Architect</div>
+<div class="font-ui-micro text-ui-micro text-outline">全书与分卷大纲管辖</div>
+</div>
+</div>
+<span class="font-mono-stats text-mono-stats px-2 py-0.5 rounded bg-surface-container-high text-outline">
+                IDLE
+              </span>
+</div>
+<!-- Agent 2: Writer (正文执笔 - 异常) -->
+<div class="flex items-center justify-between bg-surface-container-high p-space-sm rounded-lg shadow-sm">
+<div class="flex items-center gap-space-sm">
+<div class="w-7 h-7 rounded bg-error-container text-on-error-container flex items-center justify-center">
+<span class="material-symbols-outlined text-sm">edit_note</span>
+</div>
+<div>
+<div class="font-headline-panel text-ui-medium text-error font-semibold flex items-center gap-1.5">
+<span class="">Writer</span>
+<span class="h-1.5 w-1.5 rounded-full bg-error animate-ping"></span>
+</div>
+<div class="font-ui-micro text-ui-micro text-on-surface-variant">正文生成 (等待重试或人工恢复)</div>
+</div>
+</div>
+<span class="font-mono-stats text-mono-stats px-2 py-0.5 rounded bg-error-container text-on-error-container font-bold">
+                ✖ ERROR
+              </span>
+</div>
+<!-- Agent 3: Editor (审稿编辑) -->
+<div class="flex items-center justify-between bg-surface-container-low p-space-sm rounded-lg">
+<div class="flex items-center gap-space-sm">
+<div class="w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-sm">rate_review</span>
+</div>
+<div>
+<div class="font-headline-panel text-ui-medium text-on-surface">Editor</div>
+<div class="font-ui-micro text-ui-micro text-outline">等待 Ch.014 草拟修复完成</div>
+</div>
+</div>
+<span class="font-mono-stats text-mono-stats px-2 py-0.5 rounded bg-tertiary/10 text-tertiary font-medium">
+                WAITING
+              </span>
+</div>
+<!-- Agent 4: Arbiter (世界观裁决) -->
+<div class="flex items-center justify-between bg-surface-container-low p-space-sm rounded-lg">
+<div class="flex items-center gap-space-sm">
+<div class="w-7 h-7 rounded bg-surface-container-high flex items-center justify-center text-outline">
+<span class="material-symbols-outlined text-sm">gavel</span>
+</div>
+<div>
+<div class="font-headline-panel text-ui-medium text-on-surface">Arbiter</div>
+<div class="font-ui-micro text-ui-micro text-outline">战力与设定集冲突巡检</div>
+</div>
+</div>
+<span class="font-mono-stats text-mono-stats px-2 py-0.5 rounded bg-surface-container-high text-outline">
+                IDLE
+              </span>
+</div>
+</div>
+</div>
+<div class="pt-space-md mt-space-md bg-surface-container-low/40 p-space-sm rounded-lg font-ui-micro text-ui-micro text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-outline text-sm">security</span>
+<span class="">状态锁已激活：防止多 Agent 脏数据并发写入。</span>
+</div>
+</div>
+<!-- Right: Runtime Log Stream Terminal (Spec Requirement 6) -->
+<div class="xl:col-span-8 bg-surface-container-lowest rounded-xl p-space-lg shadow-md flex flex-col" id="runtime-log-anchor">
+<!-- Terminal Header Toolbar -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm pb-space-sm">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-secondary text-base">terminal</span>
+<h2 class="font-headline-panel text-headline-panel text-on-surface">Runtime Log Stream (实时调度堆栈)</h2>
+<span class="font-mono-stats text-mono-stats text-error bg-error-container/40 px-2 py-0.5 rounded">
+              3 错误记录
+            </span>
+</div>
+<div class="flex items-center gap-space-xs">
+<!-- Filter Toggle: Errors Only (Spec requirement) -->
+<button class="flex items-center gap-1 px-space-sm py-1 rounded bg-error-container text-on-error-container font-ui-micro text-ui-micro transition-colors active:scale-[0.97]" id="toggle-filter" type="button">
+<span class="material-symbols-outlined text-xs">filter_alt</span>
+<span class="">仅显示错误 (Errors Only)</span>
+</button>
+<!-- Copy Stack Button -->
+<button class="flex items-center gap-1 px-space-sm py-1 rounded bg-surface-container-high hover:bg-surface-variant text-on-surface font-ui-micro text-ui-micro transition-colors" id="copy-stack-btn" type="button">
+<span class="material-symbols-outlined text-xs">content_copy</span>
+<span class="">复制完整堆栈</span>
+</button>
+</div>
+</div>
+<!-- Terminal Body -->
+<div class="bg-surface-container-lowest rounded-lg p-space-md mt-space-sm font-mono-code text-mono-code leading-relaxed h-80 overflow-y-auto space-y-1.5 shadow-inner">
+<!-- Log Line 1 -->
+<div class="log-row flex items-start gap-space-sm text-on-surface-variant hover:bg-surface-container-low px-1 py-0.5 rounded">
+<span class="text-outline flex-shrink-0">[10:14:17]</span>
+<span class="text-primary font-semibold flex-shrink-0">[Writer]</span>
+<span class="text-secondary flex-shrink-0">[INFO]</span>
+<span class="text-on-surface truncate">Entering draft_chapter... Generating scene text</span>
+</div>
+<!-- Log Line 2 -->
+<div class="log-row flex items-start gap-space-sm text-on-surface-variant hover:bg-surface-container-low px-1 py-0.5 rounded">
+<span class="text-outline flex-shrink-0">[10:14:45]</span>
+<span class="text-primary font-semibold flex-shrink-0">[Writer]</span>
+<span class="text-secondary flex-shrink-0">[INFO]</span>
+<span class="text-on-surface">Chunk 1-3 committed, streaming prose buffer (1,840 words)</span>
+</div>
+<!-- Log Line 3 -->
+<div class="log-row flex items-start gap-space-sm text-on-surface-variant hover:bg-surface-container-low px-1 py-0.5 rounded">
+<span class="text-outline flex-shrink-0">[10:15:10]</span>
+<span class="text-primary font-semibold flex-shrink-0">[Writer]</span>
+<span class="text-tertiary flex-shrink-0">[STREAM]</span>
+<span class="text-tertiary-fixed">&gt;&gt; 尝试连接上游模型生成 Chunk 4...</span>
+</div>
+<!-- Log Line 4: Primary Error Alert -->
+<div class="log-row log-error flex items-start gap-space-sm bg-error-container/30 text-on-surface px-1 py-1 rounded">
+<span class="text-outline flex-shrink-0">[10:15:12]</span>
+<span class="text-error font-bold flex-shrink-0">[Provider]</span>
+<span class="text-error font-bold flex-shrink-0">[ERROR]</span>
+<span class="text-on-error-container font-semibold">Anthropic API Error (HTTP 429): Rate limit exceeded. retry-after: 30s</span>
+</div>
+<!-- Log Line 5: Pipeline Failure Notice -->
+<div class="log-row log-error flex items-start gap-space-sm bg-error-container/20 text-on-surface px-1 py-1 rounded">
+<span class="text-outline flex-shrink-0">[10:15:12]</span>
+<span class="text-error font-bold flex-shrink-0">[Engine]</span>
+<span class="text-error font-bold flex-shrink-0">[ERROR]</span>
+<span class="text-error truncate">Pipeline step [draft_chapter] failed on worker-writer (seq: pipe-ch014-run01)</span>
+</div>
+<!-- Log Line 6: Critical Stack Interruption -->
+<div class="log-row log-error flex items-start gap-space-sm bg-error-container/20 text-on-surface px-1 py-1 rounded">
+<span class="text-outline flex-shrink-0">[10:15:13]</span>
+<span class="text-error font-bold flex-shrink-0">[Engine]</span>
+<span class="text-error font-bold flex-shrink-0">[CRITICAL]</span>
+<span class="text-error">Execution interrupted. Error state persisted to .ainovel/runtime/error.log.</span>
+</div>
+<!-- Log Line 7: Snapshot Safety Info -->
+<div class="log-row flex items-start gap-space-sm text-on-surface-variant hover:bg-surface-container-low px-1 py-0.5 rounded">
+<span class="text-outline flex-shrink-0">[10:15:13]</span>
+<span class="text-secondary font-bold flex-shrink-0">[Engine]</span>
+<span class="text-secondary flex-shrink-0">[INFO]</span>
+<span class="text-secondary">Chapter text buffered at 1,840 words. State lock maintained for safe recovery.</span>
+</div>
+</div>
+<div class="flex items-center justify-between mt-space-sm text-outline font-mono-stats text-mono-stats">
+<span class="">终端会话编码: UTF-8</span>
+<span class="text-secondary">现场快照锁定 (No data loss)</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Dedicated Workspace Telemetry Bar (Spec Requirement 7) -->
+<section class="w-full bg-surface-container-lowest px-space-md py-1.5 shadow-md flex items-center justify-between select-none font-mono-stats text-mono-stats mt-space-md">
+<!-- Left Segment: Error Agent and Position Details -->
+<div class="flex items-center gap-space-md min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+<div class="flex items-center gap-1.5 text-error font-semibold flex-shrink-0">
+<span class="h-2 w-2 rounded-full bg-error animate-ping"></span>
+<span class="">✖ Agent: Writer [ERROR 429]</span>
+</div>
+<div class="h-3 w-[1px] bg-surface-variant flex-shrink-0"></div>
+<div class="flex items-center gap-1 text-on-surface truncate">
+<span class="text-outline">Step:</span>
+<span class="font-semibold text-error">[draft_chapter 4/6]</span>
+<span class="text-outline">|</span>
+<span class="text-outline">Chapter:</span>
+<span class="font-semibold">第014章 · 裂隙深潜</span>
+<span class="text-outline">|</span>
+<span class="text-error bg-error/10 px-1 rounded">异常中断</span>
+</div>
+</div>
+<!-- Middle Segment: Tokens & Costs (Visible on desktop) -->
+<div class="hidden xl:flex items-center gap-space-md text-on-surface-variant flex-shrink-0">
+<div class="flex items-center gap-1">
+<span class="text-outline">In:</span>
+<span class="text-on-surface">142.8k</span>
+<span class="text-outline">Out:</span>
+<span class="text-on-surface">48.2k</span>
+</div>
+<div class="h-3 w-[1px] bg-surface-variant"></div>
+<div class="flex items-center gap-1">
+<span class="text-outline">Cost:</span>
+<span class="text-secondary font-semibold">$0.34</span>
+</div>
+</div>
+<!-- Right Segment: Quick Recovery Actions in Footer Bar -->
+<div class="flex items-center gap-space-sm flex-shrink-0">
+<a class="flex items-center gap-1 px-space-xs py-0.5 rounded text-tertiary hover:bg-surface-container-high transition-colors font-ui-micro text-ui-micro" href="#runtime-log-anchor">
+<span class="material-symbols-outlined text-xs">terminal</span>
+<span class="">查看错误日志</span>
+</a>
+<div class="h-3 w-[1px] bg-surface-variant"></div>
+<button class="flex items-center gap-1 px-space-sm py-0.5 rounded bg-primary text-on-primary hover:bg-inverse-primary transition-all font-ui-micro text-ui-micro font-medium" id="footer-retry-btn" type="button">
+<span class="material-symbols-outlined text-xs">refresh</span>
+<span class="">重试</span>
+</button>
+</div>
+</section>
+<!-- Interactive Logic for Filter Toggle & Retry Simulation -->
+<script>
+    (function() {
+      const toggleBtn = document.getElementById('toggle-filter');
+      const logRows = document.querySelectorAll('.log-row');
+      let filterActive = false;
+
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+          filterActive = !filterActive;
+          if (filterActive) {
+            this.classList.replace('bg-error-container', 'bg-error');
+            this.innerHTML = '<span class="material-symbols-outlined text-xs">check</span><span>显示全部日志 (All Logs)</span>';
+            logRows.forEach(row => {
+              if (!row.classList.contains('log-error')) {
+                row.style.display = 'none';
+              }
+            });
+          } else {
+            this.classList.replace('bg-error', 'bg-error-container');
+            this.innerHTML = '<span class="material-symbols-outlined text-xs">filter_alt</span><span>仅显示错误 (Errors Only)</span>';
+            logRows.forEach(row => {
+              row.style.display = 'flex';
+            });
+          }
+        });
+      }
+
+      // Stack Copy Feedback
+      const copyBtn = document.getElementById('copy-stack-btn');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', function() {
+          const originalText = this.innerHTML;
+          this.innerHTML = '<span class="material-symbols-outlined text-xs text-secondary">check</span><span>已复制现场堆栈</span>';
+          setTimeout(() => {
+            this.innerHTML = originalText;
+          }, 2000);
+        });
+      }
+
+      // Retry Action Trigger Animation
+      const retryButtons = [document.getElementById('btn-retry-step'), document.getElementById('footer-retry-btn')];
+      retryButtons.forEach(btn => {
+        if (btn) {
+          btn.addEventListener('click', function() {
+            btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">refresh</span><span>正在发起恢复重试...</span>';
+            setTimeout(() => {
+              alert('【Pipeline 调度器】正在向 Anthropic Provider 重新提交 Chapter 014 断点 (Chunk 4)，复用已暂存的 1,840 字现场。');
+              btn.innerHTML = '<span class="material-symbols-outlined text-sm">refresh</span><span>↻ 重试当前步骤 (Retry Step 4)</span>';
+            }, 600);
+          });
+        }
+      });
+    })();
+  </script>
+</div></main></div><footer class="fixed bottom-0 left-0 right-0 h-6 bg-surface-container-lowest z-50 flex items-center justify-between px-space-md select-none font-mono-stats text-mono-stats shadow-[0_-1px_6px_rgba(0,0,0,0.3)]"><div class="flex items-center gap-space-md overflow-hidden text-ellipsis whitespace-nowrap min-w-0"><div class="flex items-center gap-1.5 text-error font-semibold flex-shrink-0"><span class="h-1.5 w-1.5 rounded-full bg-error animate-ping"></span><span class="">Agent: Writer [ERROR 429]</span><span class="text-outline font-normal">(Claude-3.5-Sonnet)</span></div><div class="h-3 w-[1px] bg-surface-variant flex-shrink-0"></div><div class="flex items-center gap-1 text-on-surface-variant truncate"><span class="text-outline">Step:</span><span class="text-on-surface font-semibold">[draft_chapter 4/6]</span><span class="text-outline">|</span><span class="">Chapter: 第014章</span></div></div><div class="flex items-center gap-space-md text-on-surface-variant overflow-hidden text-ellipsis whitespace-nowrap hidden lg:flex"><div class="flex items-center gap-2"><span class="text-outline">运行时长:</span><span class="text-on-surface">00:42:15</span></div><div class="h-3 w-[1px] bg-surface-variant"></div><div class="flex items-center gap-2"><span class="text-outline">In:</span><span class="text-on-surface">142.8k</span><span class="text-outline">Out:</span><span class="text-on-surface">48.2k</span></div><div class="h-3 w-[1px] bg-surface-variant"></div><div class="flex items-center gap-1.5"><span class="text-outline">Cost:</span><span class="text-secondary font-semibold">$0.34</span><span class="text-outline">(累积 $14.28)</span></div></div><div class="flex items-center gap-space-sm flex-shrink-0"><button class="flex items-center gap-1 px-space-xs py-0.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors text-ui-micro font-ui-micro" type="button"><span class="material-symbols-outlined text-xs text-primary">alt_route</span><span class="">快速引导 (Steer)</span></button><div class="h-3 w-[1px] bg-surface-variant"></div><button class="flex items-center gap-1 px-space-xs py-0.5 rounded bg-surface-container-high hover:bg-surface-variant text-on-surface transition-colors text-ui-micro font-ui-micro" type="button"><span class="material-symbols-outlined text-xs text-secondary">terminal</span><span class="">运行日志 (实时)</span><span class="h-1.5 w-1.5 rounded-full bg-secondary"></span></button></div></footer>
+
+</body></html>

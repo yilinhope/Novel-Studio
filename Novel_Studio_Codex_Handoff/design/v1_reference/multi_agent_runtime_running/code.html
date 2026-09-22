@@ -1,0 +1,557 @@
+<!DOCTYPE html><html class="dark" lang="zh-CN"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Noto+Serif:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-surface-variant": "#c7c4d7", "primary-container": "#8083ff", "on-background": "#dfe2ee", "on-secondary-container": "#00311f", "surface": "#0f131c", "surface-variant": "#31353e", "on-secondary-fixed": "#002113", "inverse-primary": "#494bd6", "tertiary-fixed-dim": "#ffb95f", "primary": "#c0c1ff", "outline-variant": "#464554", "error-container": "#93000a", "on-tertiary-container": "#3e2400", "on-secondary": "#003824", "surface-tint": "#c0c1ff", "surface-container-high": "#262a33", "surface-container-low": "#181c24", "on-secondary-fixed-variant": "#005236", "surface-bright": "#353942", "secondary": "#4edea3", "on-tertiary-fixed": "#2a1700", "error": "#ffb4ab", "tertiary": "#ffb95f", "inverse-surface": "#dfe2ee", "outline": "#908fa0", "on-error": "#690005", "tertiary-fixed": "#ffddb8", "on-tertiary-fixed-variant": "#653e00", "secondary-container": "#00a572", "on-tertiary": "#472a00", "on-primary-fixed-variant": "#2f2ebe", "on-primary": "#1000a9", "on-surface": "#dfe2ee", "on-error-container": "#ffdad6", "background": "#0f131c", "surface-container": "#1c2028", "on-primary-container": "#0d0096", "primary-fixed-dim": "#c0c1ff", "surface-container-highest": "#31353e", "primary-fixed": "#e1e0ff", "tertiary-container": "#ca8100", "surface-dim": "#0f131c", "inverse-on-surface": "#2c3039", "secondary-fixed": "#6ffbbe", "on-primary-fixed": "#07006c", "surface-container-lowest": "#0a0e16", "secondary-fixed-dim": "#4edea3" }, "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, "spacing": { "space-sm": "0.5rem", "space-md": "0.75rem", "space-xl": "1.5rem", "margin-screen": "0px", "space-lg": "1rem", "space-xs": "0.25rem", "margin": "1rem", "gutter": "0.5rem", "gutter-dense": "0.25rem" }, "fontFamily": { "ui-micro": [ "Inter" ], "mono-code": [ "JetBrains Mono" ], "ui-medium": [ "Inter" ], "prose-h1": [ "Noto Serif" ], "display-workbench": [ "Inter" ], "headline-panel": [ "Inter" ], "ui-base": [ "Inter" ], "prose-h2": [ "Noto Serif" ], "panel-caps": [ "Inter" ], "prose-body": [ "Noto Serif" ], "mono-stats": [ "JetBrains Mono" ] }, "fontSize": { "ui-micro": [ "11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "500" } ], "mono-code": [ "12px", { "lineHeight": "18px", "letterSpacing": "0", "fontWeight": "400" } ], "ui-medium": [ "13px", { "lineHeight": "18px", "letterSpacing": "0", "fontWeight": "500" } ], "prose-h1": [ "24px", { "lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "700" } ], "display-workbench": [ "20px", { "lineHeight": "28px", "letterSpacing": "-0.015em", "fontWeight": "600" } ], "headline-panel": [ "14px", { "lineHeight": "20px", "letterSpacing": "-0.005em", "fontWeight": "600" } ], "ui-base": [ "13px", { "lineHeight": "18px", "letterSpacing": "0", "fontWeight": "400" } ], "prose-h2": [ "20px", { "lineHeight": "30px", "letterSpacing": "-0.005em", "fontWeight": "600" } ], "panel-caps": [ "11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" } ], "prose-body": [ "16px", { "lineHeight": "30px", "letterSpacing": "0.01em", "fontWeight": "400" } ], "mono-stats": [ "11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "500" } ] } } } };</script></head><body class="bg-background font-ui-base text-ui-base text-on-surface select-none antialiased min-h-screen"><header class="fixed top-0 left-0 right-0 h-10 z-50 bg-surface-container-lowest/90 backdrop-blur-md shadow-[0_1px_8px_rgba(0,0,0,0.4)] flex items-center justify-between px-space-md select-none"><div class="flex items-center gap-space-md min-w-0"><img alt="Novel Studio Logo" class="h-6 w-auto object-contain flex-shrink-0" src="https://lh3.googleusercontent.com/aida/AEtjO1XQmSQdrvnUM6agnVDGTnx8sy-DhijiOJIaT1OtQYyUCAtCLChn7hJ7S9EG_d8IhfpCs-i9ciEh1rgwXgk5uHN2BT2WwbedSKZHOSGaT-8PtpNVAfbv_QelRsmd8kf7UswRu44fyIA7Dd8LECfVurSS8pEzr1lCg3lL7CJDPl_2QZJOGycCQkxZhNd_8WsoNCSPTLp_gIWAhXjtR_Y5hzHqrGsoMTLcHm5-TOMkA-e-"><div class="flex items-center gap-space-xs font-headline-panel text-headline-panel text-on-surface whitespace-nowrap"><span class="font-display-workbench text-headline-panel tracking-tight text-primary font-bold">Novel Studio</span><span class="text-outline text-ui-micro font-ui-micro px-1 py-0.5 rounded bg-surface-container-high">V1</span></div><div class="h-4 w-[1px] bg-surface-variant flex-shrink-0"></div><div class="flex items-center gap-space-xs font-mono-stats text-mono-stats text-on-surface-variant overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-sm text-outline">auto_stories</span><span class="hover:text-primary transition-colors">《星渊纪元》</span><span class="text-outline">/</span><span class="hover:text-primary transition-colors">第一卷 · 灰烬破晓</span><span class="text-outline">/</span><span class="hover:text-primary transition-colors">Arc 01</span><span class="text-outline">/</span><span class="text-on-surface font-semibold bg-surface-container-high px-space-xs py-0.5 rounded">第014章</span><span class="material-symbols-outlined text-xs text-outline">expand_more</span></div></div><div class="flex items-center gap-space-xs"><div class="flex items-center bg-surface-container-low p-0.5 rounded-lg shadow-inner"><button class="flex items-center gap-1 px-space-sm py-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-ui-medium text-ui-micro rounded transition-colors" type="button"><span class="material-symbols-outlined text-xs">pause</span><span class="">暂停</span></button><button class="flex items-center gap-1 px-space-sm py-1 text-on-surface-variant hover:text-error hover:bg-surface-container-high font-ui-medium text-ui-micro rounded transition-colors" type="button"><span class="material-symbols-outlined text-xs">stop</span><span class="">停止</span></button></div><div class="flex items-center gap-1.5 px-space-sm py-1 rounded-full bg-primary/10 text-primary font-mono-stats text-mono-stats"><span class="h-1.5 w-1.5 rounded-full bg-secondary animate-pulse"></span><span class="">Running · Writer</span></div></div><div class="flex items-center gap-space-md"><div class="flex items-center gap-1 font-mono-stats text-mono-stats text-on-surface-variant px-space-sm py-1 rounded bg-surface-container-low"><span class="text-secondary font-semibold">$14.28</span><span class="text-outline">/</span><span class="">50K</span></div><button class="flex items-center gap-1 px-space-sm py-1 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-ui-micro text-ui-micro transition-colors" type="button"><span class="material-symbols-outlined text-sm">tune</span><span class="">模型与设置</span></button><div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center shadow-sm flex-shrink-0"><span class="material-symbols-outlined text-on-primary text-[16px]">person</span></div></div></header><aside class="fixed left-0 top-10 bottom-6 w-64 bg-surface-container-lowest z-40 flex flex-col shadow-[1px_0_12px_rgba(0,0,0,0.3)]"><div class="p-space-sm"><div class="relative flex items-center"><span class="material-symbols-outlined absolute left-2 text-outline text-sm pointer-events-none">search</span><input class="w-full h-7 pl-7 pr-space-xs bg-surface-container-low text-on-surface placeholder:text-outline font-ui-micro text-ui-micro rounded focus:outline-none focus:bg-surface-container-high transition-all" placeholder="搜索大纲、章节、实体 (⌘K)..." type="text"></div></div><div class="flex-1 overflow-y-auto px-space-xs space-y-space-md"><nav class="space-y-0.5" data-active-classes="bg-surface-container-high text-on-surface font-semibold border-l-2 border-primary"><div class="px-space-sm py-1 font-panel-caps text-panel-caps uppercase tracking-wider text-outline flex items-center justify-between"><span class="">项目导航</span></div><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="workbench" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">space_dashboard</span>总览看板</span><span class="font-mono-stats text-mono-stats text-outline">⌘1</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="story-premise" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">lightbulb</span>故事前提</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="characters" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">group</span>人物矩阵</span><span class="font-mono-stats text-mono-stats text-outline">12</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="world-building" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">public</span>世界观设定</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="grand-outline" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">account_tree</span>全书大纲</span></a></nav><div class="space-y-1"><div class="px-space-sm py-1 font-panel-caps text-panel-caps uppercase tracking-wider text-outline flex items-center justify-between"><span class="">长篇规划</span><span class="material-symbols-outlined text-xs text-outline cursor-pointer hover:text-on-surface">add</span></div><div class="space-y-0.5"><div class="flex items-center justify-between px-space-sm py-1 text-on-surface font-ui-medium text-ui-micro rounded hover:bg-surface-container cursor-pointer"><div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-xs text-outline">expand_more</span><span class="material-symbols-outlined text-xs text-primary">folder_open</span><span class="truncate font-semibold">第一卷 · 灰烬破晓</span></div><span class="font-ui-micro text-ui-micro text-primary-fixed-dim bg-primary/10 px-1 py-0.2 rounded">进行中</span></div><div class="pl-3 space-y-0.5"><div class="flex items-center justify-between px-space-sm py-1 text-on-surface font-ui-medium text-ui-micro rounded hover:bg-surface-container cursor-pointer"><div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-xs text-outline">expand_more</span><span class="truncate">Arc 01: 边陲觉醒</span></div><span class="font-mono-stats text-mono-stats text-outline">14/20</span></div><nav class="pl-3 space-y-0.5" data-active-classes="bg-surface-container-high text-on-surface font-semibold border-l-2 border-primary"><a class="flex items-center justify-between px-space-sm py-1 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-base text-ui-micro" data-path="chapter-012" href="#"><span class="truncate">第012章 迷雾旧港</span><span class="h-1.5 w-1.5 rounded-full bg-secondary" title="已保存"></span></a><a class="flex items-center justify-between px-space-sm py-1 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-base text-ui-micro" data-path="chapter-013" href="#"><span class="truncate">第013章 机械之心</span><span class="h-1.5 w-1.5 rounded-full bg-secondary" title="已保存"></span></a><a class="flex items-center justify-between px-space-sm py-1 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-base text-ui-micro" data-path="workbench" href="#"><span class="truncate flex items-center gap-1"><span class="">第014章 裂隙深潜</span></span><span class="flex items-center gap-1 font-mono-stats text-mono-stats text-primary"><span class="h-1.5 w-1.5 rounded-full bg-primary animate-ping"></span></span></a><a class="flex items-center justify-between px-space-sm py-1 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-base text-ui-micro" data-path="chapter-015" href="#"><span class="truncate">第015章 遗落协议</span><span class="font-ui-micro text-ui-micro text-tertiary bg-tertiary/10 px-1 rounded">待审</span></a><a class="flex items-center justify-between px-space-sm py-1 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-base text-ui-micro" data-path="chapter-016" href="#"><span class="truncate text-outline">第016章 未命名</span><span class="material-symbols-outlined text-xs text-tertiary">sync_problem</span></a></nav><div class="flex items-center justify-between px-space-sm py-1 text-outline font-ui-medium text-ui-micro rounded hover:bg-surface-container cursor-pointer"><div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-xs text-outline">chevron_right</span><span class="truncate">Arc 02: 苍穹之坠</span></div><span class="font-ui-micro text-ui-micro text-outline">未开始</span></div></div><div class="flex items-center justify-between px-space-sm py-1 text-outline font-ui-medium text-ui-micro rounded hover:bg-surface-container cursor-pointer"><div class="flex items-center gap-1.5"><span class="material-symbols-outlined text-xs text-outline">chevron_right</span><span class="material-symbols-outlined text-xs text-outline">folder</span><span class="truncate">第二卷 · 星海长夜</span></div><span class="font-ui-micro text-ui-micro text-outline">0/25</span></div></div></div><div class="space-y-0.5"><div class="px-space-sm py-1 font-panel-caps text-panel-caps uppercase tracking-wider text-outline">连续性与状态</div><nav class="space-y-0.5" data-active-classes="bg-surface-container-high text-on-surface font-semibold border-l-2 border-primary"><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="clues-tracker" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">bookmark</span>伏笔与暗线</span><span class="px-1.5 py-0.2 rounded-full bg-primary/10 text-primary font-mono-stats text-mono-stats">18</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="timeline" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">timeline</span>事件时间线</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="character-status" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">badge</span>人物状态网</span></a></nav></div><div class="space-y-0.5"><div class="px-space-sm py-1 font-panel-caps text-panel-caps uppercase tracking-wider text-outline">质量与审稿</div><nav class="space-y-0.5" data-active-classes="bg-surface-container-high text-on-surface font-semibold border-l-2 border-primary"><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="review-center" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">rate_review</span>审稿中心</span><span class="font-ui-micro text-ui-micro text-tertiary bg-tertiary/10 px-1 rounded">2 待审</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="rewriter" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">edit_note</span>重写与润色</span></a></nav></div><div class="space-y-0.5"><div class="px-space-sm py-1 font-panel-caps text-panel-caps uppercase tracking-wider text-outline">系统 &amp; 引擎</div><nav class="space-y-0.5" data-active-classes="bg-surface-container-high text-on-surface font-semibold border-l-2 border-primary"><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="runtime-center" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">terminal</span>运行中心</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="diff-sync" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">difference</span>人工修改同步</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="model-config" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">settings_suggest</span>模型管线配置</span></a><a class="flex items-center justify-between px-space-sm py-1.5 rounded text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors font-ui-medium text-ui-micro" data-path="tokens-cost" href="#"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-sm text-outline">pie_chart</span>Token 与成本</span></a></nav></div></div></aside><div class="pl-64"><main class="relative pt-10 pb-6 w-full min-h-[calc(100vh-24px)] bg-surface"><div class="flex flex-col w-full">
+<!-- Internal Workbench Viewport Container -->
+<div class="flex flex-col w-full px-space-lg py-space-md space-y-space-md bg-surface text-on-surface">
+<!-- Top Action Deck / Header Bar -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-md bg-surface-container-lowest p-space-md rounded-xl shadow-md">
+<div class="flex items-center gap-space-md">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-primary shadow-inner">
+<span class="material-symbols-outlined text-2xl">memory</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-sm">
+<h1 class="font-display-workbench text-display-workbench text-on-surface tracking-tight">运行中心</h1>
+<span class="font-mono-stats text-mono-stats text-outline">/</span>
+<span class="font-headline-panel text-headline-panel text-on-surface-variant">Multi-Agent Runtime Center</span>
+<div class="flex items-center gap-1.5 px-space-sm py-0.5 rounded-full bg-secondary/10 text-secondary font-mono-stats text-mono-stats ml-space-xs">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="font-semibold tracking-wider">RUNNING</span>
+</div>
+</div>
+<div class="flex items-center gap-space-xs font-mono-stats text-mono-stats text-outline mt-0.5">
+<span class="text-on-surface-variant">当前执行任务:</span>
+<span class="text-on-surface font-semibold bg-surface-container-high px-space-xs py-0.5 rounded text-primary">Chapter 014 · 裂隙深潜</span>
+<span class="mx-1">•</span>
+<span class="">ainovel-core v1.4.2</span>
+<span class="mx-1">•</span>
+<span class="">Pid #84920</span>
+</div>
+</div>
+</div>
+<!-- Control Group: Strict [Pause] & [Stop] (Forbidden: "继续创作") -->
+<div class="flex items-center gap-space-sm">
+<div class="flex items-center gap-space-xs font-mono-stats text-mono-stats text-on-surface-variant bg-surface-container-low px-space-md py-1.5 rounded-lg shadow-inner mr-space-xs">
+<span class="text-outline">Active Lock:</span>
+<span class="text-secondary font-medium">pipeline_ch014.lock</span>
+</div>
+<!-- Pause Button: Amber Tint -->
+<button class="flex items-center gap-1.5 px-space-md py-1.5 rounded-lg bg-tertiary-container hover:bg-tertiary text-on-tertiary-container hover:text-on-tertiary font-ui-medium text-ui-medium shadow-sm active:scale-[0.97] transition-all" id="btn-pause-task" type="button">
+<span class="material-symbols-outlined text-base">pause</span>
+<span class="">暂停 (Pause)</span>
+</button>
+<!-- Stop Button: Red/Rose Tint -->
+<button class="flex items-center gap-1.5 px-space-md py-1.5 rounded-lg bg-error-container hover:bg-error text-on-error-container hover:text-on-error font-ui-medium text-ui-medium shadow-sm active:scale-[0.97] transition-all" id="btn-stop-task" type="button">
+<span class="material-symbols-outlined text-base">stop</span>
+<span class="">停止 (Abort)</span>
+</button>
+</div>
+</div>
+<!-- Active Agent Focus & Pipeline Track (Asymmetric Grid) -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-md">
+<!-- Primary Focal Card: Active Agent (Writer) -->
+<div class="xl:col-span-5 flex flex-col bg-surface-container-lowest p-space-lg rounded-xl shadow-md space-y-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg">edit_note</span>
+</div>
+<div>
+<div class="font-headline-panel text-headline-panel text-on-surface font-semibold flex items-center gap-2">
+<span class="">Agent: Writer</span>
+<span class="font-mono-stats text-mono-stats text-primary font-normal bg-primary/10 px-1.5 py-0.5 rounded">正文执笔</span>
+</div>
+<span class="font-mono-stats text-mono-stats text-outline">Model: Claude-3.5-Sonnet (Temperature: 0.72)</span>
+</div>
+</div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 rounded-full bg-secondary/15 text-secondary font-mono-stats text-mono-stats">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-ping"></span>
+<span class="font-semibold">RUNNING</span>
+</div>
+</div>
+<!-- Task Focus Metrics -->
+<div class="bg-surface-container-low p-space-md rounded-lg space-y-space-sm">
+<div class="flex items-center justify-between text-ui-micro font-ui-micro">
+<span class="text-outline uppercase tracking-wider">执行目标 (Target)</span>
+<span class="text-primary font-mono-stats font-semibold">Step 4 / 6</span>
+</div>
+<div class="font-prose-h2 text-prose-h2 text-on-surface tracking-tight truncate">
+            Chapter 014 · 裂隙深潜
+          </div>
+<div class="flex flex-col space-y-1 pt-1">
+<div class="flex items-center justify-between font-mono-stats text-mono-stats text-on-surface-variant">
+<span class="text-secondary font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">play_arrow</span>
+                draft_chapter
+              </span>
+<span class="">66.7% 完成度</span>
+</div>
+<!-- Progress Bar -->
+<div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 66.7%;"></div>
+</div>
+</div>
+<div class="text-ui-micro font-ui-micro text-on-surface-variant bg-surface-container p-space-xs rounded flex items-center gap-2">
+<span class="material-symbols-outlined text-xs text-tertiary">psychology</span>
+<span class="truncate">草拟第 3 幕场景与人物内心冲突（克林特与虚空信号的共振）</span>
+</div>
+</div>
+<!-- Current Output Telemetry -->
+<div class="grid grid-cols-3 gap-space-xs pt-1">
+<div class="bg-surface-container-high p-space-sm rounded-lg flex flex-col">
+<span class="font-panel-caps text-panel-caps text-outline uppercase">实时产出</span>
+<span class="font-mono-stats text-headline-panel text-on-surface font-semibold mt-1">1,840 <span class="text-ui-micro font-normal text-outline">字</span></span>
+</div>
+<div class="bg-surface-container-high p-space-sm rounded-lg flex flex-col">
+<span class="font-panel-caps text-panel-caps text-outline uppercase">步骤耗时</span>
+<span class="font-mono-stats text-headline-panel text-secondary font-semibold mt-1">32.4 <span class="text-ui-micro font-normal text-outline">s</span></span>
+</div>
+<div class="bg-surface-container-high p-space-sm rounded-lg flex flex-col">
+<span class="font-panel-caps text-panel-caps text-outline uppercase">上下文注入</span>
+<span class="font-mono-stats text-headline-panel text-primary font-semibold mt-1">142.8 <span class="text-ui-micro font-normal text-outline">k</span></span>
+</div>
+</div>
+</div>
+<!-- Pipeline Track: 6-Step ainovel-core Flow -->
+<div class="xl:col-span-7 flex flex-col bg-surface-container-lowest p-space-lg rounded-xl shadow-md space-y-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-base text-primary">alt_route</span>
+<span class="font-headline-panel text-headline-panel text-on-surface">ainovel-core Pipeline 状态流 (标准 6 步)</span>
+</div>
+<span class="font-mono-stats text-mono-stats text-outline">Seq ID: pipe-ch014-run01</span>
+</div>
+<!-- Flow Visualizer -->
+<div class="space-y-space-xs flex-1 flex flex-col justify-between">
+<!-- Step 1: Completed -->
+<div class="flex items-center justify-between p-space-sm bg-surface-container-low/60 rounded-lg">
+<div class="flex items-center gap-space-md min-w-0">
+<span class="material-symbols-outlined text-sm text-secondary">check_circle</span>
+<span class="font-mono-code text-mono-code text-on-surface-variant font-medium">1. novel_context</span>
+<span class="text-ui-micro font-ui-micro text-outline truncate">全书状态网与世界观实体注入</span>
+</div>
+<div class="flex items-center gap-space-sm font-mono-stats text-mono-stats text-outline flex-shrink-0">
+<span class="bg-surface-container-high px-space-xs py-0.5 rounded text-on-surface-variant">耗时 1.8s</span>
+<span class="text-secondary">DONE</span>
+</div>
+</div>
+<!-- Step 2: Completed -->
+<div class="flex items-center justify-between p-space-sm bg-surface-container-low/60 rounded-lg">
+<div class="flex items-center gap-space-md min-w-0">
+<span class="material-symbols-outlined text-sm text-secondary">check_circle</span>
+<span class="font-mono-code text-mono-code text-on-surface-variant font-medium">2. read_chapter</span>
+<span class="text-ui-micro font-ui-micro text-outline truncate">加载前置 Ch.013 章节末尾与人物挂载</span>
+</div>
+<div class="flex items-center gap-space-sm font-mono-stats text-mono-stats text-outline flex-shrink-0">
+<span class="bg-surface-container-high px-space-xs py-0.5 rounded text-on-surface-variant">耗时 2.4s</span>
+<span class="text-secondary">DONE</span>
+</div>
+</div>
+<!-- Step 3: Completed -->
+<div class="flex items-center justify-between p-space-sm bg-surface-container-low/60 rounded-lg">
+<div class="flex items-center gap-space-md min-w-0">
+<span class="material-symbols-outlined text-sm text-secondary">check_circle</span>
+<span class="font-mono-code text-mono-code text-on-surface-variant font-medium">3. plan_chapter</span>
+<span class="text-ui-micro font-ui-micro text-outline truncate">大纲节拍规划确认 (已生成 3 幕起承转合)</span>
+</div>
+<div class="flex items-center gap-space-sm font-mono-stats text-mono-stats text-outline flex-shrink-0">
+<span class="bg-surface-container-high px-space-xs py-0.5 rounded text-on-surface-variant">生成 3 条节拍</span>
+<span class="text-secondary">DONE</span>
+</div>
+</div>
+<!-- Step 4: Active Highlight -->
+<div class="flex items-center justify-between p-space-sm bg-surface-container-high rounded-lg shadow-sm">
+<div class="flex items-center gap-space-md min-w-0">
+<span class="material-symbols-outlined text-sm text-primary animate-pulse">radio_button_checked</span>
+<span class="font-mono-code text-mono-code text-primary font-bold">4. draft_chapter</span>
+<span class="text-ui-micro font-ui-micro text-on-surface font-medium truncate">正文多块流式草拟 (已生成 1,840 字)</span>
+</div>
+<div class="flex items-center gap-space-sm font-mono-stats text-mono-stats flex-shrink-0">
+<span class="bg-primary/10 text-primary px-space-xs py-0.5 rounded font-semibold">耗时 32.4s</span>
+<span class="text-secondary animate-pulse font-bold">ACTIVE</span>
+</div>
+</div>
+<!-- Step 5: Pending -->
+<div class="flex items-center justify-between p-space-sm bg-surface-container-low/30 rounded-lg opacity-40">
+<div class="flex items-center gap-space-md min-w-0">
+<span class="material-symbols-outlined text-sm text-outline">radio_button_unchecked</span>
+<span class="font-mono-code text-mono-code text-outline font-normal">5. check_consistency</span>
+<span class="text-ui-micro font-ui-micro text-outline truncate">伏笔连续性、实体状态与死锁校验</span>
+</div>
+<div class="flex items-center gap-space-sm font-mono-stats text-mono-stats text-outline flex-shrink-0">
+<span class="">等待草稿完成</span>
+<span class="">QUEUED</span>
+</div>
+</div>
+<!-- Step 6: Pending -->
+<div class="flex items-center justify-between p-space-sm bg-surface-container-low/30 rounded-lg opacity-40">
+<div class="flex items-center gap-space-md min-w-0">
+<span class="material-symbols-outlined text-sm text-outline">radio_button_unchecked</span>
+<span class="font-mono-code text-mono-code text-outline font-normal">6. commit_chapter</span>
+<span class="text-ui-micro font-ui-micro text-outline truncate">写盘持久化、状态增量回写、触发 Editor 审稿</span>
+</div>
+<div class="flex items-center gap-space-sm font-mono-stats text-mono-stats text-outline flex-shrink-0">
+<span class="">待提交</span>
+<span class="">QUEUED</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Agent Matrix & Telemetry Row -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-md">
+<!-- Multi-Agent Matrix (ainovel-core Agents) -->
+<div class="lg:col-span-7 bg-surface-container-lowest p-space-md rounded-xl shadow-md space-y-space-sm">
+<div class="flex items-center justify-between mb-space-xs">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-base text-primary">hub</span>
+<span class="font-headline-panel text-headline-panel text-on-surface">Multi-Agent 状态矩阵</span>
+</div>
+<span class="font-mono-stats text-mono-stats text-outline">Active Roster: 4 Registered</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-xs">
+<!-- Agent: Architect -->
+<div class="bg-surface-container-low p-space-sm rounded-lg flex flex-col justify-between space-y-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-ui-medium text-ui-medium text-on-surface font-semibold flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm text-outline">account_tree</span>
+                Architect (架构师)
+              </span>
+<span class="font-mono-stats text-mono-stats text-outline bg-surface-container-high px-1.5 py-0.5 rounded">IDLE</span>
+</div>
+<p class="font-ui-micro text-ui-micro text-on-surface-variant truncate">
+              上次生成: 全书 Arc 02 节拍规划
+            </p>
+<div class="font-mono-stats text-mono-stats text-outline flex items-center justify-between pt-1">
+<span class="">调用周期: 2h 前</span>
+<span class="text-secondary">Ready</span>
+</div>
+</div>
+<!-- Agent: Writer -->
+<div class="bg-surface-container-high p-space-sm rounded-lg flex flex-col justify-between space-y-space-xs shadow-inner">
+<div class="flex items-center justify-between">
+<span class="font-ui-medium text-ui-medium text-primary font-semibold flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm text-primary">edit_note</span>
+                Writer (执笔)
+              </span>
+<span class="font-mono-stats text-mono-stats text-secondary bg-secondary/15 px-1.5 py-0.5 rounded font-bold animate-pulse">RUNNING</span>
+</div>
+<p class="font-ui-micro text-ui-micro text-on-surface truncate">
+              执行中: Ch.014 裂隙深潜正文草稿
+            </p>
+<div class="font-mono-stats text-mono-stats text-on-surface-variant flex items-center justify-between pt-1">
+<span class="">并发线程: 1 主流</span>
+<span class="text-primary font-semibold">Lock Acquired</span>
+</div>
+</div>
+<!-- Agent: Editor -->
+<div class="bg-surface-container-low p-space-sm rounded-lg flex flex-col justify-between space-y-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-ui-medium text-ui-medium text-on-surface font-semibold flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm text-outline">rate_review</span>
+                Editor (主编审稿)
+              </span>
+<span class="font-mono-stats text-mono-stats text-tertiary bg-tertiary/15 px-1.5 py-0.5 rounded font-medium">WAITING</span>
+</div>
+<p class="font-ui-micro text-ui-micro text-on-surface-variant truncate">
+              就绪队列: 等待 Ch.014 commit 后启动
+            </p>
+<div class="font-mono-stats text-mono-stats text-outline flex items-center justify-between pt-1">
+<span class="">触发器: on_commit_hook</span>
+<span class="text-tertiary">In Queue</span>
+</div>
+</div>
+<!-- Agent: Arbiter -->
+<div class="bg-surface-container-low p-space-sm rounded-lg flex flex-col justify-between space-y-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-ui-medium text-ui-medium text-on-surface font-semibold flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm text-outline">gavel</span>
+                Arbiter (裁决校验)
+              </span>
+<span class="font-mono-stats text-mono-stats text-outline bg-surface-container-high px-1.5 py-0.5 rounded">IDLE</span>
+</div>
+<p class="font-ui-micro text-ui-micro text-on-surface-variant truncate">
+              待命: 负责实时 Steer 校验与全局规约
+            </p>
+<div class="font-mono-stats text-mono-stats text-outline flex items-center justify-between pt-1">
+<span class="">监听: Steer Channel</span>
+<span class="text-secondary">Standby</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Usage Telemetry & Cost Dashboard -->
+<div class="lg:col-span-5 bg-surface-container-lowest p-space-md rounded-xl shadow-md space-y-space-sm">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-base text-secondary">payments</span>
+<span class="font-headline-panel text-headline-panel text-on-surface">Usage 统计仪表 (Token &amp; 成本)</span>
+</div>
+<span class="font-mono-stats text-mono-stats text-outline">Live Sync</span>
+</div>
+<div class="grid grid-cols-2 gap-space-xs">
+<!-- Input Tokens -->
+<div class="bg-surface-container-low p-space-sm rounded-lg">
+<span class="font-panel-caps text-panel-caps text-outline uppercase block">Input Tokens</span>
+<div class="flex items-baseline gap-1 mt-1">
+<span class="font-mono-stats text-display-workbench text-on-surface font-semibold">142.8<span class="text-ui-micro text-outline font-normal">K</span></span>
+</div>
+<span class="font-ui-micro text-ui-micro text-outline block mt-0.5">上下文注入 + 大纲参考</span>
+</div>
+<!-- Output Tokens -->
+<div class="bg-surface-container-low p-space-sm rounded-lg">
+<span class="font-panel-caps text-panel-caps text-outline uppercase block">Output Tokens</span>
+<div class="flex items-baseline gap-1 mt-1">
+<span class="font-mono-stats text-display-workbench text-primary font-semibold">48.2<span class="text-ui-micro text-outline font-normal">K</span></span>
+</div>
+<span class="font-ui-micro text-ui-micro text-outline block mt-0.5">正文与思考轨迹</span>
+</div>
+<!-- Run Cost -->
+<div class="bg-surface-container-low p-space-sm rounded-lg">
+<span class="font-panel-caps text-panel-caps text-outline uppercase block">本次运行 Cost</span>
+<div class="flex items-baseline gap-1 mt-1">
+<span class="font-mono-stats text-display-workbench text-secondary font-semibold">$0.34</span>
+</div>
+<span class="font-ui-micro text-ui-micro text-outline block mt-0.5">Run Cost (Current Task)</span>
+</div>
+<!-- Cumulative Cost -->
+<div class="bg-surface-container-low p-space-sm rounded-lg">
+<span class="font-panel-caps text-panel-caps text-outline uppercase block">项目累计 Cost</span>
+<div class="flex items-baseline gap-1 mt-1">
+<span class="font-mono-stats text-display-workbench text-on-surface font-semibold">$14.28</span>
+</div>
+<span class="font-ui-micro text-ui-micro text-outline block mt-0.5">Project Cumulative Cost</span>
+</div>
+</div>
+<!-- Runtime Speed & Clock -->
+<div class="flex items-center justify-between p-space-sm bg-surface-container-high rounded-lg font-mono-stats text-mono-stats">
+<div class="flex items-center gap-space-sm text-on-surface-variant">
+<span class="text-outline">运行耗时 (Elapsed):</span>
+<span class="text-on-surface font-semibold">00:42:18</span>
+</div>
+<div class="flex items-center gap-space-sm text-on-surface-variant">
+<span class="text-outline">生成速率:</span>
+<span class="text-secondary font-semibold">48.2 tok/s</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Runtime Log Terminal (Standard IDE Component) -->
+<div class="flex flex-col bg-surface-container-lowest rounded-xl shadow-md overflow-hidden">
+<!-- Terminal Header / Action Strip -->
+<div class="flex flex-wrap items-center justify-between px-space-md py-space-sm bg-surface-container-low border-none gap-space-sm">
+<div class="flex items-center gap-space-md">
+<div class="flex items-center gap-space-xs">
+<span class="w-2.5 h-2.5 rounded-full bg-error/60 inline-block"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-tertiary/60 inline-block"></span>
+<span class="w-2.5 h-2.5 rounded-full bg-secondary/60 inline-block"></span>
+</div>
+<div class="flex items-center gap-1.5 font-headline-panel text-headline-panel text-on-surface">
+<span class="material-symbols-outlined text-sm text-secondary">terminal</span>
+<span class="">Runtime Log Stream (原生实时终端)</span>
+</div>
+<div class="flex items-center gap-1 font-mono-stats text-mono-stats text-outline bg-surface-container-high px-space-xs py-0.5 rounded">
+<span class="">stdout/stderr</span>
+</div>
+</div>
+<!-- Log Controls Toolbar -->
+<div class="flex items-center gap-space-sm">
+<!-- Autoscroll Toggle -->
+<label class="flex items-center gap-1.5 font-ui-micro text-ui-micro text-on-surface-variant cursor-pointer select-none">
+<input checked="" class="w-3.5 h-3.5 rounded bg-surface-container accent-primary cursor-pointer" id="toggle-autoscroll" type="checkbox">
+<span class="">自动滚动</span>
+</label>
+<span class="w-px h-3.5 bg-surface-variant"></span>
+<!-- Level Filter -->
+<div class="flex items-center gap-1 font-ui-micro text-ui-micro">
+<span class="text-outline">级别:</span>
+<select class="bg-surface-container-high text-on-surface rounded px-1.5 py-0.5 font-mono-stats text-mono-stats focus:outline-none" id="log-level-filter">
+<option value="ALL">ALL</option>
+<option selected="" value="INFO">INFO</option>
+<option value="WARN">WARN</option>
+<option value="ERROR">ERROR</option>
+</select>
+</div>
+<!-- Agent Filter -->
+<div class="flex items-center gap-1 font-ui-micro text-ui-micro">
+<span class="text-outline">Agent:</span>
+<select class="bg-surface-container-high text-on-surface rounded px-1.5 py-0.5 font-mono-stats text-mono-stats focus:outline-none" id="agent-filter">
+<option value="ALL">全部</option>
+<option selected="" value="Writer">Writer</option>
+<option value="Architect">Architect</option>
+<option value="Editor">Editor</option>
+<option value="Arbiter">Arbiter</option>
+</select>
+</div>
+<span class="w-px h-3.5 bg-surface-variant"></span>
+<!-- Clear Button -->
+<button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors" id="btn-clear-log" title="清空日志视图" type="button">
+<span class="material-symbols-outlined text-sm">delete_sweep</span>
+</button>
+<!-- Popout / Expand Button -->
+<button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors" id="btn-popout-log" title="打开独立日志窗口" type="button">
+<span class="material-symbols-outlined text-sm">open_in_new</span>
+</button>
+</div>
+</div>
+<!-- Log Terminal Body -->
+<div class="p-space-md font-mono-code text-mono-code bg-surface-container-lowest overflow-y-auto max-h-[300px] min-h-[180px] space-y-1 select-text" id="terminal-body">
+<div class="flex items-start gap-space-sm text-outline">
+<span class="text-outline">[10:14:02]</span>
+<span class="text-primary font-semibold">[Writer]</span>
+<span class="text-secondary">[INFO]</span>
+<span class="text-on-surface">Writer started Chapter 14: 裂隙深潜 (seq: pipe-ch014-run01)</span>
+</div>
+<div class="flex items-start gap-space-sm text-outline">
+<span class="text-outline">[10:14:08]</span>
+<span class="text-primary font-semibold">[Writer]</span>
+<span class="text-secondary">[INFO]</span>
+<span class="text-on-surface-variant">novel_context loaded: 142.8K tokens injected. Vector/RAG bypass enabled.</span>
+</div>
+<div class="flex items-start gap-space-sm text-outline">
+<span class="text-outline">[10:14:15]</span>
+<span class="text-primary font-semibold">[Writer]</span>
+<span class="text-secondary">[INFO]</span>
+<span class="text-on-surface-variant">plan_chapter ready: 3 sub-beats confirmed [Beat A: 深潜指令, Beat B: 裂隙折射, Beat C: 虚空低语]</span>
+</div>
+<div class="flex items-start gap-space-sm text-outline">
+<span class="text-outline">[10:14:17]</span>
+<span class="text-primary font-semibold">[Writer]</span>
+<span class="text-secondary">[INFO]</span>
+<span class="text-on-surface">Entering draft_chapter... Generating scene text with model claude-3.5-sonnet</span>
+</div>
+<div class="flex items-start gap-space-sm text-outline">
+<span class="text-outline">[10:14:45]</span>
+<span class="text-primary font-semibold">[Writer]</span>
+<span class="text-secondary">[INFO]</span>
+<span class="text-on-surface">Chunk 1-3 committed, streaming prose buffer (1,840 words, temperature 0.72)</span>
+</div>
+<!-- Live Line Pulse -->
+<div class="flex items-start gap-space-sm text-primary animate-pulse">
+<span class="text-outline">[10:15:02]</span>
+<span class="text-primary font-semibold">[Writer]</span>
+<span class="text-secondary">[STREAM]</span>
+<span class="text-on-surface flex items-center gap-1">
+<span class="">&gt;&gt; “克林特深吸了一口气，机械手腕发出轻微的蜂鸣，那不是故障，而是共振……”</span>
+<span class="inline-block w-2 h-3.5 bg-primary align-middle ml-1"></span>
+</span>
+</div>
+</div>
+</div>
+<!-- Unified Telemetry Status Strip (Strict Section 7 Requirement) -->
+<div class="flex items-center justify-between px-space-md py-space-xs bg-surface-container-lowest rounded-lg shadow-inner font-mono-stats text-mono-stats">
+<div class="flex items-center gap-space-md min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+<div class="flex items-center gap-1 text-on-surface">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span class="text-primary font-semibold">Writer</span>
+<span class="text-outline">·</span>
+<span class="text-on-surface">Ch.14</span>
+<span class="text-outline">·</span>
+<span class="text-secondary font-medium">draft_chapter</span>
+</div>
+<span class="text-surface-variant font-light">|</span>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="text-outline">Input</span>
+<span class="text-on-surface font-semibold">142.8K</span>
+</div>
+<span class="text-surface-variant font-light">|</span>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="text-outline">Output</span>
+<span class="text-on-surface font-semibold">48.2K</span>
+</div>
+<span class="text-surface-variant font-light">|</span>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="text-outline">Cost</span>
+<span class="text-secondary font-semibold">$0.34</span>
+</div>
+<span class="text-surface-variant font-light">|</span>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="text-outline">Elapsed</span>
+<span class="text-on-surface">00:42:18</span>
+</div>
+</div>
+<div class="flex items-center gap-space-md flex-shrink-0">
+<div class="flex items-center gap-1 px-space-xs py-0.5 rounded bg-surface-container-high text-on-surface-variant hover:text-on-surface cursor-pointer transition-colors">
+<span class="material-symbols-outlined text-xs text-secondary">terminal</span>
+<span class="text-ui-micro font-ui-micro">[实时日志]</span>
+</div>
+<span class="text-surface-variant font-light">|</span>
+<div class="flex items-center gap-1 text-outline">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary/80"></span>
+<span class="text-ui-micro font-ui-micro text-on-surface-variant font-medium">Core Ready (v1.4.2)</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Runtime Micro-Interactions Script -->
+<script>
+    (function initRuntimeCenter() {
+      const btnPause = document.getElementById('btn-pause-task');
+      const btnStop = document.getElementById('btn-stop-task');
+      const btnClear = document.getElementById('btn-clear-log');
+      const terminal = document.getElementById('terminal-body');
+      const toggleAutoscroll = document.getElementById('toggle-autoscroll');
+
+      // Pause Action Toast Feedback
+      if (btnPause) {
+        btnPause.addEventListener('click', () => {
+          const isPaused = btnPause.getAttribute('data-paused') === 'true';
+          if (!isPaused) {
+            btnPause.setAttribute('data-paused', 'true');
+            btnPause.innerHTML = '<span class="material-symbols-outlined text-base">play_arrow</span><span>恢复 (Resume)</span>';
+            btnPause.className = 'flex items-center gap-1.5 px-space-md py-1.5 rounded-lg bg-secondary-container hover:bg-secondary text-on-secondary-container hover:text-on-secondary font-ui-medium text-ui-medium shadow-sm active:scale-[0.97] transition-all';
+            appendLog('[Writer]', '[WARN]', 'Execution paused by operator via Runtime Center');
+          } else {
+            btnPause.setAttribute('data-paused', 'false');
+            btnPause.innerHTML = '<span class="material-symbols-outlined text-base">pause</span><span>暂停 (Pause)</span>';
+            btnPause.className = 'flex items-center gap-1.5 px-space-md py-1.5 rounded-lg bg-tertiary-container hover:bg-tertiary text-on-tertiary-container hover:text-on-tertiary font-ui-medium text-ui-medium shadow-sm active:scale-[0.97] transition-all';
+            appendLog('[Writer]', '[INFO]', 'Execution resumed. Restoring pipeline stream lock...');
+          }
+        });
+      }
+
+      // Stop Action
+      if (btnStop) {
+        btnStop.addEventListener('click', () => {
+          const confirmStop = window.confirm('确认立即终止当前任务 (Ch.014 draft_chapter)? 任何未保存的临时 Buffer 将丢弃。');
+          if (confirmStop) {
+            appendLog('[System]', '[ERROR]', 'Pipeline execution aborted by user signal SIGINT');
+          }
+        });
+      }
+
+      // Clear Log Action
+      if (btnClear && terminal) {
+        btnClear.addEventListener('click', () => {
+          terminal.innerHTML = '<div class="text-outline font-mono-stats py-1">[Terminal cleared. Waiting for new stream frames...]</div>';
+        });
+      }
+
+      // Helper function to append log safely
+      function appendLog(agent, level, message) {
+        if (!terminal) return;
+        const now = new Date();
+        const timeStr = '[' + [now.getHours(), now.getMinutes(), now.getSeconds()].map(v => String(v).padStart(2, '0')).join(':') + ']';
+        const logLine = document.createElement('div');
+        logLine.className = 'flex items-start gap-space-sm text-outline';
+        
+        let levelClass = 'text-secondary';
+        if (level === '[WARN]') levelClass = 'text-tertiary';
+        if (level === '[ERROR]') levelClass = 'text-error';
+
+        logLine.innerHTML = `
+          <span class="text-outline">${timeStr}</span>
+          <span class="text-primary font-semibold">${agent}</span>
+          <span class="${levelClass}">${level}</span>
+          <span class="text-on-surface">${message}</span>
+        `;
+        terminal.appendChild(logLine);
+        if (toggleAutoscroll && toggleAutoscroll.checked) {
+          terminal.scrollTop = terminal.scrollHeight;
+        }
+      }
+    })();
+  </script>
+</div></main></div><footer class="fixed bottom-0 left-0 right-0 h-6 bg-surface-container-lowest z-50 flex items-center justify-between px-space-md select-none font-mono-stats text-mono-stats shadow-[0_-1px_6px_rgba(0,0,0,0.3)]"><div class="flex items-center gap-space-md overflow-hidden text-ellipsis whitespace-nowrap min-w-0"><div class="flex items-center gap-1.5 text-on-surface flex-shrink-0"><span class="h-1.5 w-1.5 rounded-full bg-secondary animate-pulse"></span><span class="text-primary font-semibold">Agent: Writer</span><span class="text-outline">(Claude-3.5-Sonnet)</span></div><div class="h-3 w-[1px] bg-surface-variant flex-shrink-0"></div><div class="flex items-center gap-1 text-on-surface-variant truncate"><span class="text-outline">Step:</span><span class="text-on-surface font-semibold">[draft_chapter 4/6]</span><span class="text-outline">|</span><span class="">Chapter: 第014章</span></div></div><div class="flex items-center gap-space-md text-on-surface-variant overflow-hidden text-ellipsis whitespace-nowrap hidden lg:flex"><div class="flex items-center gap-2"><span class="text-outline">运行时长:</span><span class="text-on-surface">00:42:15</span></div><div class="h-3 w-[1px] bg-surface-variant"></div><div class="flex items-center gap-2"><span class="text-outline">In:</span><span class="text-on-surface">142.8k</span><span class="text-outline">Out:</span><span class="text-on-surface">48.2k</span></div><div class="h-3 w-[1px] bg-surface-variant"></div><div class="flex items-center gap-1.5"><span class="text-outline">Cost:</span><span class="text-secondary font-semibold">$0.34</span><span class="text-outline">(累积 $14.28)</span></div></div><div class="flex items-center gap-space-sm flex-shrink-0"><button class="flex items-center gap-1 px-space-xs py-0.5 rounded text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors text-ui-micro font-ui-micro" type="button"><span class="material-symbols-outlined text-xs text-primary">alt_route</span><span class="">快速引导 (Steer)</span></button><div class="h-3 w-[1px] bg-surface-variant"></div><button class="flex items-center gap-1 px-space-xs py-0.5 rounded bg-surface-container-high hover:bg-surface-variant text-on-surface transition-colors text-ui-micro font-ui-micro" type="button"><span class="material-symbols-outlined text-xs text-secondary">terminal</span><span class="">运行日志 (实时)</span><span class="h-1.5 w-1.5 rounded-full bg-secondary"></span></button></div></footer>
+
+</body></html>

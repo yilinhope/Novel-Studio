@@ -1,0 +1,37 @@
+# Package Manifest
+
+- `00_README_FIRST.md` — 2015 bytes — SHA256 `aee0d6b6986046cdc91813aba8fcbf29d716d352e8289378f7ca58dc142b6547`
+- `01_CODEX_KICKOFF_PROMPT.md` — 3819 bytes — SHA256 `875a5ebcd0e361e86bbd93b6dbf5c35376abd57b9a5588a954b95092a1ef2070`
+- `02_V1_SCOPE_QUICKREF.md` — 1374 bytes — SHA256 `f2b3f040ec7f2227729d61a3e1ca7c03bf0b03131efdeb5b623a18f3ef0758e7`
+- `03_STITCH_PAGE_MAP.md` — 1239 bytes — SHA256 `a6b0ed34cb27fedb91bd6842766b111b6172b878941d57606d11fa13e401337e`
+- `04_UPSTREAM_AND_LICENSE_NOTES.md` — 950 bytes — SHA256 `cbe7a94308c9dc844e33caab3082e7d329905b19426dd58eae4447277a05f1d0`
+- `design/v1_reference/editor_review_center_novel_studio/code.html` — 39567 bytes — SHA256 `2a18817bd07abbead22bf51c0647bab685335391f3121db1a6ae958f4dd147f7`
+- `design/v1_reference/editor_review_center_novel_studio/screen.png` — 584782 bytes — SHA256 `e1a2b8ac0782fd2d6acf8153b69fe1c23ce8f2b8d0c1d9fcf0f3c1d5aaa38e64`
+- `design/v1_reference/master_outline_novel_studio/code.html` — 52411 bytes — SHA256 `3a9696cdfe0b0d7274d5a7174d56aef0447d520700dbad372c724909826ac93b`
+- `design/v1_reference/master_outline_novel_studio/screen.png` — 905286 bytes — SHA256 `9dedaf2ffdf82748e3c8ffddd8b729522f9d5e27ed97efcf617c37119c723b4a`
+- `design/v1_reference/multi_agent_runtime_error/code.html` — 55909 bytes — SHA256 `4b70a8d272edb19f22004ab5f6fe872a9186b94abcc98c5d96ca3c7f0b222eae`
+- `design/v1_reference/multi_agent_runtime_error/screen.png` — 541682 bytes — SHA256 `72c5eb09bf7e3004e205777a6e45c4bc33d0d9b53b5374e0fa454f5538b79166`
+- `design/v1_reference/multi_agent_runtime_paused/code.html` — 51227 bytes — SHA256 `e68d53feb5c754717c633aa7a287b40bd1e5ba3bff36ef337aa0adb6797d3eab`
+- `design/v1_reference/multi_agent_runtime_paused/screen.png` — 996321 bytes — SHA256 `89029b5af36ab13ca9932f60965465cb457c59009329a45e6691ddc99027daae`
+- `design/v1_reference/multi_agent_runtime_running/code.html` — 52974 bytes — SHA256 `a713df49bc6bc03609f84e9e0da59cc633d9d76f1885eee650aeaa9472dfb48b`
+- `design/v1_reference/multi_agent_runtime_running/screen.png` — 842494 bytes — SHA256 `08cf840f28009c4d61dfc4c4bdc3227bba1d3e3a226a6a1b6a4b90e5b86321e8`
+- `design/v1_reference/novel_studio_1/code.html` — 36124 bytes — SHA256 `75a7da0fb650b52c7cc9646b567797da171560d17a8a35818aa16c291c6fa359`
+- `design/v1_reference/novel_studio_1/screen.png` — 462736 bytes — SHA256 `2da8449b88f01b3020cbd88bf1f11b4c2fa0e9c0d0138f1ba76796b6cad0e3e5`
+- `design/v1_reference/novel_studio_2/code.html` — 39896 bytes — SHA256 `068d117e3e71e7965b008b2ef25640d8865392ff7e328be1516ae91d14100cac`
+- `design/v1_reference/novel_studio_2/screen.png` — 575669 bytes — SHA256 `cbd8193e03219c493ac31272dd5dab025d7f89324d23556613e441db9c193400`
+- `design/v1_reference/novel_studio_6/README_DO_NOT_USE_SCREENSHOT.md` — 521 bytes — SHA256 `98c4967f0c99a3a9f61996257f02223d5a7f1528b92854278199ec12ba9bf351`
+- `design/v1_reference/novel_studio_6/code.html` — 20605 bytes — SHA256 `2d335768262dd34946642fd664de69753adac0a27e05a1fb2135a53ca94deca8`
+- `design/v1_reference/novel_studio_6/screen.png` — 542177 bytes — SHA256 `ef8a5a361eae57a4f6e87e6680ed9a929180a7d76b4212d0a9205b0485abbfbe`
+- `design/v1_reference/novel_studio_ide/DESIGN.md` — 11734 bytes — SHA256 `af29c340c55fa37be0abb4a93358d9b58bca576c5a39e43701f802ea742ddd7b`
+- `design/v1_reference/novel_studio_logo/code.html` — 1095 bytes — SHA256 `48cf4ded55afa49a933ad5ad2382e8244e0ba09a82a32d1846ba84c5963c946c`
+- `design/v1_reference/novel_studio_logo/screen.png` — 1573 bytes — SHA256 `cb9d188f0e96d87acdc001ece8ea179f8a13092011b6102be2059f67c39e35c8`
+- `design/v1_reference/provider_novel_studio/code.html` — 55177 bytes — SHA256 `247c2a8ee354b522cecaf595be2bb751f42164ac8c4381b4446b1cf7d7d8a917`
+- `design/v1_reference/provider_novel_studio/screen.png` — 450940 bytes — SHA256 `739bf91c2372d1fc81e8824f3e77bfb2114feb086aab139893ebc588ff6b06a5`
+- `design/v1_reference/synced_idle/code.html` — 40818 bytes — SHA256 `da42040f75375718cf4c9754e3ae6a0e789260187d0c6ea9dc91e43ab128170a`
+- `design/v1_reference/synced_idle/screen.png` — 876776 bytes — SHA256 `0ca3555f71a5824e060b5626393b7054f741267151f3ea1fe3403715201757b3`
+- `design/v1_reference/writer_running/code.html` — 42150 bytes — SHA256 `b68a69352870a49fa28023e1dfe88eac64b96e2d86220d456c6570ebfd1a670f`
+- `design/v1_reference/writer_running/screen.png` — 838522 bytes — SHA256 `075a7c1f1b78d4b34174e576bd91df5ea00e92a497357997ac7d25293e70c549`
+- `docs/Novel_Studio_V1_Design_Baseline_Annotated.md` — 13100 bytes — SHA256 `353e24e4118097bbcbe8b01300528aa75bcffb9d5341d3f7433ed6b7de01c2de`
+- `docs/Novel_Studio_V1_Engineering_Blueprint.md` — 20118 bytes — SHA256 `e744e2b4fd89b90481d8b685ad7d42afd23fbb67df9fc7cefecaa857646d94b5`
+- `docs/Novel_Studio_V1_Stitch_Final_Cleanup.md` — 10366 bytes — SHA256 `087a8da7ac0aa9f32afca78f13c5b5a53308e17c1ffa911bebdfb6a7830e496b`
+- `docs/Novel_Studio_V1_Stitch_UI_PRD.md` — 17047 bytes — SHA256 `0a3555ada549daaf6300f20e75eaf199d2f08b4451f33722bd3ccb0a3fe5b910`

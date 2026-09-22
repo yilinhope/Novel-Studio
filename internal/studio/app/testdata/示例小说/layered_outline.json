@@ -1,0 +1,13 @@
+[
+  {
+    "index": 1,
+    "title": "第一卷 · 灰烬破晓",
+    "theme": "远航与归来",
+    "arcs": [
+      {"index": 1, "title": "边陲觉醒", "goal": "找到灯塔", "chapters": [
+        {"chapter": 1, "title": "潮声之下", "core_event": "发现灯塔信号"},
+        {"chapter": 2, "title": "最后的航标", "core_event": "进入沉没的城市"}
+      ]}
+    ]
+  }
+]
