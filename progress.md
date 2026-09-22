@@ -2,12 +2,17 @@
 
 ## Session: 2026-09-23 — M3 Engine Bridge 审计
 
-- **Status:** complete（M3-A 尚未实施）
+- **Status:** in_progress（M3-A 实施中）
 - 已读取 `Novel_Studio_V1_M3_Engine_Bridge_Codex.md`，本轮按其第一步执行源码审计和 M3-A 实施方案。
 - 从 M2 创建 `codex/m3-engine-bridge-audit`，开始时工作树干净。
 - 已刷新 GitNexus 索引，并定位 `Host.New`、`Host.Resume/Continue/Abort`、TUI `resumeBook`、`Host.Events` 和 `Host.Snapshot`。
 - 已核对生命周期、review gate、usage、日志、commit 信号与 M2 边界；源码级结论和 M3-A 实施方案写入 `docs/studio-m3-engine-audit.md`。
-- 下一步：审计确认后实施 M3-A；本轮未改 Core 或 GUI 实现。
+- 审计已经用户确认；目前按 M3-A 实施，Wails Event Bus 与控制 UI 分别留到 M3-B / M3-C。
+- 用户已确认审计通过并授权进入 M3-A，要求 Studio 继续写作调用 `Host.Resume()`、增加 Pausing/Stopping、只在 Core Done 后确认终态、OpenProject 保持只读，并按 M3-A/B/C 分段提交。
+- 已新增 `internal/studio/app/engine_service.go`、`internal/studio/viewmodel/runtime.go`，并扩展 `bootstrap.LoadConfigFromDir`；M3-A 仍未接入 Wails Event Bus 或前端。
+- GitNexus 对 `bootstrap.LoadConfig` 上游影响为 LOW（ainovel-cli main 单一调用）；对 Host Event 字段为 CRITICAL（35 个直接依赖），所以本阶段没有修改 Host Event。
+- Go 工具链未在 PATH：先后核对常见安装位置后，在 Codex runtime cache 找到 Go 1.25.11。`gofmt` 和 `go build ./internal/studio/... ./internal/bootstrap` 最终通过；没有运行测试。
+- 已通过 `go build ./...` 与 `git diff --check`；GitNexus `detect-changes --scope all` 报告 LOW、0 个受影响流程。下一步提交 M3-A 阶段。
 
 ## Session: 2026-09-22
 

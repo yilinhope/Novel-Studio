@@ -25,7 +25,7 @@
 
 ## 3. M3-A 代码级方案（审计确认后实施）
 
-1. 在 `internal/studio/app` 新建 EngineSession/EngineService，由它独占一个 `*host.Host`、当前项目路径、取消句柄和 generation ID。对外只给显式 `Continue`（无文本时对应 Host.Resume）、`Pause`（Abort 后等 Done）、`Stop`（Close 等待并释放租约）、`RuntimeState`。项目切换或 Wails 退出先收尾旧 Host，再切换；旧 generation 事件不得更新新项目。每个控制调用检查当前 project/generation，拒绝重复启动和并发切换。
+1. 在 `internal/studio/app` 新建 EngineSession/EngineService，由它独占一个 `*host.Host`、当前项目路径、取消句柄和 generation ID。对外使用 `ResumeWriting`（调用 Host.Resume）、`PauseWriting`（Abort 后等 Done）、`StopWriting`（Close 等待并释放租约）、`RuntimeState` 等明确 API。项目切换或 Wails 退出先收尾旧 Host，再切换；旧 generation 事件不得更新新项目。每个控制调用检查当前 project/generation，拒绝重复启动和并发切换。
 2. 配置装配不能直接在用户任意 cwd 上调用 `bootstrap.LoadConfig()`：它的项目级覆盖路径相对 cwd，`EffectiveConfigPath()` 也相对 cwd。先明确选中的 `output/novel` 与项目根目录关系，在显式启动时定向加载该项目配置、设置 `cfg.OutputDir` 为已验证的小说目录，调用 `assets.Load` 与 `host.New`。不在普通打开时初始化 Host。配置缺失/无可用模型时报告错误，不破坏只读浏览。
 3. 建 `internal/studio/viewmodel/runtime.go` 和只读派生函数，以 Host Snapshot、Progress、RunMeta、真实事件构造 `Idle/Running/Paused/WaitingReview/Error`；`WaitingSync` 仅保留类型。过渡中的 Pause 不可仅凭 `Host.Abort()` 返回显示 Paused；等 Done/Engine 确认。Stop 与 Pause 都是安全取消，但 Stop 另须 `Host.Close`、释放 lease，UI 清楚区分“可恢复会话”和“已关闭会话”。
 4. 建单一 Event pump，把 Host Event、Stream、Done 映射到 Wails `studio:*` 事件。事件统一带 project ID、generation、递增 sequence、timestamp；前端丢弃过期代。完成事件沿用 Host 的同 ID 更新，不增一条假完成日志。日志仅保留有界最近 N 条，历史由 Runtime Queue 按序号加载。Usage 在模型/工具/运行状态等有意义的事件后读取轻量累计值，避免秒级全 Store 快照。

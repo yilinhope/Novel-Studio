@@ -18,6 +18,13 @@
 - `Host.New` 具有租约、迁移、RunMeta、Usage 落盘等副作用，不得在只读 `OpenProject` 隐式调用。
 - 章节 commit 应在 Tool 成功后核验 Progress、PendingCommit 和 checkpoint；`SaveLastCommit` 目前无写入调用。
 
+### M3-A 实施（2026-09-23）
+
+- M3-A 增加 `bootstrap.LoadConfigFromDir`，项目覆盖配置显式按项目根路径定位；原 `LoadConfig()` 仍走当前工作目录以维持 CLI 行为。
+- 新 EngineService 的唯一 Host 创建点在 `ResumeWriting`：先只读确认 Progress 存在且未完本，再构造 Host 并调用 `Host.Resume()`；无可恢复标签时关闭新 Host、释放租约。
+- EngineService 独占消费 Host Events / Stream / Done。只在 Done 到达后读取最终 Host Snapshot 并设置运行终态；Runtime ViewModel 已预留 Pausing、Stopping、WaitingReview、WaitingSync。
+- `host.Event` 本阶段未改动；其 CRITICAL 上游影响面留待事件桥阶段结合结构化 Tool 字段单独处理。
+
 - 新分支 `codex/m3-engine-bridge-audit` 从当前 M2 分支创建，开始时工作树干净。
 - 当前 Host 构造入口在 `internal/host/host.go:102`；构造时会取得小说目录租约、初始化 Store/RunMeta、模型和 UsageTracker，并建立有缓冲的 Event/Stream/Done 通道。
 - Engine 是 `internal/host/engine.go` 的私有 `engine`；Host 的 `startEngine`、`Resume`、`Continue`、`Abort` 为现有控制面。TUI 的 `bootstrapRuntime` / `resumeBook` 调用 `Host.Resume`，`listenEvents` 消费 `Host.Events`。

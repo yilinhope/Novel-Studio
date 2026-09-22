@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -69,6 +70,25 @@ func EffectiveConfigPath() string {
 //  1. ~/.ainovel/config.json（全局）
 //  2. ./.ainovel/config.json（项目级覆盖）
 func LoadConfig() (Config, error) {
+	return LoadConfigFromDir(".")
+}
+
+// LoadConfigFromDir 按全局配置与指定目录下的项目配置合并，不依赖进程工作目录。
+func LoadConfigFromDir(projectDir string) (Config, error) {
+	if strings.TrimSpace(projectDir) == "" {
+		return Config{}, fmt.Errorf("项目配置目录不能为空")
+	}
+	projectDir, err := filepath.Abs(projectDir)
+	if err != nil {
+		return Config{}, fmt.Errorf("解析项目配置目录: %w", err)
+	}
+	info, err := os.Stat(projectDir)
+	if err != nil {
+		return Config{}, fmt.Errorf("读取项目配置目录: %w", err)
+	}
+	if !info.IsDir() {
+		return Config{}, fmt.Errorf("项目配置路径不是目录: %s", projectDir)
+	}
 	var cfg Config
 
 	// 1. 全局配置。它是最低优先级基底，坏文件降级为告警而非阻断——可被项目级覆盖；
@@ -85,9 +105,9 @@ func LoadConfig() (Config, error) {
 
 	// 2. 项目级覆盖。坏文件 fail loud：用户在当前目录主动放的配置，静默吞掉会让
 	//    "配了不生效"无从排查（issue #37）。
-	project, found, err := loadOptionalJSON(projectConfigPath())
+	project, found, err := loadOptionalJSON(filepath.Join(projectDir, configDirName, "config.json"))
 	if err != nil {
-		return cfg, fmt.Errorf("项目级配置 ./.ainovel/config.json 解析失败（请检查 JSON 语法）: %w", err)
+		return cfg, fmt.Errorf("项目级配置 %s 解析失败（请检查 JSON 语法）: %w", filepath.Join(projectDir, configDirName, "config.json"), err)
 	}
 	if found {
 		cfg = mergeConfig(cfg, project)

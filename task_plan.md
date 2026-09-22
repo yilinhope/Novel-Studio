@@ -6,7 +6,7 @@
 
 ## Current Phase
 
-Phase 8: M3 Engine Bridge 源码审计
+Phase 9: M3-A EngineService 与 Runtime ViewModel
 
 ## Phases
 
@@ -73,7 +73,31 @@ Phase 8: M3 Engine Bridge 源码审计
 - [x] 映射 Host/Engine/TUI 生命周期与真实事件、用量、章节提交信号
 - [x] 用 GitNexus 核对关键调用链及改动风险（MCP 故障时使用 CLI）
 - [x] 写出 M3-A 代码级实施方案与验证边界：`docs/studio-m3-engine-audit.md`
-- **Status:** complete（等待用户审计确认后进入 M3-A）
+- **Status:** complete（审计已由用户确认）
+
+### Phase 9: M3-A EngineService 与 Runtime ViewModel
+
+- [x] 增加显式项目目录配置加载入口，避免依赖进程 cwd
+- [x] 新建 EngineService；仅 `ResumeWriting` 显式动作创建 Host，并调用 `Host.Resume()`
+- [x] 新建 Runtime ViewModel，包含 Pausing / Stopping 过渡态与用量、章节、Agent 字段
+- [x] 用 Host.Done 确认本轮结束后再发布 Paused / Stopped 等终态
+- [x] 格式化并编译 Go Studio/bootstrap 包
+- [x] GitNexus 全量变更分析
+- [ ] 提交 M3-A
+- **Status:** in_progress
+
+### Phase 10: M3-B Wails Event Bus 与 Runtime Center
+
+- [ ] 实时事件映射与项目代次隔离
+- [ ] Zustand Engine Store 与 Runtime Center 接入
+- **Status:** pending
+
+### Phase 11: M3-C 控制与章节刷新
+
+- [ ] Pause / Resume / Stop UI 与过渡态
+- [ ] Store 二次确认章节完成后定向刷新
+- [ ] Error handling 与回归验收
+- **Status:** pending
 
 ## Key Questions
 
