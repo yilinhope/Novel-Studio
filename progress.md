@@ -14,9 +14,10 @@
 - 已新增 Go 测试：预览只读/路径归一、Store 章节二次确认、活动项目切换拒绝/非活动 Host 释放、Pause/Stop 只在 Done 后进入终态、Engine.Resume 路径、运行错误分类及 Host Event 章节字段兼容。
 - 已新增前端测试：结构化章节刷新、不猜测缺失章节号、忽略旧项目/旧序号事件；Vitest 2 文件 7 项通过。
 - 验证通过：`go test ./...`、`go vet ./...`、前端 `npm test` / `npm run build`、Windows/amd64 Wails production build、`git diff --check`。
-- 本机 `go test -race` 未能启动：Go 报告需要启用 CGO；环境内无 gcc/clang/zig。PR 原有 GitHub race job 将在更新后重新执行。
+- 本机 `go test -race` 未能启动：Go 报告需要启用 CGO；环境内无 gcc/clang/zig。推送后 GitHub race job 已通过。
 - GitNexus 刷新到 9,469 nodes、39,216 edges、330 clusters、669 flows；`detect-changes --scope all` 报 17 个文件、97 个符号、57 条流程、CRITICAL。影响集中在 Engine/Host Event/Studio Bridge 共享路径；已逐项复核为新增结束原因和可选结构化字段，不改 TUI 路由及 Core Engine 调度语义。
-- 下一步检查最终 diff、提交并推送 PR #2，等待新的 GitHub Checks。
+- 已提交 `08ff7f0`（修复：补齐 M3 项目切换与 Engine 终态边界）并推送到 PR #2；PR 描述已同步更新，所有 GitHub Checks（Ubuntu/Windows Go、Frontend、Windows Wails）均通过。
+- **本阶段状态：**修复、验证、提交、推送与 PR 更新全部完成。
 
 ## Session: 2026-09-23 — M3 Engine Bridge 审计
 

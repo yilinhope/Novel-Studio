@@ -113,7 +113,8 @@ Phase 12: PR #2 M3 Review Fixes
 - [x] 为本轮 Engine 终止结果增加结构化原因并派生 RuntimeError，保持可恢复错误和历史错误语义
 - [x] 增加 Go 与前端 M3 定向测试，覆盖项目切换、Done 过渡态、章节确认与事件过滤
 - [x] 运行 format、vet、Go/前端测试与 Wails 构建；GitNexus 全量影响检查完成；本机 race 因未启用 CGO 且无 C 编译器不可运行
-- [ ] 提交并推送修复，确认 PR #2 的新 CI 结果
+- [x] 提交并推送修复，确认 PR #2 的新 CI 结果（全部通过）
+- **Status:** complete
 - **Status:** in_progress
 
 ## Key Questions
