@@ -18,6 +18,15 @@ const emptyStatus = (projectId = ''): RevisionStatus => ({
 })
 const normalizePath = (path: string) => path.replaceAll('\\', '/').replace(/\/+$/, '').toLocaleLowerCase()
 
+export function revisionRecoveryStageLabel(stage?: string): string {
+  switch (stage) {
+    case 'prepared': return '分析已准备，待应用章节记录'
+    case 'records_applied': return '章节记录已应用，待重建派生状态'
+    case 'projections_applied': return '派生状态已应用，待记录同步检查点'
+    default: return stage?.trim() || '未知 Core 阶段'
+  }
+}
+
 export function revisionsAllowWriting(projectId: string, status: RevisionStatus, checking: boolean, error: string) {
   return !checking && !error && normalizePath(projectId) !== ''
     && normalizePath(status.projectId) === normalizePath(projectId)

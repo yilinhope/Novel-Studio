@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Activity, Bot, CircleAlert, Clock3, Coins, Cpu, Play, Sparkles, SquareTerminal } from 'lucide-react'
 import { runtimeLabel, useEngineStore } from '../engineStore'
-import { revisionsAllowWriting, useRevisionStore } from '../revisionStore'
+import { revisionRecoveryStageLabel, revisionsAllowWriting, useRevisionStore } from '../revisionStore'
 import { useStudio } from '../store'
 import type { RuntimeLog } from '../types'
 
@@ -57,6 +57,7 @@ export function RuntimeCenter() {
         {runtime.state === 'pausing' && <button disabled>正在暂停…</button>}
         {runtime.state === 'stopping' && <button disabled>正在停止…</button>}
         {canSync && <button disabled={controlBusy || syncing || dirty || saveBusy || revisions.checking} title={dirty || saveBusy ? '请先保存或放弃未保存正文' : undefined} onClick={() => void syncChapterRevisions()}>{syncing ? revisions.status.state === 'recovery_pending' ? '正在恢复修订…' : '正在同步…' : revisions.status.state === 'recovery_pending' ? '继续恢复同步' : '立即同步'}</button>}
+        {revisions.status.state === 'recovery_pending' && <span className="runtime-subtitle" role="status">Core 恢复阶段：{revisionRecoveryStageLabel(revisions.status.pendingStage)}</span>}
         {syncNotice && <span className="runtime-subtitle" role="status">{syncNotice}</span>}
         {canResumeState && <button className="primary runtime-control-primary" disabled={controlBusy || syncing || !canResume} title={!canResume ? '请先完成章节修订检查，并同步所有未同步修订' : undefined} onClick={() => void resumeWriting()}>{runtime.state === 'idle' ? '开始创作' : ['paused', 'waiting_sync'].includes(runtime.state) ? '继续创作' : '恢复创作'}</button>}
         {canResumeState && !canResume && <span className="runtime-subtitle" role="status">{dirty ? '当前章节有未保存修改，请先保存或放弃编辑。' : revisions.checking ? '正在检查章节修订…' : revisions.status.hasUnsynced ? '发现未同步章节修订，请先同步后继续。' : revisions.error ? '修订检查失败，暂不能继续创作。' : '章节修订状态尚未确认。'}</span>}

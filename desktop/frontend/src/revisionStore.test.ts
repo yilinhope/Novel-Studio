@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest'
-import { useRevisionStore } from './revisionStore'
+import { revisionRecoveryStageLabel, useRevisionStore } from './revisionStore'
 import type { RevisionStatus, StudioBridge } from './types'
 
 const status = (projectId: string, state: RevisionStatus['state']): RevisionStatus => ({
@@ -53,4 +53,11 @@ test('检查失败不会把已有待同步状态标记为已同步', async () =>
   await useRevisionStore.getState().checkChapterRevisions()
   expect(useRevisionStore.getState().status).toEqual(existing)
   expect(useRevisionStore.getState().error).toContain('进度文件损坏')
+})
+
+test('恢复状态按 Core pending stage 展示真实阶段而非进度百分比', () => {
+  expect(revisionRecoveryStageLabel('prepared')).toBe('分析已准备，待应用章节记录')
+  expect(revisionRecoveryStageLabel('records_applied')).toBe('章节记录已应用，待重建派生状态')
+  expect(revisionRecoveryStageLabel('projections_applied')).toBe('派生状态已应用，待记录同步检查点')
+  expect(revisionRecoveryStageLabel('future_core_stage')).toBe('future_core_stage')
 })
