@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { revisionsAllowWriting, useRevisionStore } from './revisionStore'
 import { bridge, subscribeEngineEvents } from './services'
 import type { Runtime, RuntimeLog, RuntimeState, StudioEngineEvent } from './types'
 
@@ -21,6 +22,7 @@ interface EngineStore {
   controlBusy: boolean
   controlError: string
   selectProject(path: string, getRuntime?: (() => Promise<Runtime>) | undefined): Promise<void>
+  refreshRuntime(): Promise<void>
   handleEvent(event: StudioEngineEvent): void
   resumeWriting(): Promise<void>
   pauseWriting(): Promise<void>
@@ -50,6 +52,17 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
       set(state => ({runtime, lastSequence: state.lastSequence}))
     } catch {
       // 项目仍保持可浏览，Runtime Center 展示尚未建立 Engine Session 的状态。
+    }
+  },
+  async refreshRuntime() {
+    const getter = bridge().GetRuntimeState
+    if (!getter) return
+    try {
+      const runtime = await getter()
+      const current = get()
+      if (normalizePath(runtime.projectId) === normalizePath(current.projectId) && runtime.generation >= current.runtime.generation) set({runtime})
+    } catch {
+      // Runtime 刷新失败不应抹掉已保存正文或当前事件状态。
     }
   },
   handleEvent(event) {
@@ -88,6 +101,11 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
     }
   },
   async resumeWriting() {
+    const revisions = useRevisionStore.getState()
+    if (!revisionsAllowWriting(get().projectId, revisions.status, revisions.checking, revisions.error)) {
+      set({controlError: '请先完成章节修订检查，并同步所有未同步修订后再继续创作'})
+      return
+    }
     set({controlBusy: true, controlError: ''})
     try {
       const action = bridge().ResumeWriting

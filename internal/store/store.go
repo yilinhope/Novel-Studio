@@ -10,6 +10,7 @@ import (
 
 	"github.com/voocel/ainovel-cli/internal/domain"
 	"github.com/voocel/ainovel-cli/internal/errs"
+	"github.com/voocel/ainovel-cli/internal/projectwrite"
 )
 
 // Store 是状态管理的组合根，持有所有子存储。
@@ -78,6 +79,23 @@ func NewStore(dir string) *Store {
 
 // Dir 返回输出根目录。
 func (s *Store) Dir() string { return s.dir }
+
+// TryAcquireProjectWrite 尝试取得整个项目共享的写入互斥。
+// 它跨不同 Store/IO 实例共享；release 在对应操作完成后调用。
+func (s *Store) TryAcquireProjectWrite() (release func(), acquired bool) {
+	if s == nil {
+		return nil, false
+	}
+	return projectwrite.TryAcquire(s.dir)
+}
+
+// AcquireProjectWrite 等待取得整个项目共享的写入互斥。
+func (s *Store) AcquireProjectWrite() (release func(), acquired bool) {
+	if s == nil {
+		return nil, false
+	}
+	return projectwrite.Acquire(s.dir)
+}
 
 // LoadProjectFormatVersion 返回作品目录的数据格式版本。旧作品没有版本文件，
 // 视为 v1，由启动迁移统一升级，业务代码无需保留旧格式分支。

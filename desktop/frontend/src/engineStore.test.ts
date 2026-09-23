@@ -1,6 +1,7 @@
 import { beforeEach, expect, test, vi } from 'vitest'
 import { setChapterCommitHandler, useEngineStore } from './engineStore'
-import type { RuntimeLog, StudioEngineEvent } from './types'
+import { useRevisionStore } from './revisionStore'
+import type { RevisionStatus, RuntimeLog, StudioBridge, StudioEngineEvent } from './types'
 
 const runtime = (projectId: string, generation = 1) => ({
   projectId, generation, state: 'running' as const, phase: 'writing', flow: 'writing', elapsedSeconds: 1,
@@ -19,6 +20,7 @@ const commit = (chapter?: number): RuntimeLog => ({
 beforeEach(() => {
   useEngineStore.setState({projectId: 'C:/A', runtime: runtime('C:/A'), logs: [], pipeline: {}, lastSequence: 0,
     controlBusy: false, controlError: ''})
+  useRevisionStore.setState({projectId:'C:/A', generation:1, status:{projectId:'C:/A',state:'synced',hasUnsynced:false,chapters:[]},checking:false,error:''})
   setChapterCommitHandler(undefined)
 })
 
@@ -42,4 +44,25 @@ test('拒绝旧项目和旧序号事件', () => {
   useEngineStore.getState().handleEvent(event('C:/A', 1, commit(2)))
   expect(useEngineStore.getState().logs).toHaveLength(1)
   expect(useEngineStore.getState().lastSequence).toBe(1)
+})
+
+test('有未同步修订时阻止 ResumeWriting 调用', async () => {
+  const resume = vi.fn().mockResolvedValue(runtime('C:/A'))
+  vi.stubGlobal('window', {go:{bridge:{App:{ResumeWriting:resume} as unknown as StudioBridge}}})
+  useRevisionStore.setState({status:{projectId:'C:/A',state:'saved_unsynced',hasUnsynced:true,chapters:[]}})
+
+  await useEngineStore.getState().resumeWriting()
+
+  expect(resume).not.toHaveBeenCalled()
+  expect(useEngineStore.getState().controlError).toContain('同步所有未同步修订')
+})
+
+test('修订状态尚未确认时阻止 ResumeWriting 调用', async () => {
+  const resume = vi.fn().mockResolvedValue(runtime('C:/A'))
+  vi.stubGlobal('window', {go:{bridge:{App:{ResumeWriting:resume} as unknown as StudioBridge}}})
+  useRevisionStore.setState({status:{projectId:'C:/A',state:'unknown',hasUnsynced:false,chapters:[]}})
+
+  await useEngineStore.getState().resumeWriting()
+
+  expect(resume).not.toHaveBeenCalled()
 })

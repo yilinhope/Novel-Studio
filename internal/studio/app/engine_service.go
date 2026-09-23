@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -12,6 +13,7 @@ import (
 	"github.com/voocel/ainovel-cli/internal/bootstrap"
 	"github.com/voocel/ainovel-cli/internal/domain"
 	"github.com/voocel/ainovel-cli/internal/host"
+	"github.com/voocel/ainovel-cli/internal/revision"
 	"github.com/voocel/ainovel-cli/internal/rules"
 	"github.com/voocel/ainovel-cli/internal/store"
 	"github.com/voocel/ainovel-cli/internal/studio/viewmodel"
@@ -21,6 +23,7 @@ import (
 type EngineSession interface {
 	Snapshot() host.UISnapshot
 	Resume() (string, error)
+	SyncChapterRevisions(context.Context) (*revision.Result, error)
 	Abort() bool
 	Close()
 	Events() <-chan host.Event
@@ -42,7 +45,7 @@ type StudioEngineEvent struct {
 	Runtime    *viewmodel.Runtime `json:"runtime,omitempty"`
 }
 
-// EngineService 在用户明确恢复创作时才创建 Host，并独占消费它的运行通道。
+// EngineService 只在用户明确恢复或同步时创建 Host，并独占消费运行会话的通道。
 type EngineService struct {
 	mu        sync.Mutex
 	controlMu sync.Mutex
@@ -84,7 +87,7 @@ func NewEngineService(factory EngineHostFactory) *EngineService {
 	}
 }
 
-// ResumeWriting 从项目 Store 事实恢复 Engine；此方法是创建 Host 的唯一入口。
+// ResumeWriting 从项目 Store 事实恢复 Engine；只读打开项目不会创建 Host。
 func (s *EngineService) ResumeWriting(projectDir, outputDir string) (viewmodel.Runtime, error) {
 	projectDir = strings.TrimSpace(projectDir)
 	outputDir = strings.TrimSpace(outputDir)
@@ -222,6 +225,63 @@ func (s *EngineService) ResumeWriting(projectDir, outputDir string) (viewmodel.R
 	s.mu.Unlock()
 	s.emit(generation, "runtime", nil, &runtime)
 	return runtime, nil
+}
+
+// SyncChapterRevisions 仅由用户明确的 Sync 操作调用，并复用现有 Host 的 Core 同步与恢复流程。
+func (s *EngineService) SyncChapterRevisions(ctx context.Context, projectDir, outputDir string) error {
+	projectDir = strings.TrimSpace(projectDir)
+	outputDir = strings.TrimSpace(outputDir)
+	if projectDir == "" || outputDir == "" {
+		return fmt.Errorf("项目目录与小说目录不能为空")
+	}
+	projectDir, err := filepath.Abs(projectDir)
+	if err != nil {
+		return fmt.Errorf("解析项目目录: %w", err)
+	}
+	outputDir, err = filepath.Abs(outputDir)
+	if err != nil {
+		return fmt.Errorf("解析小说目录: %w", err)
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	s.controlMu.Lock()
+	defer s.controlMu.Unlock()
+	s.mu.Lock()
+	if s.closing {
+		s.mu.Unlock()
+		return fmt.Errorf("Engine Session 正在关闭")
+	}
+	if s.switching {
+		s.mu.Unlock()
+		return fmt.Errorf("Engine Session 正在切换项目")
+	}
+	if s.starting || s.runActive || s.runtime.State == viewmodel.RuntimeRunning ||
+		s.runtime.State == viewmodel.RuntimePausing || s.runtime.State == viewmodel.RuntimeStopping {
+		state := s.runtime.State
+		s.mu.Unlock()
+		return fmt.Errorf("创作会话处于%s状态，暂不能同步章节修订", state)
+	}
+	engine := s.engine
+	if engine != nil && !samePath(s.outputDir, outputDir) {
+		s.mu.Unlock()
+		return fmt.Errorf("另一个项目仍由当前 Engine Session 持有")
+	}
+	s.mu.Unlock()
+
+	temporary := engine == nil
+	if temporary {
+		engine, err = s.factory(projectDir, outputDir)
+		if err != nil {
+			return fmt.Errorf("创建章节同步 Host 失败: %w", err)
+		}
+		defer engine.Close()
+	}
+	if _, err := engine.SyncChapterRevisions(ctx); err != nil {
+		return fmt.Errorf("同步章节修订失败: %w", err)
+	}
+	return nil
 }
 
 func (s *EngineService) RuntimeState() viewmodel.Runtime {

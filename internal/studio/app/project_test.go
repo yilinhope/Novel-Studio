@@ -2,9 +2,11 @@ package app
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,6 +72,9 @@ func TestReadProjectPreservesFilesAndCoreNumbering(t *testing.T) {
 	if err != nil || ch.Content != "# 启航\n\n海水拍打着舷窗。" {
 		t.Fatalf("正文不匹配：%+v %v", ch, err)
 	}
+	if ch.CanEdit {
+		t.Fatal("缺少 Core 接纳基线的已完成正文不得进入编辑态")
+	}
 	ch, err = s.GetChapter(2)
 	if err != nil || ch.HasContent {
 		t.Fatalf("未生成章节状态错误：%+v %v", ch, err)
@@ -85,6 +90,74 @@ func TestReadProjectPreservesFilesAndCoreNumbering(t *testing.T) {
 	}
 	if !reflect.DeepEqual(before, fingerprint(t, path)) {
 		t.Fatal("只读浏览修改了项目文件")
+	}
+}
+
+func TestSaveChapterRejectsProjectWriteAlreadyHeldByAnotherStore(t *testing.T) {
+	path := fixture(t)
+	st := store.NewStore(path)
+	if _, err := st.ChapterRecords.Accept(1, domain.ChapterOriginGenerated, "# 启航\n\n海水拍打着舷窗。", domain.ChapterFacts{Title: "启航"}, domain.StyleDelta{}); err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{}
+	if _, err := service.OpenProject(path); err != nil {
+		t.Fatal(err)
+	}
+	other := store.NewStore(path)
+	release, acquired := other.TryAcquireProjectWrite()
+	if !acquired {
+		t.Fatal("测试应先取得外部项目锁")
+	}
+	defer release()
+	if _, err := service.SaveChapter(1, "不应写入"); err == nil {
+		t.Fatal("项目锁被另一 Store 持有时应拒绝保存")
+	}
+	got, err := st.Drafts.LoadChapterText(1)
+	if err != nil || got != "# 启航\n\n海水拍打着舷窗。" {
+		t.Fatalf("拒绝保存不得改写正文：got=%q err=%v", got, err)
+	}
+}
+
+func TestSaveChapterRejectsIncompleteChapter(t *testing.T) {
+	path := fixture(t)
+	service := &Service{}
+	if _, err := service.OpenProject(path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SaveChapter(2, "未完成章节"); err == nil {
+		t.Fatal("未完成章节不能进入 Core 已完成章节的修订接纳流程")
+	}
+}
+
+func TestSaveChapterRejectsEmptyContentWithoutChangingExistingFile(t *testing.T) {
+	for _, content := range []string{"", "\uFEFF \r\n\t "} {
+		t.Run(fmt.Sprintf("content_%q", content), func(t *testing.T) {
+			path := fixture(t)
+			st := store.NewStore(path)
+			if _, err := st.ChapterRecords.Accept(1, domain.ChapterOriginGenerated, "# 启航\n\n海水拍打着舷窗。", domain.ChapterFacts{Title: "启航"}, domain.StyleDelta{}); err != nil {
+				t.Fatal(err)
+			}
+			service := &Service{}
+			if _, err := service.OpenProject(path); err != nil {
+				t.Fatal(err)
+			}
+			chapterPath := filepath.Join(path, "chapters", "01.md")
+			before, err := os.ReadFile(chapterPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err := service.SaveChapter(1, content); err == nil || !strings.Contains(err.Error(), "章节正文不能为空") {
+				t.Fatalf("空白正文应返回明确错误，got %v", err)
+			}
+			after, err := os.ReadFile(chapterPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(after, before) {
+				t.Fatalf("拒绝保存不得修改原章节文件：before=%q after=%q", before, after)
+			}
+		})
 	}
 }
 

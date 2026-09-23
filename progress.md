@@ -1,5 +1,64 @@
 # Progress Log
 
+## Session: 2026-09-23 — M4-A Review 与 PR
+
+- **Status:** complete
+- 用户要求按不依赖 gstack checklist 的替代流程完成人工 review 后创建 PR；缺失 checklist 不再阻断本轮。
+- 手工审查 M4-A 全量源码后发现审计方案中的 Resume 门禁尚未接入 UI；已补充 RuntimeCenter 禁用态、原因提示和 Engine Store action 级防护，未知/检查中/错误/未同步状态均不会调用 ResumeWriting。
+- GitNexus 编辑前影响：RuntimeCenter LOW（1 个调用者、0 条图流程）；`resumeWriting` 查询 UNKNOWN（多候选/调用关系解析不足），已用 rg 核实按钮与 action 调用边界。
+- 补齐后验证通过：`go test ./...`、`go vet ./...`、Vitest 13/13、`npm run build`、Windows/amd64 Wails production build、`git diff --check`。
+- Vite/Wails 构建移除了已跟踪 `desktop/frontend/dist/.gitkeep`；已恢复基线 1 字节占位文件。
+- 暂存后的 GitNexus 检查完成：17 个文件、108 个符号、0 个受影响流程、LOW；图索引含 node_modules/Vite 产物并有第三方流程截断，流程结果仍按下界解读。
+- `git diff --cached --check` 首次发现审计 Markdown 元信息行的两个尾随空格；已改为列表并复查通过。
+- 当前人工 review 未发现未解决问题。提交 `1130fa8`（M4-A：实现只读章节修订状态检查）已推送；Draft PR #3 已创建并关联到当前 Codex 任务：https://github.com/yilinhope/Novel-Studio/pull/3。
+- GitHub Connector PR 创建鉴权失败，确认分支无既有 PR 后按回退流程由已登录 `gh` 创建；PR 创建时 checks 为 pending/0 项，待 GitHub Actions 刷新。
+
+## Session: 2026-09-23 — M4 章节编辑与同步 Core 审计
+
+- **Status:** awaiting_confirmation
+- 已读取 M4 规格要求；本轮限制为先核查当前 Core 修订链并输出 M4-A 实施方案。
+- 确认 PR #2 已合并，merge commit `8e815ad2beae8a30063f8f80c991ee64923e1713`；从更新后的 `origin/main` 创建 `codex/m4-chapter-editing-sync`。
+- 刷新 GitNexus 到 9,469 nodes、39,216 edges、330 clusters、669 flows。流程提取有入口及分支截断；审计报告明确按下界处理。
+- 分析 `revision.Scan`（CRITICAL）、`Host.CheckChapterRevisions`（HIGH）、`Host.Resume`（HIGH）、`Host.acquireExclusive`（CRITICAL）、`Host.SyncChapterRevisions`（LOW）、`revision.Service.Sync`（下界 LOW）和 `Host.AdvanceOneChapter`（UNKNOWN）；对 UNKNOWN/接收者解析遗漏通过仓库文本搜索复核。
+- 逐项核对 18 个问题：扫描只读语义、哈希基线、批量 Sync、Projector 派生状态、三阶段崩溃恢复、继续/下一章 gate、Studio OpenProject 只读边界、Host lease 与 Store 实例锁、暂停 Done 时序。
+- 新增 `docs/studio-m4-revision-audit.md`，含代码级调用链、影响风险、并发缺口和 M4-A 文件/API/测试方案。
+- 本轮未修改产品源码，未运行测试；M4-A 等待用户确认审计结论。
+
+## Session: 2026-09-23 — M4-A Revision Check
+
+- **Status:** complete
+- 用户已明确批准 M4-A，并确认范围仅包含 Revision ViewModel、只读 RevisionService、两个只读 API 和前端 revisionStore。
+- 已将 M4-C 按需创建 Host 与 M4-B 统一项目写入互斥列为强制约束；M4-A 不引入 Save 或 Sync。
+- 当前分支为 `codex/m4-chapter-editing-sync`；上一轮审计文档和计划文件为本工作树既有改动，予以保留。
+- GitNexus 刷新及编辑前影响分析完成；`currentProject` HIGH（只读调用）、RuntimeState/Bridge 动态绑定 UNKNOWN（已源码检索核实），前端 Store `open` / `selectProject` 为 UNKNOWN 下界结果（调用站点已检索）。
+- 已增加 RevisionStatus 状态/哈希/pending-stage ViewModel、只读 RevisionService、Bridge Get/Check API、前端 revisionStore，并接入打开项目后的 Store 检查；新增 Go/前端测试。
+- 首次 `go test ./internal/studio/...` 暴露空章节 slice 缓存复制为 nil 的一致性问题；已修复为保留空数组语义，后续 Go 测试全部通过。
+- `npm ci` 成功，安装 97 个依赖，审计报告 0 vulnerabilities。
+- 已实现 ViewModel `RevisionStatus`（unknown/synced/saved_unsynced/recovery_pending/error）、只读 RevisionService、hash/pending stage 返回、读取最近检查状态缓存；扫描错误保留 error 和保守 `hasUnsynced`，不误报 synced。
+- Bridge 暴露 `GetRevisionStatus` / `CheckChapterRevisions`；检查只读加载 pending 或调用 `revision.Scan`，Running/Pausing/Stopping 时拒绝。API 不调用 `Host.New`；bridge 测试确认 GetChapter + Revision Check 后 Host 仍未创建。
+- 检查期间以 App 项目控制锁串行化 OpenProject/Resume，避免检查与并发 Resume 或项目切换交错；Store 文件检查本身不写数据。
+- 前端新增独立 `revisionStore`，项目选择时先读缓存再执行真实 Store Check，使用项目 ID/请求代次丢弃旧结果；Studio Store 打开项目时触发检查，不把 revision 数据放入 Engine Store。
+- 验证通过：`go test ./internal/studio/...`、`go vet ./internal/studio/...`、Vitest 11/11、`npm run build`、`scripts/studio.ps1 build`（Wails windows/amd64 production）及 `git diff --check`。Wails 生成绑定时出现既有 `time.Time` KnownStructs 提示，但应用构建成功。
+- 构建清理了已跟踪的 `desktop/frontend/dist/.gitkeep`；已从当前基线恢复其原始 1 字节占位文件。
+- GitNexus `detect-changes --scope all` 完成：7 个已跟踪变更文件、43 个符号、0 个受影响流程、LOW。新增未跟踪文件不纳入该 diff 结果；对已有调用入口的编辑前 impact 已完成并按 UNKNOWN/下界结果做文本核验。
+- 本轮刷新 GitNexus 时误将 `desktop/frontend/node_modules` 与 Vite 输出纳入索引，索引扩大到 58,539 nodes / 154,373 edges / 1,100 clusters / 815 flows，并报告大量第三方 callable-flow 截断；因此流程影响数字仅作下界，不据此推断未受影响。未改动忽略规则或清理依赖目录。
+- M4-A 已完成；未提交、未推送，Save/Sync 留待后续阶段。
+
+## Session: 2026-09-23 — M4-B 章节编辑与统一写入互斥
+
+- **Status:** complete
+- M4-A 验收后按用户要求进入 M4-B；范围限于共享写入互斥、章节编辑/保存与 SavedUnsynced/WaitingSync，不实现 M4-C Sync。
+- 先新增不同 Store 实例/路径别名共享锁测试并确认 RED，再实现进程级规范化项目路径互斥；锁 API 覆盖 Host 初始化、Engine run 生命周期、Host 独占写任务与 Studio Save。
+- Studio 保存要求章节已完成且存在接受基线；保存仅写章节 Markdown，后续只读检查 RevisionStatus，不改 ChapterRecord、不创建 Host、不自动 Sync。Save 与 Engine 活动/过渡态冲突时拒绝；未完成正文章节只读。
+- 前端增加正文编辑器、Dirty/保存态、Ctrl/Cmd+S、离开确认、保存错误保留草稿；SavedUnsynced 映射 WaitingSync，Resume 在未同步时禁用。
+- 全量验证通过：`go test ./...`、`go vet ./...`、Vitest 19/19、`npm run build`、`pwsh -File scripts/studio.ps1 build`（Windows/amd64 production）。
+- Playwright 使用 mock Wails bridge 完成编辑、Ctrl+S、SavedUnsynced/WaitingSync 和 Resume disabled QA；浏览器控制台无应用错误。没有将 mock 页面验证描述为原生 Wails 窗口 runtime 验收。
+- GitNexus `detect-changes --scope all --repo .`：18 files、71 symbols、15 affected processes、HIGH；由于 `Host.New` 被共享写锁调用，受影响生命周期流程需谨慎按下界阅读。未提交/推送，PR #3 状态未更改。
+- 独立只读 review 发现保存中的新输入可能被成功回调覆盖；增加延迟保存竞态回归测试并观察 RED，改为只提交保存快照、保留更新后的草稿且继续标记 Dirty。修复后 Vitest 17/17、TypeScript/Vite 和 Wails Windows production build 再次通过。
+- 第二轮独立审查发现提交章节后编辑器草稿未随 Store 二次确认刷新，以及清空保存会使章节失去编辑入口；为两项分别增加 RED 回归用例。修复后提交确认会同步干净的选中草稿（不覆盖 Dirty 草稿），且完成+有基线章节即使正文为空仍可编辑；最终全量 Go、Vet、Vitest、Vite、Wails 验证已再次通过。
+- 修复复审发现章节提交后的异步 GetChapter 若晚于用户切章返回会把另一章的草稿与章号错配；新增延迟响应 RED 测试，并增加项目/视图/章节三重身份复核。最终独立复审确认三项发现均已修复、无剩余 Critical/Important；全量验证再次通过。
+- `git diff --check` 通过；最终复审通过，准备将 M4-B 增量提交并更新现有 Draft PR #3。
+
 ## Session: 2026-09-23 — PR #2 M3 Review Fixes
 
 - **Status:** in_progress
@@ -156,5 +215,31 @@
 | What have I done? | 创建并填写 `task_plan.md`、`findings.md`、`progress.md` |
 
 ---
+
+## Session: 2026-09-23 — M4-B 空正文边界与 M4-C Sync
+
+### Phase 17: M4-B 空正文保存拒绝与 CI 验收（进行中）
+
+- 当前分支 `codex/m4-chapter-editing-sync`，基线 `0855f44`，工作树开始时干净；PR #3 Draft/Open。
+- GitNexus 对 `EngineSession` 的影响为 HIGH、14 个符号且实现识别为下界；文本搜索已发现生产 Host 及 app/bridge 测试替身。新增同步能力时将复核所有具体实现，保持既有运行调用不变。
+- GitNexus `Service.SaveChapter` qualified target 未解析（UNKNOWN）；后续以 `rg` 确认 bridge 唯一调用入口，并遵守 UNKNOWN 不等于无影响。
+- 本轮用户明确记录的非阻断项仅有 CLI 与 GUI 跨进程同时写入的互斥，留待 hardening。
+- 空正文回归测试先 RED：空字符串及 `\uFEFF + 空白` 均意外保存成功；最初将 BOM 放在空白之后的测试输入不符合 Core Normalize 的前缀 BOM 语义，调整为规范位置后验证。
+- 修复在 `SaveChapter` 写盘前校验 `strings.TrimSpace(domain.NormalizeChapterContent(content))`，返回“章节正文不能为空”；RED→GREEN 测试确认章节文件字节保持一致。
+- 本地验证：`go test ./...`、`go vet ./...`、Vitest 19/19、`npm run build`、Wails v2.15 Windows/amd64 production build、`git diff --check` 和 Go 格式检查通过。Wails 仍提示既有 `time.Time` binding warning，但构建成功。
+- Wails 构建移除了已跟踪的 `desktop/frontend/dist/.gitkeep`；这是构建产物副作用，将在提交前恢复。
+- 工具链定位：初次 Go 测试命令使用了错误 PATH（命令未启动）；实际 Go 1.25.11 位于 `C:\Users\linn\.cache\codex-runtimes\go\go1.25.11\go\bin`，后续均使用该路径并取得成功结果。
+- M4-B 修复独立提交 `464ce1b 修复：拒绝保存空章节正文` 并推送至 Draft PR #3。该 SHA 的 Ubuntu/Windows Go、Frontend、Wails Windows production 四项 GitHub Checks 全部通过（run `35825505192`）；Phase 17 验收完成，开始 M4-C。
+- M4-C EngineService RED→GREEN：新增临时 Host 显式 Sync、同项目现有 Host 复用、Running/Pausing/Stopping 拒绝、错误传播与临时 Host 关闭测试。Host/Core Sync 逻辑未复制或改动。
+- M4-C Bridge RED→GREEN：无 Host 的用户显式 Sync 才触发 Host 工厂；成功后重新加载 Project/Overview、当前 Chapter 和 Revision 并只在 Store 复核为 synced 时返回；失败刷新 pending stage，错误继续上抛。测试涵盖 `records_applied` pending 可见。
+- GitNexus 刷新后：RuntimeCenter 上游 LOW（App 单调用），revisionsAllowWriting 上游 LOW（RuntimeCenter/EngineStore 两处）；SaveChapter 与 SyncChapterRevisions 名称存在多候选/UNKNOWN，已对 `rg` 确认前端消费点和 Core Host 唯一 TUI 入口。EngineSession HIGH/lower-bound 仍按接口契约逐实现更新并跑全仓 Go 验证。
+- M4-C Frontend RED→GREEN：立即同步状态动作、成功刷新项目/章节/revision 并恢复写作门禁；失败重查 pending stage 并留错误；脏正文时不调用 Sync。Runtime Center 增加 Sync/恢复文案，编辑器在同步期间只读。
+- 最终全量验证：`go test -buildvcs=false -count=1 ./...`、`go vet ./...`、Vitest 23/23、`tsc --noEmit && vite build`、Wails Windows/amd64 production build 均通过；最终 review、GitNexus 变更分析及 PR #3 更新均完成。
+- 为 Runtime Center 补充显式“章节修订同步完成”反馈：先以测试 RED 证明成功状态未显示成功确认，再加入 `syncNotice`，Store 定向测试和前端构建转绿。
+- 最终审查补充同步提示生命周期：编辑正文/成功切换项目后清除旧的“同步完成”提示；回归用例 RED→GREEN，避免把过期成功消息展示为当前状态。
+- 最终门禁复核发现“Host Sync 返回错误、只读复核随后返回 synced”不得解锁 Resume；新增 RED 用例并修复为保留修订门禁错误且不接受 synced 响应，定向测试转绿。
+- 最终代码格式、Go 全仓 `-count=1` 测试及 `go vet ./...` 通过；Wails Windows production build 生成 `ChapterSyncResult` 与 `SyncChapterRevisions` 绑定并成功构建。构建只删除已跟踪 dist placeholder，已恢复；生成 bindings/EXE 保持忽略态。
+- M4-C 提交 `7eb0b31 feat：实现 Studio 章节修订同步闭环` 已推送 PR #3。最新代码的 GitHub CI 四项全部通过：Ubuntu Go、Windows Go、Frontend、Wails Windows（run `35827125812`）。PR 标题/描述已更新为 M4-A/B/C，保持 Draft/Open。
+- 最终 GitNexus 全量差异为 13 文件、71 符号、0 个受影响流程、LOW；无 Core Host、revision 或 TUI 文件变更。工作树将在收尾记录提交后复核清洁状态。
 
 *后续每完成一个阶段或遇到错误，都要同步更新本文件。*

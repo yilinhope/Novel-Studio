@@ -6,7 +6,15 @@ export interface Overview {
 export interface TreeNode { id: string; kind: string; title: string; chapter: number; children: TreeNode[] }
 export interface Project { projectRoot: string; outputDir: string; overview: Overview; tree: TreeNode[] }
 export interface ChapterCommitConfirmation { confirmed: boolean; project: Project }
-export interface Chapter { number: number; title: string; content: string; wordCount: number; hasContent: boolean }
+export interface Chapter { number: number; title: string; content: string; wordCount: number; hasContent: boolean; canEdit: boolean }
+export type RevisionState = 'unknown' | 'synced' | 'saved_unsynced' | 'recovery_pending' | 'error'
+export interface UnsyncedChapter { chapter: number; acceptedHash: string; currentHash: string }
+export interface RevisionStatus {
+  projectId: string; state: RevisionState; hasUnsynced: boolean; chapters: UnsyncedChapter[]
+  pendingStage?: string; checkedAt?: string; error?: string
+}
+export interface ChapterSaveResult { chapter: Chapter; revision: RevisionStatus }
+export interface ChapterSyncResult { project?: Project; chapter?: Chapter; revision: RevisionStatus; refreshWarning?: string }
 export type RuntimeState = 'idle' | 'running' | 'pausing' | 'paused' | 'stopping' | 'stopped' | 'waiting_review' | 'waiting_sync' | 'completed' | 'error'
 export interface RuntimeAgent { name: string; state: string; tool?: string; summary?: string }
 export interface Runtime {
@@ -29,6 +37,10 @@ export interface StudioBridge {
   GetProjectOverview(): Promise<Overview>
   GetProjectTree(): Promise<TreeNode[]>
   GetChapter(number: number): Promise<Chapter>
+  SaveChapter(number: number, content: string): Promise<ChapterSaveResult>
+  SyncChapterRevisions?(chapter: number): Promise<ChapterSyncResult>
+  GetRevisionStatus(): Promise<RevisionStatus>
+  CheckChapterRevisions(): Promise<RevisionStatus>
   GetRuntimeState?(): Promise<Runtime>
   ResumeWriting?(): Promise<Runtime>
   PauseWriting?(): Promise<Runtime>

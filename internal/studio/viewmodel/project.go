@@ -13,6 +13,20 @@ type ChapterCommitConfirmation struct {
 	Project   Project `json:"project"`
 }
 
+// ChapterSaveResult 明确区分正文保存与 Core 接纳/同步。
+type ChapterSaveResult struct {
+	Chapter  Chapter        `json:"chapter"`
+	Revision RevisionStatus `json:"revision"`
+}
+
+// ChapterSyncResult 区分 Store 已确认的同步状态与可能失败的视图刷新。
+type ChapterSyncResult struct {
+	Project        *Project       `json:"project,omitempty"`
+	Chapter        *Chapter       `json:"chapter,omitempty"`
+	Revision       RevisionStatus `json:"revision"`
+	RefreshWarning string         `json:"refreshWarning,omitempty"`
+}
+
 type Overview struct {
 	Title             string `json:"title"`
 	Synopsis          string `json:"synopsis"`
@@ -41,4 +55,5 @@ type Chapter struct {
 	Content    string `json:"content"`
 	WordCount  int    `json:"wordCount"`
 	HasContent bool   `json:"hasContent"`
+	CanEdit    bool   `json:"canEdit"`
 }
