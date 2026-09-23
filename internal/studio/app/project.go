@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/voocel/ainovel-cli/internal/domain"
 	"github.com/voocel/ainovel-cli/internal/store"
@@ -15,71 +17,98 @@ import (
 
 // Service 仅持有当前小说目录；所有小说数据仍由 Core Store 管理。
 type Service struct {
-	mu      sync.RWMutex
-	current *store.Store
+	mu          sync.RWMutex
+	current     *store.Store
+	projectRoot string
 }
 
 func (s *Service) OpenProject(path string) (viewmodel.Project, error) {
-	if strings.TrimSpace(path) == "" {
-		return viewmodel.Project{}, fmt.Errorf("请选择小说项目目录")
-	}
-	abs, err := filepath.Abs(path)
+	project, st, err := loadProject(path)
 	if err != nil {
 		return viewmodel.Project{}, err
 	}
+	s.mu.Lock()
+	s.current = st
+	s.projectRoot = project.ProjectRoot
+	s.mu.Unlock()
+	return project, nil
+}
+
+// PreviewProject 只读解析候选项目，用于在切换当前 Store/Engine 前校验目标。
+func (s *Service) PreviewProject(path string) (viewmodel.Project, error) {
+	project, _, err := loadProject(path)
+	return project, err
+}
+
+func loadProject(path string) (viewmodel.Project, *store.Store, error) {
+	if strings.TrimSpace(path) == "" {
+		return viewmodel.Project{}, nil, fmt.Errorf("请选择小说项目目录")
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return viewmodel.Project{}, nil, err
+	}
 	info, err := os.Stat(abs)
 	if err != nil {
-		return viewmodel.Project{}, fmt.Errorf("无法打开项目目录：%w", err)
+		return viewmodel.Project{}, nil, fmt.Errorf("无法打开项目目录：%w", err)
 	}
 	if !info.IsDir() {
-		return viewmodel.Project{}, fmt.Errorf("请选择文件夹")
+		return viewmodel.Project{}, nil, fmt.Errorf("请选择文件夹")
 	}
 	// 同时接受小说输出目录，以及包含默认 output/novel 的工作目录。
-	for _, candidate := range []string{abs, filepath.Join(abs, "output", "novel")} {
+	for index, candidate := range []string{abs, filepath.Join(abs, "output", "novel")} {
 		st := store.NewStore(candidate)
 		p, err := st.Progress.Load()
 		if err != nil {
-			return viewmodel.Project{}, fmt.Errorf("读取项目进度失败：%w", err)
+			return viewmodel.Project{}, nil, fmt.Errorf("读取项目进度失败：%w", err)
 		}
 		if p == nil {
 			continue
 		}
-		result, err := snapshot(st)
-		if err != nil {
-			return viewmodel.Project{}, err
+		projectRoot := abs
+		if index == 0 {
+			projectRoot = canonicalProjectRoot(abs)
 		}
-		s.mu.Lock()
-		s.current = st
-		s.mu.Unlock()
-		return result, nil
+		result, err := snapshot(st, projectRoot)
+		if err != nil {
+			return viewmodel.Project{}, nil, err
+		}
+		return result, st, nil
 	}
-	return viewmodel.Project{}, fmt.Errorf("未找到小说项目，请选择含 meta/progress.json 的小说输出目录")
+	return viewmodel.Project{}, nil, fmt.Errorf("未找到小说项目，请选择含 meta/progress.json 的小说输出目录")
 }
 
-func (s *Service) currentStore() (*store.Store, error) {
+func canonicalProjectRoot(selected string) string {
+	if strings.EqualFold(filepath.Base(selected), "novel") && strings.EqualFold(filepath.Base(filepath.Dir(selected)), "output") {
+		return filepath.Dir(filepath.Dir(selected))
+	}
+	return selected
+}
+
+func (s *Service) currentProject() (*store.Store, string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.current == nil {
-		return nil, fmt.Errorf("请先打开小说项目")
+		return nil, "", fmt.Errorf("请先打开小说项目")
 	}
-	return s.current, nil
+	return s.current, s.projectRoot, nil
 }
 
 func (s *Service) GetProjectOverview() (viewmodel.Overview, error) {
-	st, err := s.currentStore()
+	st, root, err := s.currentProject()
 	if err != nil {
 		return viewmodel.Overview{}, err
 	}
-	p, err := snapshot(st)
+	p, err := snapshot(st, root)
 	return p.Overview, err
 }
 
 func (s *Service) GetProjectTree() ([]viewmodel.Node, error) {
-	st, err := s.currentStore()
+	st, root, err := s.currentProject()
 	if err != nil {
 		return nil, err
 	}
-	p, err := snapshot(st)
+	p, err := snapshot(st, root)
 	return p.Tree, err
 }
 
@@ -87,11 +116,11 @@ func (s *Service) GetChapter(number int) (viewmodel.Chapter, error) {
 	if number < 1 {
 		return viewmodel.Chapter{}, fmt.Errorf("章节号必须为正整数")
 	}
-	st, err := s.currentStore()
+	st, root, err := s.currentProject()
 	if err != nil {
 		return viewmodel.Chapter{}, err
 	}
-	p, err := snapshot(st)
+	p, err := snapshot(st, root)
 	if err != nil {
 		return viewmodel.Chapter{}, err
 	}
@@ -117,8 +146,60 @@ func (s *Service) GetChapter(number int) (viewmodel.Chapter, error) {
 	return viewmodel.Chapter{Number: number, Title: selected.Title, Content: content, WordCount: domain.WordCount(content), HasContent: content != ""}, nil
 }
 
-func snapshot(st *store.Store) (viewmodel.Project, error) {
-	result := viewmodel.Project{Tree: []viewmodel.Node{}}
+// ConfirmChapterCommit 在前端收到 commit_chapter 成功事件后，重新从磁盘 Store
+// 核验 Progress、PendingCommit、终稿与 checkpoint，再返回可刷新的项目快照。
+func (s *Service) ConfirmChapterCommit(chapter int, startedAt time.Time) (viewmodel.Project, bool, error) {
+	if chapter <= 0 || startedAt.IsZero() {
+		return viewmodel.Project{}, false, nil
+	}
+	current, root, err := s.currentProject()
+	if err != nil {
+		return viewmodel.Project{}, false, err
+	}
+	// 新建 Store 以从磁盘重载只追加 checkpoint 镜像；当前 UI Store 可能早于 Engine 提交。
+	fresh := store.NewStore(current.Dir())
+	if err := fresh.Checkpoints.InitError(); err != nil {
+		return viewmodel.Project{}, false, fmt.Errorf("读取章节 checkpoint 失败：%w", err)
+	}
+	progress, err := fresh.Progress.Load()
+	if err != nil {
+		return viewmodel.Project{}, false, fmt.Errorf("复核章节进度失败：%w", err)
+	}
+	if progress == nil || !slices.Contains(progress.CompletedChapters, chapter) {
+		return viewmodel.Project{}, false, nil
+	}
+	pending, err := fresh.Signals.LoadPendingCommit()
+	if err != nil {
+		return viewmodel.Project{}, false, fmt.Errorf("复核待提交状态失败：%w", err)
+	}
+	if pending != nil {
+		return viewmodel.Project{}, false, nil
+	}
+	content, err := fresh.Drafts.LoadChapterText(chapter)
+	if err != nil {
+		return viewmodel.Project{}, false, fmt.Errorf("复核第 %d 章终稿失败：%w", chapter, err)
+	}
+	if strings.TrimSpace(content) == "" {
+		return viewmodel.Project{}, false, nil
+	}
+	checkpoint := fresh.Checkpoints.LatestByStep(domain.ChapterScope(chapter), "commit")
+	if checkpoint == nil || checkpoint.OccurredAt.Before(startedAt) || checkpoint.Artifact != fmt.Sprintf("chapters/%02d.md", chapter) {
+		return viewmodel.Project{}, false, nil
+	}
+	project, err := snapshot(fresh, root)
+	if err != nil {
+		return viewmodel.Project{}, false, err
+	}
+	s.mu.Lock()
+	if s.current != nil && samePath(s.current.Dir(), current.Dir()) {
+		s.current = fresh
+	}
+	s.mu.Unlock()
+	return project, true, nil
+}
+
+func snapshot(st *store.Store, projectRoot string) (viewmodel.Project, error) {
+	result := viewmodel.Project{ProjectRoot: projectRoot, OutputDir: st.Dir(), Tree: []viewmodel.Node{}}
 	p, err := st.Progress.Load()
 	if err != nil {
 		return result, fmt.Errorf("读取进度失败：%w", err)

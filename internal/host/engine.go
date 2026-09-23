@@ -45,7 +45,7 @@ type engine struct {
 	emitEvent func(Event)
 	notify    func(kind, level, title, body string)
 	onPause   func(summary string) // 引擎自主暂停(僵局/失败裁定 abort):走 host 统一暂停语义(lifecycle=paused)
-	onDone    func()               // run 结束(任何原因);host 据 store 事实定终态
+	onDone    func(RunOutcome)     // run 结束(任何原因);host 据 store 事实定终态
 
 	mu      sync.Mutex
 	wg      sync.WaitGroup
@@ -148,6 +148,7 @@ func (e *engine) enqueue(op controlOp) bool {
 }
 
 func (e *engine) run(ctx context.Context) {
+	outcome := RunOutcomePaused
 	defer func() {
 		e.mu.Lock()
 		e.running = false
@@ -177,7 +178,9 @@ func (e *engine) run(ctx context.Context) {
 				}
 			}
 		}
-		e.onDone()
+		if e.onDone != nil {
+			e.onDone(outcome)
+		}
 	}()
 
 	for {
@@ -197,6 +200,7 @@ func (e *engine) run(ctx context.Context) {
 		if inst == nil {
 			state, err := flow.LoadState(e.store)
 			if err != nil {
+				outcome = RunOutcomeFailed
 				e.pauseWithNotify(notify.KindWorkerFailure, "路由事实读取失败，已暂停: "+err.Error())
 				return
 			}
@@ -207,6 +211,7 @@ func (e *engine) run(ctx context.Context) {
 				state.ArcBoundary.IsVolumeEnd && state.HasArcReview && state.HasArcSummary && state.HasVolumeSummary {
 				complete, reconcileErr := tools.ReconcileLayeredCompletion(e.store)
 				if reconcileErr != nil {
+					outcome = RunOutcomeFailed
 					e.pauseWithNotify(notify.KindWorkerFailure, "完结状态恢复失败，已暂停: "+reconcileErr.Error())
 					return
 				}
@@ -220,6 +225,7 @@ func (e *engine) run(ctx context.Context) {
 			var err error
 			inst, err = e.planStartFallback(ctx)
 			if err != nil {
+				outcome = RunOutcomeFailed
 				e.pauseWithNotify(notify.KindPlanStart, "规划恢复事实读取失败，已暂停: "+err.Error())
 				return
 			}
@@ -227,10 +233,12 @@ func (e *engine) run(ctx context.Context) {
 		if inst == nil {
 			// 语义场景或终态:完本 → 确定性收尾;其余(Steering 残留等)
 			// → 自然停机,等用户 Continue / 干预。
+			outcome = RunOutcomeNatural
 			return
 		}
 		replaced, err := e.precheck(inst)
 		if err != nil {
+			outcome = RunOutcomeFailed
 			e.pauseWithNotify(notify.KindWorkerFailure, "派单前置校验失败，已暂停: "+err.Error())
 			return
 		}
@@ -239,6 +247,7 @@ func (e *engine) run(ctx context.Context) {
 		}
 		allowed, gateErr := e.gate.Allow(inst)
 		if gateErr != nil {
+			outcome = RunOutcomeFailed
 			e.pauseWithNotify(notify.KindAdvanceGate, "章节推进控制错误，已暂停: "+gateErr.Error())
 			return
 		}

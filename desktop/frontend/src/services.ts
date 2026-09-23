@@ -4,3 +4,9 @@ export function bridge(): StudioBridge {
   if (!api) throw new Error('请从 Novel Studio 桌面程序打开项目。浏览器预览不连接本地小说。')
   return api
 }
+
+export function subscribeEngineEvents(callback: (payload: import('./types').StudioEngineEvent) => void): () => void {
+  const eventsOn = window.runtime?.EventsOn
+  if (!eventsOn) return () => {}
+  return eventsOn('studio:engine-event', callback)
+}

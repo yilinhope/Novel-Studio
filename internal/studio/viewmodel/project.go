@@ -2,8 +2,15 @@ package viewmodel
 
 // Project 是一次打开操作返回的只读快照。
 type Project struct {
-	Overview Overview `json:"overview"`
-	Tree     []Node   `json:"tree"`
+	ProjectRoot string   `json:"projectRoot"`
+	OutputDir   string   `json:"outputDir"`
+	Overview    Overview `json:"overview"`
+	Tree        []Node   `json:"tree"`
+}
+
+type ChapterCommitConfirmation struct {
+	Confirmed bool    `json:"confirmed"`
+	Project   Project `json:"project"`
 }
 
 type Overview struct {

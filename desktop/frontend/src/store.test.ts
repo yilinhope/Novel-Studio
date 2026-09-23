@@ -2,7 +2,7 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import { useStudio } from './store'
 import type { Chapter, Project, StudioBridge } from './types'
 
-const project: Project = {overview:{title:'测试小说',synopsis:'简介',path:'C:/小说',phase:'writing',flow:'writing',currentChapter:2,completedChapters:1,plannedChapters:2,wordCount:20,currentVolume:1,currentArc:1},tree:[]}
+const project: Project = {projectRoot:'C:/',outputDir:'C:/小说',overview:{title:'测试小说',synopsis:'简介',path:'C:/小说',phase:'writing',flow:'writing',currentChapter:2,completedChapters:1,plannedChapters:2,wordCount:20,currentVolume:1,currentArc:1},tree:[]}
 let api: StudioBridge
 beforeEach(() => {
   api = {SelectProjectDirectory:vi.fn().mockResolvedValue(''),OpenProject:vi.fn().mockResolvedValue(project),GetProjectOverview:vi.fn(),GetProjectTree:vi.fn(),GetChapter:vi.fn()}
