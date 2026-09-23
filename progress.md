@@ -2,7 +2,7 @@
 
 ## Session: 2026-09-23 — M4-A Review 与 PR
 
-- **Status:** in_progress
+- **Status:** complete
 - 用户要求按不依赖 gstack checklist 的替代流程完成人工 review 后创建 PR；缺失 checklist 不再阻断本轮。
 - 手工审查 M4-A 全量源码后发现审计方案中的 Resume 门禁尚未接入 UI；已补充 RuntimeCenter 禁用态、原因提示和 Engine Store action 级防护，未知/检查中/错误/未同步状态均不会调用 ResumeWriting。
 - GitNexus 编辑前影响：RuntimeCenter LOW（1 个调用者、0 条图流程）；`resumeWriting` 查询 UNKNOWN（多候选/调用关系解析不足），已用 rg 核实按钮与 action 调用边界。
@@ -10,7 +10,8 @@
 - Vite/Wails 构建移除了已跟踪 `desktop/frontend/dist/.gitkeep`；已恢复基线 1 字节占位文件。
 - 暂存后的 GitNexus 检查完成：17 个文件、108 个符号、0 个受影响流程、LOW；图索引含 node_modules/Vite 产物并有第三方流程截断，流程结果仍按下界解读。
 - `git diff --cached --check` 首次发现审计 Markdown 元信息行的两个尾随空格；已改为列表并复查通过。
-- 当前人工 review 未发现未解决问题；分支提交、推送和 Draft PR 尚待完成。
+- 当前人工 review 未发现未解决问题。提交 `1130fa8`（M4-A：实现只读章节修订状态检查）已推送；Draft PR #3 已创建并关联到当前 Codex 任务：https://github.com/yilinhope/Novel-Studio/pull/3。
+- GitHub Connector PR 创建鉴权失败，确认分支无既有 PR 后按回退流程由已登录 `gh` 创建；PR 创建时 checks 为 pending/0 项，待 GitHub Actions 刷新。
 
 ## Session: 2026-09-23 — M4 章节编辑与同步 Core 审计
 

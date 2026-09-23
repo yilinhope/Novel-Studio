@@ -142,9 +142,9 @@ Phase 14: M4-A Revision Status 与只读 Check
 - [x] 补齐未同步修订时禁用 Resume 的 UI 与 action 双重门禁
 - [x] 重跑全仓 Go tests/vet、Vitest、前端生产构建及 Wails Windows production build
 - [x] 暂存后运行 GitNexus 全量变更分析（17 文件/108 符号/LOW，流程分析按截断下界理解）
-- [ ] 中文提交、推送分支并创建 Draft PR
-- [ ] 将 PR 关联到当前 Codex 任务
-- **Status:** in_progress
+- [x] 中文提交、推送分支并创建 Draft PR #3
+- [x] 将 PR #3 关联到当前 Codex 任务
+- **Status:** complete
 
 ## Key Questions
 
