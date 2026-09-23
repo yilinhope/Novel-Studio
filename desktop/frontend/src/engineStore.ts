@@ -109,7 +109,7 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
       advanceBlockedReason: next.runtime.advanceBlockedReason,
       nextChapter: next.runtime.nextChapter,
       hasCurrentReview: next.runtime.hasCurrentReview,
-      pendingSteer: next.runtime.pendingSteer ?? event.runtime.pendingSteer,
+      pendingSteer: event.runtime.pendingSteer,
     }, controlError: ''})
     if (event.runtime && !['running', 'pausing', 'stopping'].includes(event.runtime.state)) {
       void get().refreshRuntime()

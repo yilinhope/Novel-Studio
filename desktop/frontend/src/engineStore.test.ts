@@ -57,6 +57,19 @@ test('拒绝旧项目代际事件', () => {
   expect(useEngineStore.getState().lastSequence).toBe(0)
 })
 
+test('Runtime Event 中的 PendingSteer 会写入 Runtime 状态', () => {
+  useEngineStore.getState().handleEvent({...event('C:/A', 1), runtime:{...runtime('C:/A'), pendingSteer:'让主角暂时隐瞒线索'}})
+
+  expect(useEngineStore.getState().runtime.pendingSteer).toBe('让主角暂时隐瞒线索')
+})
+
+test('Runtime Event 清除 PendingSteer 后不保留旧指令', () => {
+  useEngineStore.setState({runtime:{...runtime('C:/A'), pendingSteer:'旧的待处理指令'}})
+  useEngineStore.getState().handleEvent({...event('C:/A', 1), runtime:{...runtime('C:/A'), pendingSteer:undefined}})
+
+  expect(useEngineStore.getState().runtime.pendingSteer).toBeUndefined()
+})
+
 test('Auto/Review 切换只调用模式 API，不隐式 Resume', async () => {
   const result = {runtime:{...runtime('C:/A'), state:'paused' as const}, revision:{projectId:'C:/A',state:'synced' as const,hasUnsynced:false,chapters:[]}}
   const setMode = vi.fn().mockResolvedValue(result)
