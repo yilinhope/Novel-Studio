@@ -70,7 +70,11 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
     if (!current.projectId || normalizePath(event.projectId) !== normalizePath(current.projectId)) return
     if (event.generation < current.runtime.generation || event.sequence <= current.lastSequence) return
     if (event.generation > current.runtime.generation) {
-      set({runtime: emptyRuntime(current.projectId, event.generation), logs: [], pipeline: {}})
+      set({runtime: {...emptyRuntime(current.projectId, event.generation),
+        requiresAdvancePermit: current.runtime.requiresAdvancePermit,
+        nextChapter: current.runtime.nextChapter,
+        hasCurrentReview: current.runtime.hasCurrentReview,
+      }, logs: [], pipeline: {}})
     }
     const next = get()
     if (event.log) {
@@ -91,7 +95,17 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
       }
       set({logs, pipeline})
     }
-    if (event.runtime) set({runtime: event.runtime, controlError: ''})
+    if (event.runtime) set({runtime: {
+      ...event.runtime,
+      // Engine events carry only lifecycle/snapshot fields; their zero values do
+      // not represent an updated Store projection, so keep the last read-only facts.
+      requiresAdvancePermit: next.runtime.requiresAdvancePermit,
+      nextChapter: next.runtime.nextChapter,
+      hasCurrentReview: next.runtime.hasCurrentReview,
+    }, controlError: ''})
+    if (event.runtime && !['running', 'pausing', 'stopping'].includes(event.runtime.state)) {
+      void get().refreshRuntime()
+    }
     set({lastSequence: event.sequence})
     const log = event.log
     if (log?.Tool === 'commit_chapter' && isFinished(log.FinishedAt) && !log.Failed && chapterCommitHandler) {

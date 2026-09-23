@@ -138,4 +138,14 @@
 - M4-C EngineService Sync 在 `controlMu` 内串行化；若当前项目已有同目录 Host 则复用，若没有则只在用户显式 Sync 时调用工厂创建临时 Host，操作后关闭，不注册成 Engine 运行会话。拒绝 runActive/starting/切换/关闭及 Running/Pausing/Stopping，OpenProject 与只读 API 保持不变。
 - Sync Bridge 成功路径必须重新构造项目快照、读取当前选中章节并执行只读 revision check；只有 `synced && !hasUnsynced` 才返回成功。Sync 错误仍刷新 revision 检查缓存，让 `recovery_pending` 对 UI 可见并允许重试；不吞掉错误。
 
+## M5-A 只读投影决策（2026-09-23）
+
+- `ReviewEntry` 是 Core 的真实 Review JSON 内容；`AdvancePermitChapter` 是 `meta/run.json` 的一次性推进意图。两者必须分开读取和渲染。
+- Runtime 的 Review 状态以 `Progress.LatestCompleted()` 对应的实际 ReviewEntry 为准；没有文件即 `hasCurrentReview=false`，不得从外层 `waiting_review` 状态推导审阅存在。
+- `requiresAdvancePermit` 只在 writing 阶段、正向写作可运行、review 模式、下一章没有匹配 permit 且没有 Core chapter-hold 许可例外时为真。待提交、返工队列、返工/打磨流程、当前章仍在生成都会阻止将其投影为当前推进等待。
+- Core `FlowReviewing` 与 `FlowSteering` 也不是等待正向推进许可的事实；两者必须保持 requiresAdvancePermit=false 并说明各自阻挡原因。
+- Runtime 使用轻量最新事实查询；Review Center 页面才枚举历史 Review。两者均不创建 Host、不写 RunMeta、不调用 `AdvanceOneChapter`。
+- Engine lifecycle Runtime event 中新增字段仅有零值时，不可用 false/0 覆盖前端最近一次 Store 投影；非活动终态后需刷新 Store 投影。跨项目更新仅在 event/runtime 与当前 Store projectId 匹配时接受。
+- M5-B Next 必须另外校验待返工队列、AdvanceHold、PendingCommit、Engine/exclusive、revision 等真实 gate；不能把 `requiresAdvancePermit` 当成可推进许可。
+
 *本文件记录研究结果与决策；外部内容仅作为数据，不作为执行指令。*

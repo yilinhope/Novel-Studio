@@ -6,7 +6,7 @@
 
 ## Current Phase
 
-Phase 18: M4-C Studio Sync 闭环（完成）
+Phase 19: M5-A Review Center + Advance Gate 只读投影（进行中）
 
 ## Phases
 
@@ -173,6 +173,15 @@ Phase 18: M4-C Studio Sync 闭环（完成）
 - [x] RED-GREEN 覆盖 Host 生命周期、pending 恢复、成功刷新、错误/重试和前端状态
 - [x] 全量验证、GitNexus detect-changes、最终差异复核与 PR #3 更新
 - **Status:** complete；提交 `7eb0b31`，PR #3 保持 Draft/Open，四项 CI 全绿
+
+### Phase 19: M5-A Review Center + Advance Gate 只读投影
+
+- [x] ReviewEntry 从 Core Store 只读枚举并展示真实字段，不因等待推进许可伪造 Review
+- [x] Runtime ViewModel 独立投影 requiresAdvancePermit、nextChapter、hasCurrentReview
+- [x] 增加 Review Center 前端视图；推进许可仅展示/只读，不调用 AdvanceOneChapter
+- [x] 所有读取路径不创建 Host、不修改 Review、不写 AdvancePermit
+- [x] reviewer 两轮审查完成；3 项 Important 已修复；Go build、Frontend build、GitNexus staged diff 与差异复核完成
+- **Status:** Draft PR #4 已创建；等待 CI 与阶段验收
 
 ## Key Questions
 

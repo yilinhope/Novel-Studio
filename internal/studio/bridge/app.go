@@ -122,6 +122,7 @@ func sameProjectPath(left, right string) bool {
 func (a *App) GetProjectOverview() (viewmodel.Overview, error)  { return a.service.GetProjectOverview() }
 func (a *App) GetProjectTree() ([]viewmodel.Node, error)        { return a.service.GetProjectTree() }
 func (a *App) GetChapter(number int) (viewmodel.Chapter, error) { return a.service.GetChapter(number) }
+func (a *App) GetReviewCenter() (viewmodel.ReviewCenter, error) { return a.service.GetReviewCenter() }
 
 // GetRevisionStatus 读取当前项目最近一次修订检查结果；首次检查前返回 unknown。
 func (a *App) GetRevisionStatus() (viewmodel.RevisionStatus, error) {
@@ -251,6 +252,7 @@ func (a *App) GetRuntimeState() viewmodel.Runtime {
 			state = viewmodel.Runtime{ProjectID: outputDir, State: viewmodel.RuntimeIdle}
 		}
 	}
+	a.enrichRuntime(&state)
 	if status, err := a.revisionStatusService().GetRevisionStatus(); err == nil && status.ProjectID == outputDir && status.HasUnsynced {
 		switch state.State {
 		case viewmodel.RuntimeIdle, viewmodel.RuntimePaused, viewmodel.RuntimeStopped, viewmodel.RuntimeCompleted:
@@ -280,7 +282,12 @@ func (a *App) ResumeWriting() (viewmodel.Runtime, error) {
 	if status.HasUnsynced || status.State != viewmodel.RevisionSynced {
 		return viewmodel.Runtime{}, fmt.Errorf("存在未同步章节修订，请先同步后再继续创作")
 	}
-	return engine.ResumeWriting(projectDir, outputDir)
+	state, err := engine.ResumeWriting(projectDir, outputDir)
+	if err != nil {
+		return state, err
+	}
+	a.enrichRuntime(&state)
+	return state, nil
 }
 
 func (a *App) PauseWriting() (viewmodel.Runtime, error) {
@@ -288,7 +295,11 @@ func (a *App) PauseWriting() (viewmodel.Runtime, error) {
 	if engine == nil {
 		return viewmodel.Runtime{}, fmt.Errorf("Studio Engine Service 尚未启动")
 	}
-	return engine.PauseWriting()
+	state, err := engine.PauseWriting()
+	if err == nil {
+		a.enrichRuntime(&state)
+	}
+	return state, err
 }
 
 func (a *App) StopWriting() (viewmodel.Runtime, error) {
@@ -296,7 +307,28 @@ func (a *App) StopWriting() (viewmodel.Runtime, error) {
 	if engine == nil {
 		return viewmodel.Runtime{}, fmt.Errorf("Studio Engine Service 尚未启动")
 	}
-	return engine.StopWriting()
+	state, err := engine.StopWriting()
+	if err == nil {
+		a.enrichRuntime(&state)
+	}
+	return state, err
+}
+
+func (a *App) enrichRuntime(state *viewmodel.Runtime) {
+	if state == nil {
+		return
+	}
+	if projection, err := a.service.GetAdvanceProjection(); err == nil {
+		// OpenProject publishes the Store and Bridge project ID in two steps. If a
+		// read overlaps that transition, never attach one project's gate to another
+		// project's Runtime; the next Runtime refresh will fill the matching facts.
+		if state.ProjectID == "" || projection.ProjectID == "" || !sameProjectPath(state.ProjectID, projection.ProjectID) {
+			return
+		}
+		state.RequiresAdvancePermit = projection.RequiresAdvancePermit
+		state.NextChapter = projection.NextChapter
+		state.HasCurrentReview = projection.HasCurrentReview
+	}
 }
 
 func (a *App) ConfirmChapterCommit(chapter int, startedAt string) (viewmodel.ChapterCommitConfirmation, error) {
