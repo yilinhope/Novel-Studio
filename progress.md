@@ -234,10 +234,12 @@
 - M4-C Bridge RED→GREEN：无 Host 的用户显式 Sync 才触发 Host 工厂；成功后重新加载 Project/Overview、当前 Chapter 和 Revision 并只在 Store 复核为 synced 时返回；失败刷新 pending stage，错误继续上抛。测试涵盖 `records_applied` pending 可见。
 - GitNexus 刷新后：RuntimeCenter 上游 LOW（App 单调用），revisionsAllowWriting 上游 LOW（RuntimeCenter/EngineStore 两处）；SaveChapter 与 SyncChapterRevisions 名称存在多候选/UNKNOWN，已对 `rg` 确认前端消费点和 Core Host 唯一 TUI 入口。EngineSession HIGH/lower-bound 仍按接口契约逐实现更新并跑全仓 Go 验证。
 - M4-C Frontend RED→GREEN：立即同步状态动作、成功刷新项目/章节/revision 并恢复写作门禁；失败重查 pending stage 并留错误；脏正文时不调用 Sync。Runtime Center 增加 Sync/恢复文案，编辑器在同步期间只读。
-- 最终全量验证：`go test -buildvcs=false -count=1 ./...`、`go vet ./...`、Vitest 23/23、`tsc --noEmit && vite build`、Wails Windows/amd64 production build 均通过。仍待最后 review、GitNexus `detect-changes --scope all` 与更新 PR #3。
+- 最终全量验证：`go test -buildvcs=false -count=1 ./...`、`go vet ./...`、Vitest 23/23、`tsc --noEmit && vite build`、Wails Windows/amd64 production build 均通过；最终 review、GitNexus 变更分析及 PR #3 更新均完成。
 - 为 Runtime Center 补充显式“章节修订同步完成”反馈：先以测试 RED 证明成功状态未显示成功确认，再加入 `syncNotice`，Store 定向测试和前端构建转绿。
 - 最终审查补充同步提示生命周期：编辑正文/成功切换项目后清除旧的“同步完成”提示；回归用例 RED→GREEN，避免把过期成功消息展示为当前状态。
 - 最终门禁复核发现“Host Sync 返回错误、只读复核随后返回 synced”不得解锁 Resume；新增 RED 用例并修复为保留修订门禁错误且不接受 synced 响应，定向测试转绿。
 - 最终代码格式、Go 全仓 `-count=1` 测试及 `go vet ./...` 通过；Wails Windows production build 生成 `ChapterSyncResult` 与 `SyncChapterRevisions` 绑定并成功构建。构建只删除已跟踪 dist placeholder，已恢复；生成 bindings/EXE 保持忽略态。
+- M4-C 提交 `7eb0b31 feat：实现 Studio 章节修订同步闭环` 已推送 PR #3。最新代码的 GitHub CI 四项全部通过：Ubuntu Go、Windows Go、Frontend、Wails Windows（run `35827125812`）。PR 标题/描述已更新为 M4-A/B/C，保持 Draft/Open。
+- 最终 GitNexus 全量差异为 13 文件、71 符号、0 个受影响流程、LOW；无 Core Host、revision 或 TUI 文件变更。工作树将在收尾记录提交后复核清洁状态。
 
 *后续每完成一个阶段或遇到错误，都要同步更新本文件。*

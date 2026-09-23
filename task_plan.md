@@ -6,7 +6,7 @@
 
 ## Current Phase
 
-Phase 18: M4-C Studio Sync 闭环
+Phase 18: M4-C Studio Sync 闭环（完成）
 
 ## Phases
 
@@ -171,8 +171,8 @@ Phase 18: M4-C Studio Sync 闭环
 - [x] Sync 成功后重读 Project/Overview、当前 Chapter 和 Revision 状态；失败不映射为 Synced
 - [x] 前端提供立即同步、等待/恢复态、错误可重试及 Continue/Resume 恢复门禁
 - [x] RED-GREEN 覆盖 Host 生命周期、pending 恢复、成功刷新、错误/重试和前端状态
-- [ ] 全量验证、GitNexus detect-changes、独立 review 与 PR #3 更新
-- **Status:** in_progress
+- [x] 全量验证、GitNexus detect-changes、最终差异复核与 PR #3 更新
+- **Status:** complete；提交 `7eb0b31`，PR #3 保持 Draft/Open，四项 CI 全绿
 
 ## Key Questions
 
