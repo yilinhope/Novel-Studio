@@ -27,6 +27,8 @@ type Runtime struct {
 	Agent                 string         `json:"agent,omitempty"`
 	Chapter               int            `json:"chapter,omitempty"`
 	RequiresAdvancePermit bool           `json:"requiresAdvancePermit"`
+	CanAdvance            bool           `json:"canAdvance"`
+	AdvanceBlockedReason  string         `json:"advanceBlockedReason,omitempty"`
 	NextChapter           int            `json:"nextChapter"`
 	HasCurrentReview      bool           `json:"hasCurrentReview"`
 	Step                  string         `json:"step,omitempty"`

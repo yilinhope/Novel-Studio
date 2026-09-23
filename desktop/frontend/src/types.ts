@@ -16,6 +16,7 @@ export interface ReviewEntry {
 }
 export interface ReviewCenter {
   projectId: string; reviews: ReviewEntry[]; currentReviews: ReviewEntry[]; requiresAdvancePermit: boolean
+  canAdvance: boolean
   nextChapter: number; hasCurrentReview: boolean; advanceMode: string
   advancePermitChapter: number; advanceHoldReason?: string; advanceBlockedReason?: string
 }
@@ -31,7 +32,8 @@ export type RuntimeState = 'idle' | 'running' | 'pausing' | 'paused' | 'stopping
 export interface RuntimeAgent { name: string; state: string; tool?: string; summary?: string }
 export interface Runtime {
   projectId: string; generation: number; state: RuntimeState; phase: string; flow: string
-  requiresAdvancePermit?: boolean; nextChapter?: number; hasCurrentReview?: boolean
+  requiresAdvancePermit?: boolean; canAdvance?: boolean; advanceBlockedReason?: string
+  nextChapter?: number; hasCurrentReview?: boolean
   agent?: string; chapter?: number; step?: string; elapsedSeconds: number
   inputTokens: number; outputTokens: number; projectInputTokens: number; projectOutputTokens: number
   runCostUsd: number; projectCostUsd: number; error?: string; agents: RuntimeAgent[]; updatedAt: string

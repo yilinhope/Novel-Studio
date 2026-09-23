@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest'
-import { setChapterCommitHandler, useEngineStore } from './engineStore'
+import { runtimeLabel, setChapterCommitHandler, useEngineStore } from './engineStore'
 import { useRevisionStore } from './revisionStore'
 import type { RevisionStatus, RuntimeLog, StudioBridge, StudioEngineEvent } from './types'
 
@@ -22,6 +22,10 @@ beforeEach(() => {
     controlBusy: false, controlError: ''})
   useRevisionStore.setState({projectId:'C:/A', generation:1, status:{projectId:'C:/A',state:'synced',hasUnsynced:false,chapters:[]},checking:false,error:''})
   setChapterCommitHandler(undefined)
+})
+
+test('waiting_review 使用等待继续确认文案', () => {
+  expect(runtimeLabel('waiting_review')).toBe('等待继续确认')
 })
 
 test('章节刷新使用结构化 Chapter 而不解析展示文案', () => {

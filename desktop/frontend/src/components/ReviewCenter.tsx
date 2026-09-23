@@ -52,7 +52,7 @@ export function ReviewCenter() {
     {data && <>
       <section className="advance-gate" aria-label="下一章推进门状态">
         <div className="advance-gate-icon"><ClipboardCheck size={18}/></div>
-        <div><span>下一章推进门</span><strong>{data.requiresAdvancePermit ? `第 ${data.nextChapter} 章等待一次性推进许可` : data.advanceMode === 'review' ? `第 ${data.nextChapter} 章当前无需新增推进许可` : data.advanceMode === 'auto' ? '自动推进模式' : '推进状态未确认'}</strong>
+        <div><span>下一章推进门</span><strong>{data.advanceMode === 'auto' ? '自动推进模式' : !data.canAdvance ? '当前不能放行下一章' : data.requiresAdvancePermit ? `第 ${data.nextChapter} 章等待一次性推进许可` : data.advanceMode === 'review' ? `第 ${data.nextChapter} 章当前无需新增推进许可` : '推进状态未确认'}</strong>
           <small>{data.hasCurrentReview ? '最新已完成章节存在 Core ReviewEntry。' : '最新已完成章节没有 Core ReviewEntry；等待许可不代表已审阅。'}</small>
           {data.advanceBlockedReason && <small>{data.advanceBlockedReason}</small>}
           {data.advanceHoldReason && <small>Core 暂停意图：{data.advanceHoldReason}</small>}

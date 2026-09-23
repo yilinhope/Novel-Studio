@@ -8,6 +8,7 @@ type ReviewCenter struct {
 	Reviews               []domain.ReviewEntry `json:"reviews"`
 	CurrentReviews        []domain.ReviewEntry `json:"currentReviews"`
 	RequiresAdvancePermit bool                 `json:"requiresAdvancePermit"`
+	CanAdvance            bool                 `json:"canAdvance"`
 	NextChapter           int                  `json:"nextChapter"`
 	HasCurrentReview      bool                 `json:"hasCurrentReview"`
 	AdvanceMode           string               `json:"advanceMode"`
