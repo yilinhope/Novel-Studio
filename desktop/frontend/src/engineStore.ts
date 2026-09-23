@@ -82,8 +82,7 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
     set({lastSequence: event.sequence})
     const log = event.log
     if (log?.Tool === 'commit_chapter' && isFinished(log.FinishedAt) && !log.Failed && chapterCommitHandler) {
-      const match = /第\s*(\d+)\s*章/.exec(log.Summary)
-      if (match) void chapterCommitHandler(Number(match[1]), event).catch(error => {
+      if (log.Chapter && log.Chapter > 0) void chapterCommitHandler(log.Chapter, event).catch(error => {
         set({controlError: `章节已提交，但项目视图刷新失败：${String(error)}`})
       })
     }

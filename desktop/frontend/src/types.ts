@@ -4,7 +4,7 @@ export interface Overview {
   wordCount: number; currentVolume: number; currentArc: number
 }
 export interface TreeNode { id: string; kind: string; title: string; chapter: number; children: TreeNode[] }
-export interface Project { overview: Overview; tree: TreeNode[] }
+export interface Project { projectRoot: string; outputDir: string; overview: Overview; tree: TreeNode[] }
 export interface ChapterCommitConfirmation { confirmed: boolean; project: Project }
 export interface Chapter { number: number; title: string; content: string; wordCount: number; hasContent: boolean }
 export type RuntimeState = 'idle' | 'running' | 'pausing' | 'paused' | 'stopping' | 'stopped' | 'waiting_review' | 'waiting_sync' | 'completed' | 'error'
@@ -17,7 +17,7 @@ export interface Runtime {
 }
 export interface RuntimeLog {
   ID: string; Time: string; FinishedAt: string; Failed: boolean; Category: string
-  Agent: string; Summary: string; Detail: string; Tool: string; Level: string; Depth: number
+  Agent: string; Summary: string; Detail: string; Tool: string; Chapter?: number; Level: string; Depth: number
 }
 export interface StudioEngineEvent {
   projectId: string; generation: number; runId: number; sequence: number; timestamp: string

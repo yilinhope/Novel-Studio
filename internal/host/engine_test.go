@@ -263,7 +263,7 @@ func newTestEngine(t *testing.T, st *storepkg.Store, workers *subagent.Runner, a
 			mu.Unlock()
 		},
 		notify: func(string, string, string, string) {},
-		onDone: func() {
+		onDone: func(RunOutcome) {
 			select {
 			case done <- struct{}{}:
 			default:

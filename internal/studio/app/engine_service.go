@@ -17,7 +17,19 @@ import (
 	"github.com/voocel/ainovel-cli/internal/studio/viewmodel"
 )
 
-type EngineHostFactory func(projectDir, outputDir string) (*host.Host, error)
+// EngineSession 是 Studio 控制与观测所需的最小 Host 边界，供工厂注入和生命周期测试使用。
+type EngineSession interface {
+	Snapshot() host.UISnapshot
+	Resume() (string, error)
+	Abort() bool
+	Close()
+	Events() <-chan host.Event
+	Stream() <-chan string
+	Done() <-chan struct{}
+	LastRunOutcome() host.RunOutcome
+}
+
+type EngineHostFactory func(projectDir, outputDir string) (EngineSession, error)
 
 type StudioEngineEvent struct {
 	ProjectID  string             `json:"projectId"`
@@ -37,11 +49,13 @@ type EngineService struct {
 	closeOnce sync.Once
 	factory   EngineHostFactory
 
-	engine            *host.Host
+	engine            EngineSession
 	projectDir        string
 	outputDir         string
 	starting          bool
 	closing           bool
+	switching         bool
+	switchDone        chan struct{}
 	startDone         chan struct{}
 	runActive         bool
 	runID             uint64
@@ -100,6 +114,10 @@ func (s *EngineService) ResumeWriting(projectDir, outputDir string) (viewmodel.R
 	if s.closing {
 		s.mu.Unlock()
 		return viewmodel.Runtime{}, fmt.Errorf("Engine Session 正在关闭")
+	}
+	if s.switching {
+		s.mu.Unlock()
+		return viewmodel.Runtime{}, fmt.Errorf("Engine Session 正在切换项目")
 	}
 	if s.starting || s.runActive {
 		s.mu.Unlock()
@@ -321,6 +339,43 @@ func (s *EngineService) StopWriting() (viewmodel.Runtime, error) {
 	return runtime, nil
 }
 
+// PrepareProjectSwitch 在目标项目只读校验成功后，阻止活动会话切换并关闭非活动旧 Host。
+func (s *EngineService) PrepareProjectSwitch(nextOutputDir string) error {
+	s.controlMu.Lock()
+	s.mu.Lock()
+	engine := s.engine
+	if engine == nil || samePath(s.outputDir, nextOutputDir) {
+		s.mu.Unlock()
+		s.controlMu.Unlock()
+		return nil
+	}
+	if s.starting || s.runActive || s.runtime.State == viewmodel.RuntimeRunning ||
+		s.runtime.State == viewmodel.RuntimePausing || s.runtime.State == viewmodel.RuntimeStopping {
+		s.mu.Unlock()
+		s.controlMu.Unlock()
+		return fmt.Errorf("当前项目仍在创作中，请先停止当前 Engine Session 后再切换项目")
+	}
+	s.switching = true
+	s.switchDone = make(chan struct{})
+	s.engine = nil
+	s.runtime = viewmodel.Runtime{State: viewmodel.RuntimeIdle, UpdatedAt: time.Now()}
+	monitorDone := s.monitorDone
+	s.mu.Unlock()
+	s.controlMu.Unlock()
+
+	engine.Close()
+	if monitorDone != nil {
+		<-monitorDone
+	}
+
+	s.mu.Lock()
+	s.switching = false
+	close(s.switchDone)
+	s.switchDone = nil
+	s.mu.Unlock()
+	return nil
+}
+
 func (s *EngineService) Events() <-chan StudioEngineEvent { return s.events }
 
 // Close 等待 Core 收尾后释放 Host 与小说目录租约。
@@ -332,6 +387,7 @@ func (s *EngineService) Close() {
 		startDone := s.startDone
 		engine := s.engine
 		monitorDone := s.monitorDone
+		switchDone := s.switchDone
 		if engine != nil && s.runActive {
 			s.requestedEnd = viewmodel.RuntimeStopping
 			s.runtime.State = viewmodel.RuntimeStopping
@@ -339,6 +395,10 @@ func (s *EngineService) Close() {
 		}
 		s.mu.Unlock()
 		s.controlMu.Unlock()
+		if switchDone != nil {
+			<-switchDone
+			return
+		}
 
 		if startDone != nil {
 			<-startDone
@@ -353,7 +413,7 @@ func (s *EngineService) Close() {
 	})
 }
 
-func (s *EngineService) closeSession(engine *host.Host) {
+func (s *EngineService) closeSession(engine EngineSession) {
 	engine.Close()
 	s.mu.Lock()
 	if s.engine == engine {
@@ -363,7 +423,7 @@ func (s *EngineService) closeSession(engine *host.Host) {
 	s.mu.Unlock()
 }
 
-func (s *EngineService) monitor(engine *host.Host, done chan struct{}, generation uint64) {
+func (s *EngineService) monitor(engine EngineSession, done chan struct{}, generation uint64) {
 	defer close(done)
 	events := engine.Events()
 	stream := engine.Stream()
@@ -414,7 +474,7 @@ func (s *EngineService) monitor(engine *host.Host, done chan struct{}, generatio
 	}
 }
 
-func (s *EngineService) completeRun(engine *host.Host, generation uint64) {
+func (s *EngineService) completeRun(engine EngineSession, generation uint64) {
 	s.mu.Lock()
 	runID := s.runID
 	requestedEnd := s.requestedEnd
@@ -427,8 +487,12 @@ func (s *EngineService) completeRun(engine *host.Host, generation uint64) {
 	switch {
 	case requestedEnd == viewmodel.RuntimeStopping || requestedEnd == viewmodel.RuntimeStopped:
 		state = viewmodel.RuntimeStopped
+	case requestedEnd == viewmodel.RuntimePaused:
+		state = viewmodel.RuntimePaused
 	case core.Phase == string(domain.PhaseComplete):
 		state = viewmodel.RuntimeCompleted
+	case engine.LastRunOutcome() == host.RunOutcomeFailed:
+		state = viewmodel.RuntimeError
 	case core.RuntimeState == "idle" && !core.IsRunning:
 		state = viewmodel.RuntimeIdle
 	}
@@ -452,7 +516,7 @@ func (s *EngineService) completeRun(engine *host.Host, generation uint64) {
 	}
 }
 
-func (s *EngineService) refreshRuntime(engine *host.Host, generation uint64) {
+func (s *EngineService) refreshRuntime(engine EngineSession, generation uint64) {
 	core := engine.Snapshot()
 	s.mu.Lock()
 	if s.engine != engine || !s.runActive {
@@ -556,7 +620,7 @@ func drainHostEvents(events <-chan host.Event, consume func(host.Event)) {
 	}
 }
 
-func newHostForProject(projectDir, outputDir string) (*host.Host, error) {
+func newHostForProject(projectDir, outputDir string) (EngineSession, error) {
 	cfg, err := bootstrap.LoadConfigFromDir(projectDir)
 	if err != nil {
 		return nil, fmt.Errorf("加载项目配置失败: %w", err)

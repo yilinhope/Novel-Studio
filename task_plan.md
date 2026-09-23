@@ -2,11 +2,11 @@
 
 ## Goal
 
-建立可跨会话恢复的 Novel Studio 开发计划，固定 M2 只读桌面工作台的交付证据，并为下一阶段 M3 生命周期与写入能力提供明确边界。
+持续维护 Novel Studio 开发计划，并在 PR #2 中完成 M3 Engine Bridge 审查修复及回归验证。
 
 ## Current Phase
 
-Phase 10: M3-B Wails Event Bus 与 Runtime Center
+Phase 12: PR #2 M3 Review Fixes
 
 ## Phases
 
@@ -103,6 +103,19 @@ Phase 10: M3-B Wails Event Bus 与 Runtime Center
 - [x] GitNexus 变更分析并独立提交 M3-C
 - **Status:** complete
 
+### Phase 12: PR #2 M3 Review Fixes
+
+- [x] 复现项目切换时活动/暂停 Host 生命周期问题，并核对配置根目录与输出目录解析
+- [x] 使用 GitNexus 分析 OpenProject、EngineService、Host Event、章节刷新与 Engine 终态边界
+- [x] 阻止活动 Engine 下切换项目；非活动会话切换时关闭旧 Host 并释放租约
+- [x] 将 ProjectRoot / OutputDir 明确传递给 Studio，并让两种打开路径加载相同项目配置
+- [x] 为 Host Event 增加兼容的结构化章节号并移除前端 Summary 正则
+- [x] 为本轮 Engine 终止结果增加结构化原因并派生 RuntimeError，保持可恢复错误和历史错误语义
+- [x] 增加 Go 与前端 M3 定向测试，覆盖项目切换、Done 过渡态、章节确认与事件过滤
+- [x] 运行 format、vet、Go/前端测试与 Wails 构建；GitNexus 全量影响检查完成；本机 race 因未启用 CGO 且无 C 编译器不可运行
+- [ ] 提交并推送修复，确认 PR #2 的新 CI 结果
+- **Status:** in_progress
+
 ## Key Questions
 
 1. M3 的首个写入闭环应优先覆盖哪一项：章节编辑、项目元数据、还是任务生命周期？
@@ -125,7 +138,11 @@ Phase 10: M3-B Wails Event Bus 与 Runtime Center
 | PowerShell 外层引号剥离 `$` 变量，导致计划文件批量读取命令解析失败 | 1 | 改为独立的单引号 `-Command` 读取命令 |
 | 技能文档指定的 `C:\Users\linn\.claude\skills\planning-with-files\scripts\session-catchup.py` 不存在 | 1 | 记录为环境差异，继续按当前仓库状态初始化计划文件 |
 | 前端首次 build 缺少 TypeScript 依赖且 `StudioState` 未声明 runtime action | 1 | `npm ci` 后补齐接口声明，`npm run build` 通过 |
+| 本轮前端初始 Vitest 命令因 `node_modules` 尚未安装而失败 | 1 | 按锁文件执行 `npm ci` 后，Vitest 与生产构建通过 |
+| 本机 `go test -race` 缺少 CGO 与 C 编译器 | 1 | 记录为本机环境限制；PR 的 GitHub race job 将在推送后重新验证 |
+| GitNexus 首次变更检查扫描到本轮生成的依赖和 Vite 输出 | 1 | 精确清理本轮生成目录后完成索引刷新与全量变更分析 |
 | GitNexus 刷新索引时扫描了新安装的 node_modules 和 Vite 产物 | 1 | 清理本轮生成目录并重建索引；保留已跟踪的 `dist/.gitkeep` |
+| 新增审查发现时 planning patch 锚点未匹配当前 Findings 文案 | 1 | 重新检索准确行后拆分更新 `findings.md` 与 `progress.md` |
 
 ## Notes
 

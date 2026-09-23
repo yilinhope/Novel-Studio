@@ -58,9 +58,10 @@ type Host struct {
 	logCleanup      func()
 	fileLogErr      error
 
-	events   chan Event
-	streamCh chan string
-	done     chan struct{}
+	events         chan Event
+	streamCh       chan string
+	done           chan struct{}
+	lastRunOutcome RunOutcome
 
 	mu         sync.Mutex
 	lifecycle  lifecycle
@@ -500,6 +501,7 @@ func (h *Host) startEngine(initial *flow.Instruction) bool {
 	if h.engine.isRunning() {
 		return false
 	}
+	h.lastRunOutcome = ""
 	previous := h.lifecycle
 	h.lifecycle = lifecycleRunning
 	if !h.engine.start(initial) {
@@ -976,12 +978,14 @@ func (h *Host) FileLogError() error {
 // runEnded 引擎循环结束(任何原因)时由 engine.onDone 回调:按 store 事实定终态。
 //   - Phase=Complete  → 标记 completed，发"创作完成"事件
 //   - 其它            → 标记 idle/paused，发"创作停止"事件
-func (h *Host) runEnded() {
+func (h *Host) runEnded(outcome RunOutcome) {
 	h.observer.finalize()
 
 	h.mu.Lock()
+	h.lastRunOutcome = outcome
 	progress, err := h.store.Progress.Load()
 	if err != nil {
+		h.lastRunOutcome = RunOutcomeFailed
 		if h.lifecycle == lifecycleRunning {
 			h.lifecycle = lifecycleIdle
 		}
@@ -996,6 +1000,7 @@ func (h *Host) runEnded() {
 	}
 	book, err := h.store.Book.Load()
 	if err != nil {
+		h.lastRunOutcome = RunOutcomeFailed
 		h.lifecycle = lifecycleIdle
 		h.mu.Unlock()
 		h.emitEvent(Event{Time: time.Now(), Category: "ERROR", Level: "error",
@@ -1008,6 +1013,7 @@ func (h *Host) runEnded() {
 	}
 	if progress != nil && progress.Phase == domain.PhaseComplete {
 		if book == nil {
+			h.lastRunOutcome = RunOutcomeFailed
 			h.lifecycle = lifecycleIdle
 			h.mu.Unlock()
 			h.emitEvent(Event{Time: time.Now(), Category: "ERROR", Level: "error",
@@ -1078,7 +1084,14 @@ const StreamClearSentinel = "\x00\x00CLEAR\x00\x00"
 func (h *Host) Events() <-chan Event  { return h.events }
 func (h *Host) Stream() <-chan string { return h.streamCh }
 func (h *Host) Done() <-chan struct{} { return h.done }
-func (h *Host) Dir() string           { return h.store.Dir() }
+
+// LastRunOutcome 返回最近一次 Engine 循环结束原因。
+func (h *Host) LastRunOutcome() RunOutcome {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.lastRunOutcome
+}
+func (h *Host) Dir() string { return h.store.Dir() }
 
 // ── 事件发射 ──
 

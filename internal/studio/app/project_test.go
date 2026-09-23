@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/voocel/ainovel-cli/internal/domain"
 	"github.com/voocel/ainovel-cli/internal/store"
@@ -102,6 +103,63 @@ func TestFailedOpenPreservesCurrentProject(t *testing.T) {
 	p, err := s.GetProjectOverview()
 	if err != nil || p.Path != path {
 		t.Fatal("失败切换丢失原项目")
+	}
+}
+
+func TestProjectRootIsStableForWorkspaceAndOutputSelection(t *testing.T) {
+	output := fixture(t)
+	root := filepath.Dir(filepath.Dir(output))
+	for _, selected := range []string{root, output} {
+		s := &Service{}
+		project, err := s.OpenProject(selected)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if project.ProjectRoot != root || project.OutputDir != output {
+			t.Fatalf("选择路径 %q 得到错误的项目路径: %+v", selected, project)
+		}
+	}
+}
+
+func TestPreviewProjectDoesNotSwitchCurrentStore(t *testing.T) {
+	first := fixture(t)
+	second := fixture(t)
+	s := &Service{}
+	if _, err := s.OpenProject(first); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PreviewProject(second); err != nil {
+		t.Fatal(err)
+	}
+	project, err := s.GetProjectOverview()
+	if err != nil || project.Path != first {
+		t.Fatalf("只读预览改变了当前项目: %+v %v", project, err)
+	}
+}
+
+func TestConfirmChapterCommitRechecksStoreFacts(t *testing.T) {
+	path := fixture(t)
+	service := &Service{}
+	if _, err := service.OpenProject(path); err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now().Add(-time.Minute)
+	if _, confirmed, err := service.ConfirmChapterCommit(1, started); err != nil || confirmed {
+		t.Fatalf("缺少 commit checkpoint 时不应确认: confirmed=%v err=%v", confirmed, err)
+	}
+	st := store.NewStore(path)
+	if _, err := st.Checkpoints.AppendArtifact(domain.ChapterScope(1), "commit", "chapters/01.md"); err != nil {
+		t.Fatal(err)
+	}
+	project, confirmed, err := service.ConfirmChapterCommit(1, started)
+	if err != nil || !confirmed || project.Overview.CompletedChapters != 1 {
+		t.Fatalf("Store 事实齐备时应确认并返回快照: confirmed=%v project=%+v err=%v", confirmed, project, err)
+	}
+	if err := st.Signals.SavePendingCommit(domain.PendingCommit{Chapter: 1, Stage: domain.CommitStageStarted}); err != nil {
+		t.Fatal(err)
+	}
+	if _, confirmed, err := service.ConfirmChapterCommit(1, started); err != nil || confirmed {
+		t.Fatalf("存在未结束提交时不应确认: confirmed=%v err=%v", confirmed, err)
 	}
 }
 

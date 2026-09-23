@@ -3,7 +3,6 @@ package bridge
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 
 type App struct {
 	mu          sync.RWMutex
+	projectMu   sync.RWMutex
 	ctx         context.Context
 	eventCancel context.CancelFunc
 	service     app.Service
@@ -64,17 +64,24 @@ func (a *App) SelectProjectDirectory() (string, error) {
 }
 
 func (a *App) OpenProject(path string) (viewmodel.Project, error) {
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	preview, err := a.service.PreviewProject(path)
+	if err != nil {
+		return viewmodel.Project{}, err
+	}
+	if engine := a.engineService(); engine != nil {
+		if err := engine.PrepareProjectSwitch(preview.OutputDir); err != nil {
+			return viewmodel.Project{}, err
+		}
+	}
 	project, err := a.service.OpenProject(path)
 	if err != nil {
 		return project, err
 	}
-	projectDir, err := filepath.Abs(path)
-	if err != nil {
-		return viewmodel.Project{}, err
-	}
 	a.mu.Lock()
-	a.projectDir = projectDir
-	a.outputDir = project.Overview.Path
+	a.projectDir = project.ProjectRoot
+	a.outputDir = project.OutputDir
 	a.mu.Unlock()
 	return project, nil
 }
@@ -101,6 +108,8 @@ func (a *App) GetRuntimeState() viewmodel.Runtime {
 
 // ResumeWriting 是 M3-A EngineService 的显式启动入口；打开项目本身仍只读。
 func (a *App) ResumeWriting() (viewmodel.Runtime, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
 	a.mu.RLock()
 	projectDir, outputDir, engine := a.projectDir, a.outputDir, a.engine
 	a.mu.RUnlock()

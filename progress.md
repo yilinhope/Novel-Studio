@@ -1,5 +1,23 @@
 # Progress Log
 
+## Session: 2026-09-23 — PR #2 M3 Review Fixes
+
+- **Status:** in_progress
+- 已读取 `Novel_Studio_PR2_M3_Review_Fixes.md`；把附件中 M3 修复建议作为审查数据，按用户“修复”授权处理四项问题及专项测试，不执行 M4 指令。
+- 已确认 PR #2 仍为 OPEN，CI 的 Linux/Windows Go、Linux race、Frontend test/build、Wails Windows production build 四项均 SUCCESS；当前分支工作区干净。
+- 复核源码确认项目切换和 ProjectRoot/OutputDir 混用为真实问题；章节正则目前能匹配现行 observer 文案但应改为结构化字段；Error 终态需先厘清 Engine 结束原因语义。
+- 已完成 GitNexus 预编辑影响分析：Studio `OpenProject` 结果 UNKNOWN（已用 Wails/前端文本调用核验）；`observer.handleToolUpdate` LOW（2 条流程）；`engine.run` CRITICAL（多个既有 Host 启动/恢复路径）。
+- 已找到 Codex runtime 中 Go 1.25.11 可执行文件：`C:\Users\linn\.cache\codex-runtimes\go\go1.25.11\go\bin\go.exe`，可用于后续本地验证。
+- 已修复：`OpenProject` 先只读预览，再由 EngineService 拒绝活动会话切换或关闭非活动旧 Host；Project 显式携带项目根目录和输出目录，选择工作区根目录或 `output/novel` 均归一到同一项目根。
+- 已修复：Host commit 工具事件携带可选 `Chapter` 字段，前端不再解析 Summary；Store 的 Progress、PendingCommit、终稿与 commit checkpoint 复核维持为刷新必要条件。
+- 已修复：Engine Done 提供结构化结束原因；只有 Core 标记的终止运行故障映射为 RuntimeError，显式暂停/停止优先，可恢复暂停即使保留历史工具错误也不误报 Error。
+- 已新增 Go 测试：预览只读/路径归一、Store 章节二次确认、活动项目切换拒绝/非活动 Host 释放、Pause/Stop 只在 Done 后进入终态、Engine.Resume 路径、运行错误分类及 Host Event 章节字段兼容。
+- 已新增前端测试：结构化章节刷新、不猜测缺失章节号、忽略旧项目/旧序号事件；Vitest 2 文件 7 项通过。
+- 验证通过：`go test ./...`、`go vet ./...`、前端 `npm test` / `npm run build`、Windows/amd64 Wails production build、`git diff --check`。
+- 本机 `go test -race` 未能启动：Go 报告需要启用 CGO；环境内无 gcc/clang/zig。PR 原有 GitHub race job 将在更新后重新执行。
+- GitNexus 刷新到 9,469 nodes、39,216 edges、330 clusters、669 flows；`detect-changes --scope all` 报 17 个文件、97 个符号、57 条流程、CRITICAL。影响集中在 Engine/Host Event/Studio Bridge 共享路径；已逐项复核为新增结束原因和可选结构化字段，不改 TUI 路由及 Core Engine 调度语义。
+- 下一步检查最终 diff、提交并推送 PR #2，等待新的 GitHub Checks。
+
 ## Session: 2026-09-23 — M3 Engine Bridge 审计
 
 - **Status:** complete（M3-A / M3-B / M3-C 已分段提交）
