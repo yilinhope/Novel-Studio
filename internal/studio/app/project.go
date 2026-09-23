@@ -157,6 +157,9 @@ func (s *Service) SaveChapter(number int, content string) (viewmodel.Chapter, er
 	if number < 1 {
 		return viewmodel.Chapter{}, fmt.Errorf("章节号必须为正整数")
 	}
+	if strings.TrimSpace(domain.NormalizeChapterContent(content)) == "" {
+		return viewmodel.Chapter{}, fmt.Errorf("章节正文不能为空")
+	}
 	st, _, err := s.currentProject()
 	if err != nil {
 		return viewmodel.Chapter{}, err

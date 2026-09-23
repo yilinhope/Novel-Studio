@@ -6,7 +6,7 @@
 
 ## Current Phase
 
-Phase 16: M4-B 章节编辑与统一写入互斥
+Phase 17: M4-B 空正文保存拒绝与 CI 验收
 
 ## Phases
 
@@ -156,11 +156,30 @@ Phase 16: M4-B 章节编辑与统一写入互斥
 - [x] 运行定向 Go/Vitest RED-GREEN 记录、全套 Go/前端/构建验证并完成 GitNexus `detect-changes --scope all`
 - **Status:** complete; independent review passed, ready for PR update
 
+### Phase 17: M4-B 空正文保存拒绝与 CI 验收
+
+- [x] 用回归测试证明规范化并 TrimSpace 后为空的正文被拒绝，且磁盘原文不变（先 RED）
+- [x] 在 SaveChapter 写盘前校验，不改 Core revision/sync，不自动 Sync
+- [x] 运行全仓 Go、Frontend、Wails Windows production 验证
+- [ ] 独立提交并更新 PR #3，等待现有 GitHub CI 全绿后再进入 M4-C
+- **Status:** in_progress
+
+### Phase 18: M4-C Studio Sync 闭环
+
+- [ ] 按需复用现有 Host 或由明确 Sync 写操作创建 Host；只读入口不创建 Host
+- [ ] 实现 EngineService / Bridge Sync，拒绝运行与过渡态，复用 Host.SyncChapterRevisions pending 恢复语义
+- [ ] Sync 成功后重读 Project/Overview、当前 Chapter 和 Revision 状态；失败不映射为 Synced
+- [ ] 前端提供立即同步、等待/恢复态、错误可重试及 Continue/Resume 恢复门禁
+- [ ] RED-GREEN 覆盖 Host 生命周期、pending 恢复、成功刷新、错误/重试和前端状态
+- [ ] 全量验证、GitNexus detect-changes、独立 review 与 PR #3 更新
+- **Status:** pending
+
 ## Key Questions
 
 1. M4-A 已获批准并完成；Review/PR 是当前收尾阶段。
 2. M4-B 正文保存前必须建立跨 Studio/Store/Host/Engine 的统一项目写入互斥。
 3. M4-C Sync 继续复用 Core 当前全体变更章节批量语义和 Host 同步实现。
+4. CLI 与 GUI 跨进程同时写同一项目的互斥明确留待后续 hardening，本阶段不扩展。
 
 ## Decisions Made
 

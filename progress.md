@@ -216,4 +216,18 @@
 
 ---
 
+## Session: 2026-09-23 — M4-B 空正文边界与 M4-C Sync
+
+### Phase 17: M4-B 空正文保存拒绝与 CI 验收（进行中）
+
+- 当前分支 `codex/m4-chapter-editing-sync`，基线 `0855f44`，工作树开始时干净；PR #3 Draft/Open。
+- GitNexus 对 `EngineSession` 的影响为 HIGH、14 个符号且实现识别为下界；文本搜索已发现生产 Host 及 app/bridge 测试替身。新增同步能力时将复核所有具体实现，保持既有运行调用不变。
+- GitNexus `Service.SaveChapter` qualified target 未解析（UNKNOWN）；后续以 `rg` 确认 bridge 唯一调用入口，并遵守 UNKNOWN 不等于无影响。
+- 本轮用户明确记录的非阻断项仅有 CLI 与 GUI 跨进程同时写入的互斥，留待 hardening。
+- 空正文回归测试先 RED：空字符串及 `\uFEFF + 空白` 均意外保存成功；最初将 BOM 放在空白之后的测试输入不符合 Core Normalize 的前缀 BOM 语义，调整为规范位置后验证。
+- 修复在 `SaveChapter` 写盘前校验 `strings.TrimSpace(domain.NormalizeChapterContent(content))`，返回“章节正文不能为空”；RED→GREEN 测试确认章节文件字节保持一致。
+- 本地验证：`go test ./...`、`go vet ./...`、Vitest 19/19、`npm run build`、Wails v2.15 Windows/amd64 production build、`git diff --check` 和 Go 格式检查通过。Wails 仍提示既有 `time.Time` binding warning，但构建成功。
+- Wails 构建移除了已跟踪的 `desktop/frontend/dist/.gitkeep`；这是构建产物副作用，将在提交前恢复。
+- 工具链定位：初次 Go 测试命令使用了错误 PATH（命令未启动）；实际 Go 1.25.11 位于 `C:\Users\linn\.cache\codex-runtimes\go\go1.25.11\go\bin`，后续均使用该路径并取得成功结果。
+
 *后续每完成一个阶段或遇到错误，都要同步更新本文件。*

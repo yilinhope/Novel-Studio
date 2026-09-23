@@ -2,9 +2,11 @@ package app
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -127,26 +129,35 @@ func TestSaveChapterRejectsIncompleteChapter(t *testing.T) {
 	}
 }
 
-func TestSaveEmptyChapterRemainsEditable(t *testing.T) {
-	path := fixture(t)
-	st := store.NewStore(path)
-	if _, err := st.ChapterRecords.Accept(1, domain.ChapterOriginGenerated, "# 启航\n\n海水拍打着舷窗。", domain.ChapterFacts{Title: "启航"}, domain.StyleDelta{}); err != nil {
-		t.Fatal(err)
-	}
-	service := &Service{}
-	if _, err := service.OpenProject(path); err != nil {
-		t.Fatal(err)
-	}
-	chapter, err := service.SaveChapter(1, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if chapter.HasContent || !chapter.CanEdit {
-		t.Fatalf("保存空正文后仍须保留已完成章节的编辑入口：%+v", chapter)
-	}
-	chapter, err = service.GetChapter(1)
-	if err != nil || chapter.HasContent || !chapter.CanEdit {
-		t.Fatalf("重新读取空正文时仍须可编辑：chapter=%+v err=%v", chapter, err)
+func TestSaveChapterRejectsEmptyContentWithoutChangingExistingFile(t *testing.T) {
+	for _, content := range []string{"", "\uFEFF \r\n\t "} {
+		t.Run(fmt.Sprintf("content_%q", content), func(t *testing.T) {
+			path := fixture(t)
+			st := store.NewStore(path)
+			if _, err := st.ChapterRecords.Accept(1, domain.ChapterOriginGenerated, "# 启航\n\n海水拍打着舷窗。", domain.ChapterFacts{Title: "启航"}, domain.StyleDelta{}); err != nil {
+				t.Fatal(err)
+			}
+			service := &Service{}
+			if _, err := service.OpenProject(path); err != nil {
+				t.Fatal(err)
+			}
+			chapterPath := filepath.Join(path, "chapters", "01.md")
+			before, err := os.ReadFile(chapterPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err := service.SaveChapter(1, content); err == nil || !strings.Contains(err.Error(), "章节正文不能为空") {
+				t.Fatalf("空白正文应返回明确错误，got %v", err)
+			}
+			after, err := os.ReadFile(chapterPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(after, before) {
+				t.Fatalf("拒绝保存不得修改原章节文件：before=%q after=%q", before, after)
+			}
+		})
 	}
 }
 
