@@ -70,7 +70,13 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
     if (!current.projectId || normalizePath(event.projectId) !== normalizePath(current.projectId)) return
     if (event.generation < current.runtime.generation || event.sequence <= current.lastSequence) return
     if (event.generation > current.runtime.generation) {
-      set({runtime: emptyRuntime(current.projectId, event.generation), logs: [], pipeline: {}})
+      set({runtime: {...emptyRuntime(current.projectId, event.generation),
+        requiresAdvancePermit: current.runtime.requiresAdvancePermit,
+        canAdvance: current.runtime.canAdvance,
+        advanceBlockedReason: current.runtime.advanceBlockedReason,
+        nextChapter: current.runtime.nextChapter,
+        hasCurrentReview: current.runtime.hasCurrentReview,
+      }, logs: [], pipeline: {}})
     }
     const next = get()
     if (event.log) {
@@ -91,7 +97,19 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
       }
       set({logs, pipeline})
     }
-    if (event.runtime) set({runtime: event.runtime, controlError: ''})
+    if (event.runtime) set({runtime: {
+      ...event.runtime,
+      // Engine events carry only lifecycle/snapshot fields; their zero values do
+      // not represent an updated Store projection, so keep the last read-only facts.
+      requiresAdvancePermit: next.runtime.requiresAdvancePermit,
+      canAdvance: next.runtime.canAdvance,
+      advanceBlockedReason: next.runtime.advanceBlockedReason,
+      nextChapter: next.runtime.nextChapter,
+      hasCurrentReview: next.runtime.hasCurrentReview,
+    }, controlError: ''})
+    if (event.runtime && !['running', 'pausing', 'stopping'].includes(event.runtime.state)) {
+      void get().refreshRuntime()
+    }
     set({lastSequence: event.sequence})
     const log = event.log
     if (log?.Tool === 'commit_chapter' && isFinished(log.FinishedAt) && !log.Failed && chapterCommitHandler) {
@@ -140,7 +158,7 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
 export function runtimeLabel(state: RuntimeState): string {
   const labels: Record<RuntimeState, string> = {
     idle: '待启动', running: '运行中', pausing: '正在暂停', paused: '已暂停',
-    stopping: '正在停止', stopped: '已停止', waiting_review: '等待审核',
+    stopping: '正在停止', stopped: '已停止', waiting_review: '等待继续确认',
     waiting_sync: '等待同步', completed: '已完成', error: '发生错误',
   }
   return labels[state]

@@ -85,6 +85,101 @@ func TestRevisionReadAPIsDoNotCreateHost(t *testing.T) {
 	}
 }
 
+func newAdvanceRuntimeFixture(t *testing.T) (*App, *store.Store, string) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "novel")
+	st := store.NewStore(path)
+	content := "第一章正文"
+	for _, err := range []error{
+		st.Progress.Save(&domain.Progress{Phase: domain.PhaseWriting, Flow: domain.FlowWriting, CurrentChapter: 2, CompletedChapters: []int{1}}),
+		st.RunMeta.Save(domain.RunMeta{AdvanceMode: domain.ChapterAdvanceReview}),
+		st.Drafts.SaveFinalChapter(1, content),
+	} {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := st.ChapterRecords.Accept(1, domain.ChapterOriginGenerated, content, domain.ChapterFacts{Title: "第一章"}, domain.StyleDelta{}); err != nil {
+		t.Fatal(err)
+	}
+	a := &App{outputDir: path}
+	if _, err := a.service.OpenProject(path); err != nil {
+		t.Fatal(err)
+	}
+	return a, st, path
+}
+
+func TestGetRuntimeStateDerivesWaitingReviewOnlyAfterCleanRevisionCheck(t *testing.T) {
+	a, st, path := newAdvanceRuntimeFixture(t)
+	synced, err := a.CheckChapterRevisions()
+	if err != nil || synced.State != viewmodel.RevisionSynced {
+		t.Fatalf("clean revision check failed: %+v %v", synced, err)
+	}
+	runtime := a.GetRuntimeState()
+	if runtime.State != viewmodel.RuntimeWaitingReview || !runtime.RequiresAdvancePermit || !runtime.CanAdvance {
+		t.Fatalf("clean review gate should wait for explicit continuation: %+v", runtime)
+	}
+	if err := st.Drafts.SaveFinalChapter(1, "第一章正文被修改"); err != nil {
+		t.Fatal(err)
+	}
+	unsynced, err := a.CheckChapterRevisions()
+	if err != nil || !unsynced.HasUnsynced {
+		t.Fatalf("unsynced revision check failed: %+v %v", unsynced, err)
+	}
+	runtime = a.GetRuntimeState()
+	if runtime.State != viewmodel.RuntimeWaitingSync || runtime.RequiresAdvancePermit || runtime.CanAdvance {
+		t.Fatalf("WaitingSync must outrank waiting_review and block permit: %+v", runtime)
+	}
+	if err := st.Drafts.SaveFinalChapter(1, "第一章正文"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Revisions.SavePending(domain.PendingRevision{Stage: domain.RevisionStageRecordsApplied, Items: []domain.PendingRevisionItem{{Chapter: 1, BaseSHA256: "accepted", CurrentSHA256: "pending"}}}); err != nil {
+		t.Fatal(err)
+	}
+	recovery, err := a.CheckChapterRevisions()
+	if err != nil || recovery.State != viewmodel.RevisionRecoveryPending {
+		t.Fatalf("recovery check failed: %+v %v", recovery, err)
+	}
+	runtime = a.GetRuntimeState()
+	if runtime.State != viewmodel.RuntimeWaitingSync || runtime.CanAdvance || runtime.RequiresAdvancePermit {
+		t.Fatalf("pending recovery must remain WaitingSync, not a user permit gate: %+v", runtime)
+	}
+	if runtime.ProjectID != path {
+		t.Fatalf("project id changed: %+v", runtime)
+	}
+}
+
+func TestGetRuntimeStateDoesNotAttachStaleProjectGate(t *testing.T) {
+	a, _, path := newAdvanceRuntimeFixture(t)
+	a.outputDir = filepath.Join(t.TempDir(), "other-project")
+	runtime := a.GetRuntimeState()
+	if runtime.ProjectID == path || runtime.RequiresAdvancePermit || runtime.CanAdvance || runtime.State == viewmodel.RuntimeWaitingReview {
+		t.Fatalf("stale projection must not leak across project switch: %+v", runtime)
+	}
+}
+
+func TestZeroNextChapterNeverProjectsWaitingReview(t *testing.T) {
+	a, _, path := newAdvanceRuntimeFixture(t)
+	synced, err := a.CheckChapterRevisions()
+	if err != nil || synced.State != viewmodel.RevisionSynced {
+		t.Fatalf("clean revision check failed: %+v %v", synced, err)
+	}
+	if err := os.Remove(filepath.Join(path, "meta", "progress.json")); err != nil {
+		t.Fatal(err)
+	}
+	projection, err := a.service.GetAdvanceProjection(synced)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if projection.NextChapter != 0 || projection.RequiresAdvancePermit || projection.CanAdvance {
+		t.Fatalf("zero next chapter must not be presented as an advance gate: %+v", projection)
+	}
+	runtime := a.GetRuntimeState()
+	if runtime.State == viewmodel.RuntimeWaitingReview || runtime.RequiresAdvancePermit || runtime.CanAdvance {
+		t.Fatalf("zero next chapter must not derive WaitingReview: %+v", runtime)
+	}
+}
+
 func TestSaveChapterLeavesAcceptedRecordUnchangedAndMarksWaitingSync(t *testing.T) {
 	path := t.TempDir()
 	st := store.NewStore(path)

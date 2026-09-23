@@ -122,6 +122,16 @@ func sameProjectPath(left, right string) bool {
 func (a *App) GetProjectOverview() (viewmodel.Overview, error)  { return a.service.GetProjectOverview() }
 func (a *App) GetProjectTree() ([]viewmodel.Node, error)        { return a.service.GetProjectTree() }
 func (a *App) GetChapter(number int) (viewmodel.Chapter, error) { return a.service.GetChapter(number) }
+func (a *App) GetReviewCenter() (viewmodel.ReviewCenter, error) {
+	status, err := a.revisionStatusService().CheckChapterRevisions()
+	if err != nil {
+		status, _ = a.revisionStatusService().GetRevisionStatus()
+		status.State = viewmodel.RevisionError
+		status.HasUnsynced = true
+		status.Error = err.Error()
+	}
+	return a.service.GetReviewCenter(status)
+}
 
 // GetRevisionStatus 读取当前项目最近一次修订检查结果；首次检查前返回 unknown。
 func (a *App) GetRevisionStatus() (viewmodel.RevisionStatus, error) {
@@ -251,10 +261,18 @@ func (a *App) GetRuntimeState() viewmodel.Runtime {
 			state = viewmodel.Runtime{ProjectID: outputDir, State: viewmodel.RuntimeIdle}
 		}
 	}
-	if status, err := a.revisionStatusService().GetRevisionStatus(); err == nil && status.ProjectID == outputDir && status.HasUnsynced {
-		switch state.State {
-		case viewmodel.RuntimeIdle, viewmodel.RuntimePaused, viewmodel.RuntimeStopped, viewmodel.RuntimeCompleted:
-			state.State = viewmodel.RuntimeWaitingSync
+	a.enrichRuntime(&state)
+	status, statusErr := a.revisionStatusService().GetRevisionStatus()
+	if statusErr == nil && sameProjectPath(status.ProjectID, outputDir) {
+		if status.HasUnsynced || status.State == viewmodel.RevisionSavedUnsynced || status.State == viewmodel.RevisionRecoveryPending {
+			switch state.State {
+			case viewmodel.RuntimeIdle, viewmodel.RuntimePaused, viewmodel.RuntimeStopped, viewmodel.RuntimeCompleted, viewmodel.RuntimeWaitingReview:
+				state.State = viewmodel.RuntimeWaitingSync
+			}
+		} else if status.State == viewmodel.RevisionSynced && runtimeIsStopped(state.State) {
+			if projection, err := a.service.GetAdvanceProjection(status); err == nil && projection.ProjectID == outputDir && projection.RequiresAdvancePermit && projection.CanAdvance {
+				state.State = viewmodel.RuntimeWaitingReview
+			}
 		}
 	}
 	return state
@@ -280,7 +298,12 @@ func (a *App) ResumeWriting() (viewmodel.Runtime, error) {
 	if status.HasUnsynced || status.State != viewmodel.RevisionSynced {
 		return viewmodel.Runtime{}, fmt.Errorf("存在未同步章节修订，请先同步后再继续创作")
 	}
-	return engine.ResumeWriting(projectDir, outputDir)
+	state, err := engine.ResumeWriting(projectDir, outputDir)
+	if err != nil {
+		return state, err
+	}
+	a.enrichRuntime(&state)
+	return state, nil
 }
 
 func (a *App) PauseWriting() (viewmodel.Runtime, error) {
@@ -288,7 +311,11 @@ func (a *App) PauseWriting() (viewmodel.Runtime, error) {
 	if engine == nil {
 		return viewmodel.Runtime{}, fmt.Errorf("Studio Engine Service 尚未启动")
 	}
-	return engine.PauseWriting()
+	state, err := engine.PauseWriting()
+	if err == nil {
+		a.enrichRuntime(&state)
+	}
+	return state, err
 }
 
 func (a *App) StopWriting() (viewmodel.Runtime, error) {
@@ -296,7 +323,49 @@ func (a *App) StopWriting() (viewmodel.Runtime, error) {
 	if engine == nil {
 		return viewmodel.Runtime{}, fmt.Errorf("Studio Engine Service 尚未启动")
 	}
-	return engine.StopWriting()
+	state, err := engine.StopWriting()
+	if err == nil {
+		a.enrichRuntime(&state)
+	}
+	return state, err
+}
+
+func (a *App) enrichRuntime(state *viewmodel.Runtime) {
+	if state == nil {
+		return
+	}
+	status, statusErr := a.revisionStatusService().GetRevisionStatus()
+	if projection, err := a.service.GetAdvanceProjection(status); err == nil {
+		// OpenProject publishes the Store and Bridge project ID in two steps. If a
+		// read overlaps that transition, never attach one project's gate to another
+		// project's Runtime; the next Runtime refresh will fill the matching facts.
+		if state.ProjectID == "" || projection.ProjectID == "" || !sameProjectPath(state.ProjectID, projection.ProjectID) {
+			return
+		}
+		state.RequiresAdvancePermit = projection.RequiresAdvancePermit
+		state.CanAdvance = projection.CanAdvance && statusErr == nil && sameProjectPath(status.ProjectID, projection.ProjectID) && status.State == viewmodel.RevisionSynced && !status.HasUnsynced
+		state.AdvanceBlockedReason = projection.AdvanceBlockedReason
+		if !state.CanAdvance && state.RequiresAdvancePermit && state.AdvanceBlockedReason == "" {
+			state.AdvanceBlockedReason = "章节修订状态尚未确认"
+		}
+		if !runtimeIsStopped(state.State) {
+			state.CanAdvance = false
+			if state.AdvanceBlockedReason == "" {
+				state.AdvanceBlockedReason = "Engine 当前状态不能执行下一章推进"
+			}
+		}
+		state.NextChapter = projection.NextChapter
+		state.HasCurrentReview = projection.HasCurrentReview
+	}
+}
+
+func runtimeIsStopped(state viewmodel.RuntimeState) bool {
+	switch state {
+	case viewmodel.RuntimeIdle, viewmodel.RuntimePaused, viewmodel.RuntimeStopped, viewmodel.RuntimeCompleted, viewmodel.RuntimeWaitingReview:
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *App) ConfirmChapterCommit(chapter int, startedAt string) (viewmodel.ChapterCommitConfirmation, error) {

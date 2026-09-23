@@ -7,6 +7,19 @@ export interface TreeNode { id: string; kind: string; title: string; chapter: nu
 export interface Project { projectRoot: string; outputDir: string; overview: Overview; tree: TreeNode[] }
 export interface ChapterCommitConfirmation { confirmed: boolean; project: Project }
 export interface Chapter { number: number; title: string; content: string; wordCount: number; hasContent: boolean; canEdit: boolean }
+export interface ReviewIssue { type: string; severity: string; description: string; evidence?: string; suggestion?: string; chapters?: number[]; requires_change: boolean }
+export interface ReviewDimension { dimension: string; score: number; verdict?: string; comment?: string }
+export interface ReviewEntry {
+  chapter: number; scope: string; issues?: ReviewIssue[] | null; dimensions?: ReviewDimension[]
+  contract_status?: string; contract_misses?: string[]; contract_notes?: string
+  verdict: string; summary: string; affected_chapters?: number[]
+}
+export interface ReviewCenter {
+  projectId: string; reviews: ReviewEntry[]; currentReviews: ReviewEntry[]; requiresAdvancePermit: boolean
+  canAdvance: boolean
+  nextChapter: number; hasCurrentReview: boolean; advanceMode: string
+  advancePermitChapter: number; advanceHoldReason?: string; advanceBlockedReason?: string
+}
 export type RevisionState = 'unknown' | 'synced' | 'saved_unsynced' | 'recovery_pending' | 'error'
 export interface UnsyncedChapter { chapter: number; acceptedHash: string; currentHash: string }
 export interface RevisionStatus {
@@ -19,6 +32,8 @@ export type RuntimeState = 'idle' | 'running' | 'pausing' | 'paused' | 'stopping
 export interface RuntimeAgent { name: string; state: string; tool?: string; summary?: string }
 export interface Runtime {
   projectId: string; generation: number; state: RuntimeState; phase: string; flow: string
+  requiresAdvancePermit?: boolean; canAdvance?: boolean; advanceBlockedReason?: string
+  nextChapter?: number; hasCurrentReview?: boolean
   agent?: string; chapter?: number; step?: string; elapsedSeconds: number
   inputTokens: number; outputTokens: number; projectInputTokens: number; projectOutputTokens: number
   runCostUsd: number; projectCostUsd: number; error?: string; agents: RuntimeAgent[]; updatedAt: string
@@ -37,6 +52,7 @@ export interface StudioBridge {
   GetProjectOverview(): Promise<Overview>
   GetProjectTree(): Promise<TreeNode[]>
   GetChapter(number: number): Promise<Chapter>
+  GetReviewCenter?(): Promise<ReviewCenter>
   SaveChapter(number: number, content: string): Promise<ChapterSaveResult>
   SyncChapterRevisions?(chapter: number): Promise<ChapterSyncResult>
   GetRevisionStatus(): Promise<RevisionStatus>

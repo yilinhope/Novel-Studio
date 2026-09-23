@@ -1,0 +1,39 @@
+.review-center{max-width:1000px;margin:0 auto;padding:30px 28px 42px}
+.review-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:22px}
+.review-heading h1{font-size:24px;line-height:1.3;margin:0}
+.review-heading .eyebrow{margin:0 0 5px}
+.review-subtitle,.review-meta{color:var(--muted);font-size:12px;line-height:1.7}
+.review-subtitle{max-width:700px;margin:8px 0 0}
+.advance-gate{display:flex;align-items:flex-start;gap:14px;padding:16px;margin-bottom:26px;background:var(--surface);border:1px solid var(--border);border-radius:6px}
+.advance-gate-icon{display:grid;place-items:center;flex:none;width:36px;height:36px;border:1px solid var(--border);border-radius:5px;color:var(--accent);background:var(--panel)}
+.advance-gate>div:last-child{display:grid;gap:6px}
+.advance-gate span,.advance-gate small{color:var(--muted);font-size:11px}
+.advance-gate strong{font-size:13px;font-weight:600}
+.review-list-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.review-list-heading h2{margin:0;font-size:14px}
+.review-list-heading span,.review-issue-count{color:var(--muted);font-size:11px}
+.review-list{display:grid;gap:12px}
+.review-card{padding:17px 18px;background:var(--surface);border:1px solid var(--border);border-radius:6px}
+.review-card>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.review-scope{color:var(--muted);font-size:10px}
+.review-card h2{margin:5px 0 0;font-size:15px}
+.review-summary{margin:14px 0;line-height:1.8;white-space:pre-wrap}
+.review-dimensions{display:flex;flex-wrap:wrap;gap:7px;list-style:none;margin:0 0 12px;padding:0}
+.review-dimensions li{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--panel);border:1px solid var(--border);border-radius:4px;font-size:10px}
+.review-dimensions strong{font-family:var(--font-mono);color:var(--accent)}
+.review-dimensions small,.review-dimensions em{color:var(--muted);font-style:normal}
+.review-issues,.review-contract-list{list-style:none;margin:0;padding:0}
+.review-issues>li{padding:12px 0;border-top:1px solid var(--border)}
+.review-issues>li>div{display:flex;align-items:center;gap:8px}
+.review-issues strong{font-size:12px}
+.review-severity,.review-change-needed{padding:2px 6px;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:9px}
+.severity-critical,.severity-error{color:var(--danger);border-color:rgba(255,180,171,.4)}
+.severity-warning,.review-change-needed{color:#ffcc80}
+.review-issues p{margin:7px 0;font-size:12px;line-height:1.7;white-space:pre-wrap}
+.review-issues blockquote{margin:8px 0;padding:8px 11px;border-left:2px solid var(--border);background:var(--panel);color:var(--muted);font:11px/1.7 var(--font-mono);white-space:pre-wrap}
+.review-issues small{color:var(--muted);font-size:10px}
+.review-contract-list{margin:8px 0 14px;padding-left:18px;list-style:disc;color:var(--muted);font-size:11px;line-height:1.8}
+.review-empty{padding:42px 20px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--border);border-radius:6px}
+.review-error{display:flex;gap:9px;align-items:center;margin:14px 0;padding:12px;color:var(--danger);border:1px solid rgba(255,180,171,.4);border-radius:5px}
+.review-error svg{flex:none}
+@media(max-width:700px){.review-center{padding:22px 14px 30px}.review-heading{flex-wrap:wrap}.review-card{padding:14px}.advance-gate{padding:13px}}

@@ -243,3 +243,21 @@
 - 最终 GitNexus 全量差异为 13 文件、71 符号、0 个受影响流程、LOW；无 Core Host、revision 或 TUI 文件变更。工作树将在收尾记录提交后复核清洁状态。
 
 *后续每完成一个阶段或遇到错误，都要同步更新本文件。*
+
+## Session: 2026-09-23 — M5-A Review Center + Advance Gate 只读投影
+
+### Phase 19: M5-A（进行中）
+
+- 从已合并的 `origin/main` 创建 `codex/m5-review-center-a`，原 M4 分支保持不动；起始工作树干净。
+- 按用户批准只实施 M5-A：新增 Studio Review Center 只读 API、Runtime 的 `requiresAdvancePermit` / `nextChapter` / `hasCurrentReview` 投影，以及对应前端视图。
+- 审阅条目仅由 `World.LoadReview` / `LoadGlobalReview` 读取；等待许可不会合成 ReviewEntry。许可字段从 RunMeta 读取，不调用 Host，不写 Review 或 AdvancePermit。
+- Runtime 投影只读最新进度、RunMeta、PendingCommit 与最新已完成章节的两种 Review；只有 Review Center 打开时才枚举历史，避免长篇运行态轮询触发大量文件读取。
+- Advance Gate 提示区同时展示真实待返工、返工/打磨、当前章运行中、PendingCommit、AdvanceHold 等阻挡事实，不提供 Next 写操作。
+- GitNexus `viewmodel.Runtime` 影响为 HIGH（共享 EngineService / Bridge / Tools 结构，ResumeWriting 流程受影响）；只增加 JSON 字段并在 Bridge 只读 enrich，未改 Engine lifecycle。`GetRuntimeState` 图结果 UNKNOWN，已用源码搜索确认 Wails/前端消费关系。
+- GitNexus 索引提示较当前 HEAD 落后 1 个 merge commit；尝试 `analyze --index-only` 后长时间无进展并中止，因此本轮不宣称索引刷新或 detect-changes 已通过。
+- 静态验证：全仓 `go build -buildvcs=false ./...`、前端 `npm run build`（tsc + Vite）和 `git diff --check` 通过。按当前执行约束未运行测试；本机未发现 Wails CLI，未执行 Wails production build。
+- Vite 构建曾删除已跟踪的 `desktop/frontend/dist/.gitkeep`，已用 `git restore` 恢复；构建输出保持忽略态。
+- 独立 reviewer 首轮发现 3 项 Important：Runtime event 零值覆盖 Store 投影、FlowReviewing/FlowSteering 被误报为许可等待、项目切换期间 gate 与 Runtime 可能串项目；修复后同一 reviewer 复核 Ready，未发现剩余问题。
+- 修复方式：前端 runtime event 始终保留最新 Store 投影，并在非活动终态后刷新；Advance projection 排除 reviewing/steering 并展示阻挡理由；Bridge enrichRuntime 校验 Runtime.ProjectID 与 Store 投影 ProjectID 一致才赋值。
+- 修复后重新验证：`go build -buildvcs=false ./...`、`npm run build`（tsc + Vite）、`git diff --check` 均通过。未运行测试；本机无 Wails CLI。
+- 阶段代码与只读边界复核完成；提交和 PR CI 状态待记录。

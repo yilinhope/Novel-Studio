@@ -6,11 +6,11 @@ import type { Chapter, Project, StudioEngineEvent } from './types'
 
 interface StudioState {
   project: Project | null; chapter: Chapter | null; busy: boolean; error: string
-  view: 'overview' | 'chapter' | 'runtime'; chapterLoading: boolean
+  view: 'overview' | 'chapter' | 'runtime' | 'review'; chapterLoading: boolean
   draftContent: string; savedContent: string; dirty: boolean; saveBusy: boolean; saveError: string
   syncing: boolean; syncError: string; syncNotice: string; refreshWarning: string
   open(path?: string): Promise<void>; read(number: number): Promise<void>; setDraftContent(content: string): void
-  saveChapter(): Promise<void>; syncChapterRevisions(): Promise<void>; overview(): void; runtime(): void
+  saveChapter(): Promise<void>; syncChapterRevisions(): Promise<void>; overview(): void; runtime(): void; review(): void
 }
 let request = 0
 const normalizePath = (path: string) => path.replaceAll('\\', '/').replace(/\/+$/, '').toLocaleLowerCase()
@@ -59,6 +59,7 @@ export const useStudio = create<StudioState>((set, get) => ({
               ? {draftContent: refreshedChapter.content, savedContent: refreshedChapter.content, dirty: false, saveError: ''}
               : {}),
           })
+          await useEngineStore.getState().refreshRuntime()
         })
       }
     } catch (error) { if (ticket === request) set({error: String(error)}) }
@@ -186,5 +187,10 @@ export const useStudio = create<StudioState>((set, get) => ({
     if (get().saveBusy || get().syncing || (get().dirty && !window.confirm('当前章节有未保存修改。离开将放弃这些修改，是否继续？'))) return
     ++request
     set({view:'runtime', chapterLoading:false, error:'', draftContent:get().savedContent, dirty:false, saveError:''})
+  },
+  review() {
+    if (get().saveBusy || get().syncing || (get().dirty && !window.confirm('当前章节有未保存修改。离开将放弃这些修改，是否继续？'))) return
+    ++request
+    set({view:'review', chapterLoading:false, error:'', draftContent:get().savedContent, dirty:false, saveError:''})
   },
 }))
