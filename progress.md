@@ -229,5 +229,15 @@
 - 本地验证：`go test ./...`、`go vet ./...`、Vitest 19/19、`npm run build`、Wails v2.15 Windows/amd64 production build、`git diff --check` 和 Go 格式检查通过。Wails 仍提示既有 `time.Time` binding warning，但构建成功。
 - Wails 构建移除了已跟踪的 `desktop/frontend/dist/.gitkeep`；这是构建产物副作用，将在提交前恢复。
 - 工具链定位：初次 Go 测试命令使用了错误 PATH（命令未启动）；实际 Go 1.25.11 位于 `C:\Users\linn\.cache\codex-runtimes\go\go1.25.11\go\bin`，后续均使用该路径并取得成功结果。
+- M4-B 修复独立提交 `464ce1b 修复：拒绝保存空章节正文` 并推送至 Draft PR #3。该 SHA 的 Ubuntu/Windows Go、Frontend、Wails Windows production 四项 GitHub Checks 全部通过（run `35825505192`）；Phase 17 验收完成，开始 M4-C。
+- M4-C EngineService RED→GREEN：新增临时 Host 显式 Sync、同项目现有 Host 复用、Running/Pausing/Stopping 拒绝、错误传播与临时 Host 关闭测试。Host/Core Sync 逻辑未复制或改动。
+- M4-C Bridge RED→GREEN：无 Host 的用户显式 Sync 才触发 Host 工厂；成功后重新加载 Project/Overview、当前 Chapter 和 Revision 并只在 Store 复核为 synced 时返回；失败刷新 pending stage，错误继续上抛。测试涵盖 `records_applied` pending 可见。
+- GitNexus 刷新后：RuntimeCenter 上游 LOW（App 单调用），revisionsAllowWriting 上游 LOW（RuntimeCenter/EngineStore 两处）；SaveChapter 与 SyncChapterRevisions 名称存在多候选/UNKNOWN，已对 `rg` 确认前端消费点和 Core Host 唯一 TUI 入口。EngineSession HIGH/lower-bound 仍按接口契约逐实现更新并跑全仓 Go 验证。
+- M4-C Frontend RED→GREEN：立即同步状态动作、成功刷新项目/章节/revision 并恢复写作门禁；失败重查 pending stage 并留错误；脏正文时不调用 Sync。Runtime Center 增加 Sync/恢复文案，编辑器在同步期间只读。
+- 最终全量验证：`go test -buildvcs=false -count=1 ./...`、`go vet ./...`、Vitest 23/23、`tsc --noEmit && vite build`、Wails Windows/amd64 production build 均通过。仍待最后 review、GitNexus `detect-changes --scope all` 与更新 PR #3。
+- 为 Runtime Center 补充显式“章节修订同步完成”反馈：先以测试 RED 证明成功状态未显示成功确认，再加入 `syncNotice`，Store 定向测试和前端构建转绿。
+- 最终审查补充同步提示生命周期：编辑正文/成功切换项目后清除旧的“同步完成”提示；回归用例 RED→GREEN，避免把过期成功消息展示为当前状态。
+- 最终门禁复核发现“Host Sync 返回错误、只读复核随后返回 synced”不得解锁 Resume；新增 RED 用例并修复为保留修订门禁错误且不接受 synced 响应，定向测试转绿。
+- 最终代码格式、Go 全仓 `-count=1` 测试及 `go vet ./...` 通过；Wails Windows production build 生成 `ChapterSyncResult` 与 `SyncChapterRevisions` 绑定并成功构建。构建只删除已跟踪 dist placeholder，已恢复；生成 bindings/EXE 保持忽略态。
 
 *后续每完成一个阶段或遇到错误，都要同步更新本文件。*

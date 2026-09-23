@@ -2,21 +2,22 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import { useStudio } from './store'
 import { useRevisionStore } from './revisionStore'
 import { setChapterCommitHandler, useEngineStore } from './engineStore'
-import type { Chapter, Project, StudioBridge } from './types'
+import { revisionsAllowWriting } from './revisionStore'
+import type { Chapter, ChapterSyncResult, Project, StudioBridge } from './types'
 
 const project: Project = {projectRoot:'C:/',outputDir:'C:/小说',overview:{title:'测试小说',synopsis:'简介',path:'C:/小说',phase:'writing',flow:'writing',currentChapter:2,completedChapters:1,plannedChapters:2,wordCount:20,currentVolume:1,currentArc:1},tree:[]}
 let api: StudioBridge
 beforeEach(() => {
   api = {
     SelectProjectDirectory:vi.fn().mockResolvedValue(''),OpenProject:vi.fn().mockResolvedValue(project),
-    GetProjectOverview:vi.fn(),GetProjectTree:vi.fn(),GetChapter:vi.fn(),SaveChapter:vi.fn(),
+    GetProjectOverview:vi.fn(),GetProjectTree:vi.fn(),GetChapter:vi.fn(),SaveChapter:vi.fn(),SyncChapterRevisions:vi.fn(),
     GetRuntimeState:vi.fn(),
     GetRevisionStatus:vi.fn().mockResolvedValue({projectId:project.outputDir,state:'unknown',hasUnsynced:false,chapters:[]}),
     CheckChapterRevisions:vi.fn().mockResolvedValue({projectId:project.outputDir,state:'synced',hasUnsynced:false,chapters:[]}),
     ConfirmChapterCommit:vi.fn().mockResolvedValue({confirmed:true,project}),
   }
   vi.stubGlobal('window',{go:{bridge:{App:api}}})
-  useStudio.setState({project:null,chapter:null,busy:false,error:'',view:'overview',chapterLoading:false,draftContent:'',savedContent:'',dirty:false,saveBusy:false,saveError:''})
+  useStudio.setState({project:null,chapter:null,busy:false,error:'',view:'overview',chapterLoading:false,draftContent:'',savedContent:'',dirty:false,saveBusy:false,saveError:'',syncing:false,syncError:'',syncNotice:''})
   useRevisionStore.setState({projectId:'',generation:0,status:{projectId:'',state:'unknown',hasUnsynced:false,chapters:[]},checking:false,error:''})
   useEngineStore.setState({projectId:'',runtime:{projectId:'',generation:0,state:'idle',phase:'',flow:'',elapsedSeconds:0,inputTokens:0,outputTokens:0,projectInputTokens:0,projectOutputTokens:0,runCostUsd:0,projectCostUsd:0,agents:[],updatedAt:''},logs:[],pipeline:{},lastSequence:0,controlBusy:false,controlError:''})
 })
@@ -90,6 +91,77 @@ test('编辑并保存只更新正文与 SavedUnsynced/WaitingSync 状态',async 
   expect(useStudio.getState().savedContent).toBe('人工修订')
   expect(useRevisionStore.getState().status.state).toBe('saved_unsynced')
   expect(useEngineStore.getState().runtime.state).toBe('waiting_sync')
+})
+
+test('立即同步刷新项目章节与修订状态并恢复继续创作',async () => {
+  const syncedChapter: Chapter = {number:1,title:'第一章',content:'Core 已接纳正文',wordCount:6,hasContent:true,canEdit:true}
+  const syncedRevision = {projectId:project.outputDir,state:'synced' as const,hasUnsynced:false,chapters:[]}
+  const refreshedProject = {...project,overview:{...project.overview,wordCount:42}}
+  const syncResult: ChapterSyncResult = {project:refreshedProject,chapter:syncedChapter,revision:syncedRevision}
+  vi.mocked(api.GetChapter).mockResolvedValue({number:1,title:'第一章',content:'本地修订',wordCount:4,hasContent:true,canEdit:true})
+  vi.mocked(api.SyncChapterRevisions!).mockResolvedValue(syncResult)
+  vi.mocked(api.GetRuntimeState!).mockResolvedValue({projectId:project.outputDir,generation:0,state:'idle',phase:'',flow:'',elapsedSeconds:0,inputTokens:0,outputTokens:0,projectInputTokens:0,projectOutputTokens:0,runCostUsd:0,projectCostUsd:0,agents:[],updatedAt:''})
+  await useStudio.getState().open('C:/小说')
+  await useStudio.getState().read(1)
+  useRevisionStore.getState().acceptStatus({projectId:project.outputDir,state:'saved_unsynced',hasUnsynced:true,chapters:[{chapter:1,acceptedHash:'old',currentHash:'new'}]})
+  useEngineStore.setState({runtime:{...useEngineStore.getState().runtime,projectId:project.outputDir,state:'waiting_sync'}})
+
+  await useStudio.getState().syncChapterRevisions()
+
+  expect(api.SyncChapterRevisions).toHaveBeenCalledWith(1)
+  expect(useStudio.getState().project?.overview.wordCount).toBe(42)
+  expect(useStudio.getState().chapter?.content).toBe('Core 已接纳正文')
+  expect(useStudio.getState().draftContent).toBe('Core 已接纳正文')
+  expect(useRevisionStore.getState().status.state).toBe('synced')
+  expect(useEngineStore.getState().runtime.state).toBe('idle')
+  expect(revisionsAllowWriting(project.outputDir, useRevisionStore.getState().status, false, '')).toBe(true)
+  expect(useStudio.getState().syncError).toBe('')
+  expect(useStudio.getState().syncNotice).toContain('同步完成')
+  expect(useStudio.getState().syncing).toBe(false)
+})
+
+test('同步失败后刷新 pending 恢复态并保留错误',async () => {
+  vi.mocked(api.SyncChapterRevisions!).mockRejectedValue(new Error('恢复阶段暂时失败'))
+  vi.mocked(api.CheckChapterRevisions).mockResolvedValue({
+    projectId:project.outputDir,state:'recovery_pending',hasUnsynced:true,pendingStage:'records_applied',chapters:[{chapter:1,acceptedHash:'old',currentHash:'new'}],
+  })
+  await useStudio.getState().open('C:/小说')
+  await useStudio.getState().read(1)
+  useRevisionStore.getState().acceptStatus({projectId:project.outputDir,state:'saved_unsynced',hasUnsynced:true,chapters:[{chapter:1,acceptedHash:'old',currentHash:'new'}]})
+
+  await useStudio.getState().syncChapterRevisions()
+
+  expect(useRevisionStore.getState().status.state).toBe('recovery_pending')
+  expect(useRevisionStore.getState().status.pendingStage).toBe('records_applied')
+  expect(useStudio.getState().syncError).toContain('恢复阶段暂时失败')
+  expect(useStudio.getState().syncing).toBe(false)
+})
+
+test('Sync 返回错误时只读复核的 synced 结果不得解锁 Resume',async () => {
+  vi.mocked(api.SyncChapterRevisions!).mockRejectedValue(new Error('Host 返回同步错误'))
+  vi.mocked(api.CheckChapterRevisions).mockResolvedValue({projectId:project.outputDir,state:'synced',hasUnsynced:false,chapters:[]})
+  await useStudio.getState().open('C:/小说')
+  await useStudio.getState().read(1)
+  useRevisionStore.getState().acceptStatus({projectId:project.outputDir,state:'saved_unsynced',hasUnsynced:true,chapters:[{chapter:1,acceptedHash:'old',currentHash:'new'}]})
+
+  await useStudio.getState().syncChapterRevisions()
+
+  expect(useRevisionStore.getState().status.state).not.toBe('synced')
+  expect(useRevisionStore.getState().error).toContain('Host 返回同步错误')
+  expect(revisionsAllowWriting(project.outputDir,useRevisionStore.getState().status,useRevisionStore.getState().checking,useRevisionStore.getState().error)).toBe(false)
+})
+
+test('脏正文存在时不允许开始同步',async () => {
+  await useStudio.getState().open('C:/小说')
+  await useStudio.getState().read(1)
+  useStudio.setState({syncNotice:'章节修订同步完成，项目与章节视图已刷新。'})
+  useStudio.getState().setDraftContent('尚未保存')
+
+  await useStudio.getState().syncChapterRevisions()
+
+  expect(api.SyncChapterRevisions).not.toHaveBeenCalled()
+  expect(useStudio.getState().dirty).toBe(true)
+  expect(useStudio.getState().syncNotice).toBe('')
 })
 
 test('章节提交通过 Store 二次确认后刷新选中编辑器正文',async () => {

@@ -1,11 +1,14 @@
 package bridge
 
 import (
+	"context"
+	"errors"
 	"sync"
 	"testing"
 
 	"github.com/voocel/ainovel-cli/internal/domain"
 	"github.com/voocel/ainovel-cli/internal/host"
+	"github.com/voocel/ainovel-cli/internal/revision"
 	"github.com/voocel/ainovel-cli/internal/store"
 	studioapp "github.com/voocel/ainovel-cli/internal/studio/app"
 	"github.com/voocel/ainovel-cli/internal/studio/viewmodel"
@@ -16,6 +19,8 @@ type bridgeTestEngine struct {
 	stream chan string
 	done   chan struct{}
 	close  sync.Once
+	syncFn func(context.Context) (*revision.Result, error)
+	syncs  int
 }
 
 func newBridgeTestEngine() *bridgeTestEngine {
@@ -23,7 +28,14 @@ func newBridgeTestEngine() *bridgeTestEngine {
 }
 func (e *bridgeTestEngine) Snapshot() host.UISnapshot { return host.UISnapshot{} }
 func (e *bridgeTestEngine) Resume() (string, error)   { return "继续", nil }
-func (e *bridgeTestEngine) Abort() bool               { return true }
+func (e *bridgeTestEngine) SyncChapterRevisions(ctx context.Context) (*revision.Result, error) {
+	e.syncs++
+	if e.syncFn != nil {
+		return e.syncFn(ctx)
+	}
+	return &revision.Result{}, nil
+}
+func (e *bridgeTestEngine) Abort() bool { return true }
 func (e *bridgeTestEngine) Close() {
 	e.close.Do(func() {
 		close(e.events)
@@ -121,6 +133,107 @@ func TestSaveChapterLeavesAcceptedRecordUnchangedAndMarksWaitingSync(t *testing.
 	}
 	if a.outputDir != path {
 		t.Fatalf("被拒绝的项目切换不应改变当前项目：%q", a.outputDir)
+	}
+}
+
+func TestSyncChapterRevisionsCreatesHostOnDemandAndRefreshesProjectChapterAndRevision(t *testing.T) {
+	path := t.TempDir()
+	st := store.NewStore(path)
+	original, edited := "第一章接纳正文", "第一章人工修订正文"
+	if err := st.Progress.Save(&domain.Progress{Phase: domain.PhaseWriting, CurrentChapter: 2, CompletedChapters: []int{1}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Drafts.SaveFinalChapter(1, original); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.ChapterRecords.Accept(1, domain.ChapterOriginGenerated, original, domain.ChapterFacts{Title: "第一章"}, domain.StyleDelta{}); err != nil {
+		t.Fatal(err)
+	}
+	a := &App{}
+	project, err := a.OpenProject(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake := newBridgeTestEngine()
+	fake.syncFn = func(context.Context) (*revision.Result, error) {
+		_, err := st.ChapterRecords.Accept(1, domain.ChapterOriginUser, edited, domain.ChapterFacts{Title: "第一章修订"}, domain.StyleDelta{})
+		return &revision.Result{}, err
+	}
+	factoryCalls := 0
+	a.engine = studioapp.NewEngineService(func(_, _ string) (studioapp.EngineSession, error) {
+		factoryCalls++
+		return fake, nil
+	})
+	a.projectDir, a.outputDir = project.ProjectRoot, project.OutputDir
+	if _, err := a.SaveChapter(1, edited); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := a.SyncChapterRevisions(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if factoryCalls != 1 || fake.syncs != 1 || !fakeClosed(fake) {
+		t.Fatalf("显式 Sync 应按需建 Host、委托并关闭临时会话：factory=%d sync=%d closed=%v", factoryCalls, fake.syncs, fakeClosed(fake))
+	}
+	if result.Project.OutputDir != project.OutputDir || result.Project.Overview.Title == "" {
+		t.Fatalf("Sync 应返回重新读取的项目快照：%+v", result.Project)
+	}
+	if result.Chapter == nil || result.Chapter.Content != edited {
+		t.Fatalf("Sync 应重新读取选中章节：%+v", result.Chapter)
+	}
+	if result.Revision.State != viewmodel.RevisionSynced || result.Revision.HasUnsynced {
+		t.Fatalf("成功同步必须经 Store 二次确认后报告 Synced：%+v", result.Revision)
+	}
+}
+
+func TestSyncChapterRevisionsFailureRefreshesPendingRecoveryStatus(t *testing.T) {
+	path := t.TempDir()
+	st := store.NewStore(path)
+	if err := st.Progress.Save(&domain.Progress{Phase: domain.PhaseWriting, CurrentChapter: 2, CompletedChapters: []int{1}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Drafts.SaveFinalChapter(1, "已接纳正文"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.ChapterRecords.Accept(1, domain.ChapterOriginGenerated, "已接纳正文", domain.ChapterFacts{Title: "第一章"}, domain.StyleDelta{}); err != nil {
+		t.Fatal(err)
+	}
+	a := &App{}
+	project, err := a.OpenProject(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.SaveChapter(1, "人工修订正文"); err != nil {
+		t.Fatal(err)
+	}
+	fake := newBridgeTestEngine()
+	fake.syncFn = func(context.Context) (*revision.Result, error) {
+		if err := st.Revisions.SavePending(domain.PendingRevision{
+			Stage: domain.RevisionStageRecordsApplied,
+			Items: []domain.PendingRevisionItem{{Chapter: 1}},
+		}); err != nil {
+			return nil, err
+		}
+		return nil, errors.New("恢复阶段写入失败")
+	}
+	a.engine = studioapp.NewEngineService(func(_, _ string) (studioapp.EngineSession, error) { return fake, nil })
+	a.projectDir, a.outputDir = project.ProjectRoot, project.OutputDir
+	if _, err := a.SyncChapterRevisions(1); err == nil {
+		t.Fatal("Host Sync 失败不得报告成功")
+	}
+	status, err := a.GetRevisionStatus()
+	if err != nil || status.State != viewmodel.RevisionRecoveryPending || status.PendingStage != string(domain.RevisionStageRecordsApplied) || !status.HasUnsynced {
+		t.Fatalf("失败后必须重新检查并继续阻止 Resume：status=%+v err=%v", status, err)
+	}
+}
+
+func fakeClosed(engine *bridgeTestEngine) bool {
+	select {
+	case <-engine.done:
+		return true
+	default:
+		return false
 	}
 }
 

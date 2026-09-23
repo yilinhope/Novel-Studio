@@ -1,26 +1,31 @@
 package app
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/voocel/ainovel-cli/internal/domain"
 	"github.com/voocel/ainovel-cli/internal/host"
+	"github.com/voocel/ainovel-cli/internal/revision"
 	"github.com/voocel/ainovel-cli/internal/store"
 	"github.com/voocel/ainovel-cli/internal/studio/viewmodel"
 )
 
 type fakeEngineSession struct {
-	mu         sync.Mutex
-	snapshot   host.UISnapshot
-	outcome    host.RunOutcome
-	closed     bool
-	abortCalls int
-	events     chan host.Event
-	stream     chan string
-	done       chan struct{}
-	closeOnce  sync.Once
+	mu          sync.Mutex
+	snapshot    host.UISnapshot
+	outcome     host.RunOutcome
+	closed      bool
+	abortCalls  int
+	resumeCalls int
+	syncCalls   int
+	syncErr     error
+	events      chan host.Event
+	stream      chan string
+	done        chan struct{}
+	closeOnce   sync.Once
 }
 
 func newFakeEngineSession() *fakeEngineSession {
@@ -31,7 +36,18 @@ func (f *fakeEngineSession) Snapshot() host.UISnapshot {
 	defer f.mu.Unlock()
 	return f.snapshot
 }
-func (f *fakeEngineSession) Resume() (string, error) { return "继续", nil }
+func (f *fakeEngineSession) Resume() (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.resumeCalls++
+	return "继续", nil
+}
+func (f *fakeEngineSession) SyncChapterRevisions(context.Context) (*revision.Result, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.syncCalls++
+	return &revision.Result{}, f.syncErr
+}
 func (f *fakeEngineSession) Abort() bool {
 	f.mu.Lock()
 	f.abortCalls++
@@ -160,4 +176,71 @@ func TestResumeWritingUsesResumeAndProjectSwitchRejectsRunningHost(t *testing.T)
 		t.Fatal("应通过 Host.Resume 启动会话")
 	}
 	s.Close()
+}
+
+func TestSyncChapterRevisionsCreatesTemporaryHostWhenNoneExists(t *testing.T) {
+	path := t.TempDir()
+	fake := newFakeEngineSession()
+	factoryCalls := 0
+	s := NewEngineService(func(_, _ string) (EngineSession, error) {
+		factoryCalls++
+		return fake, nil
+	})
+
+	if err := s.SyncChapterRevisions(context.Background(), path, path); err != nil {
+		t.Fatal(err)
+	}
+	if factoryCalls != 1 || fake.syncCalls != 1 || fake.resumeCalls != 0 {
+		t.Fatalf("显式 Sync 应按需创建 Host、只委托 Sync 而不 Resume：factory=%d sync=%d resume=%d", factoryCalls, fake.syncCalls, fake.resumeCalls)
+	}
+	if !fake.closed || s.engine != nil {
+		t.Fatal("临时 Sync Host 完成后应关闭且不得注册为 Engine Session")
+	}
+}
+
+func TestSyncChapterRevisionsReusesPausedHost(t *testing.T) {
+	path := t.TempDir()
+	fake := newFakeEngineSession()
+	s := NewEngineService(nil)
+	s.engine, s.outputDir = fake, path
+	s.runtime = viewmodel.Runtime{State: viewmodel.RuntimePaused}
+
+	if err := s.SyncChapterRevisions(context.Background(), path, path); err != nil {
+		t.Fatal(err)
+	}
+	if fake.syncCalls != 1 || fake.closed || s.engine != fake {
+		t.Fatal("已有同项目 Host 应复用，Sync 后继续保留会话")
+	}
+}
+
+func TestSyncChapterRevisionsRejectsActiveRuntime(t *testing.T) {
+	for _, state := range []viewmodel.RuntimeState{viewmodel.RuntimeRunning, viewmodel.RuntimePausing, viewmodel.RuntimeStopping} {
+		t.Run(string(state), func(t *testing.T) {
+			fake := newFakeEngineSession()
+			s := NewEngineService(nil)
+			s.engine, s.outputDir = fake, `C:\项目\output\novel`
+			s.runtime = viewmodel.Runtime{State: state}
+			s.runActive = state == viewmodel.RuntimeRunning || state == viewmodel.RuntimePausing || state == viewmodel.RuntimeStopping
+			if err := s.SyncChapterRevisions(context.Background(), s.outputDir, s.outputDir); err == nil {
+				t.Fatal("运行或过渡态必须拒绝同步")
+			}
+			if fake.syncCalls != 0 {
+				t.Fatal("运行或过渡态不得调用 Host Sync")
+			}
+		})
+	}
+}
+
+func TestSyncChapterRevisionsPropagatesFailureAndClosesTemporaryHost(t *testing.T) {
+	path := t.TempDir()
+	fake := newFakeEngineSession()
+	fake.syncErr = context.DeadlineExceeded
+	s := NewEngineService(func(_, _ string) (EngineSession, error) { return fake, nil })
+
+	if err := s.SyncChapterRevisions(context.Background(), path, path); err == nil {
+		t.Fatal("Core Sync 错误不得映射为成功")
+	}
+	if !fake.closed || fake.syncCalls != 1 {
+		t.Fatal("临时 Host 返回失败后仍须关闭，且只委托一次")
+	}
 }

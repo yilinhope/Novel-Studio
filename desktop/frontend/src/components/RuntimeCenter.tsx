@@ -38,9 +38,11 @@ function LogRow({log}: {readonly log: RuntimeLog}) {
 export function RuntimeCenter() {
   const {runtime, logs, pipeline, controlBusy, controlError, resumeWriting, pauseWriting, stopWriting} = useEngineStore()
   const revisions = useRevisionStore()
-  const dirty = useStudio(state => state.dirty)
-  const canResume = !dirty && revisionsAllowWriting(runtime.projectId, revisions.status, revisions.checking, revisions.error)
+  const {dirty, saveBusy, syncing, syncError, syncNotice, syncChapterRevisions} = useStudio()
+  const canResume = !dirty && !syncing && revisionsAllowWriting(runtime.projectId, revisions.status, revisions.checking, revisions.error)
   const canResumeState = ['idle', 'paused', 'stopped', 'error', 'waiting_sync'].includes(runtime.state)
+  const canSyncState = !['running', 'pausing', 'stopping'].includes(runtime.state)
+  const canSync = canSyncState && revisions.status.hasUnsynced
   const tools = useMemo(() => {
     const seen = new Set(Object.keys(pipeline))
     return [...writerSteps.slice(0, 4), ...(seen.has('edit_chapter') ? ['edit_chapter'] : []), ...writerSteps.slice(4)]
@@ -54,7 +56,9 @@ export function RuntimeCenter() {
         {runtime.state === 'running' && <button disabled={controlBusy} onClick={() => void pauseWriting()}>暂停</button>}
         {runtime.state === 'pausing' && <button disabled>正在暂停…</button>}
         {runtime.state === 'stopping' && <button disabled>正在停止…</button>}
-        {canResumeState && <button className="primary runtime-control-primary" disabled={controlBusy || !canResume} title={!canResume ? '请先完成章节修订检查，并同步所有未同步修订' : undefined} onClick={() => void resumeWriting()}>{runtime.state === 'idle' ? '开始创作' : ['paused', 'waiting_sync'].includes(runtime.state) ? '继续创作' : '恢复创作'}</button>}
+        {canSync && <button disabled={controlBusy || syncing || dirty || saveBusy || revisions.checking} title={dirty || saveBusy ? '请先保存或放弃未保存正文' : undefined} onClick={() => void syncChapterRevisions()}>{syncing ? revisions.status.state === 'recovery_pending' ? '正在恢复修订…' : '正在同步…' : revisions.status.state === 'recovery_pending' ? '继续恢复同步' : '立即同步'}</button>}
+        {syncNotice && <span className="runtime-subtitle" role="status">{syncNotice}</span>}
+        {canResumeState && <button className="primary runtime-control-primary" disabled={controlBusy || syncing || !canResume} title={!canResume ? '请先完成章节修订检查，并同步所有未同步修订' : undefined} onClick={() => void resumeWriting()}>{runtime.state === 'idle' ? '开始创作' : ['paused', 'waiting_sync'].includes(runtime.state) ? '继续创作' : '恢复创作'}</button>}
         {canResumeState && !canResume && <span className="runtime-subtitle" role="status">{dirty ? '当前章节有未保存修改，请先保存或放弃编辑。' : revisions.checking ? '正在检查章节修订…' : revisions.status.hasUnsynced ? '发现未同步章节修订，请先同步后继续。' : revisions.error ? '修订检查失败，暂不能继续创作。' : '章节修订状态尚未确认。'}</span>}
         {['running', 'pausing', 'paused'].includes(runtime.state) && <button disabled={controlBusy || runtime.state === 'stopping'} onClick={() => void stopWriting()}>停止</button>}
       </div>
@@ -75,7 +79,7 @@ export function RuntimeCenter() {
       </div>
     </section>
 
-    {(runtime.error || controlError) && <div className="runtime-error" role="status"><CircleAlert size={16}/><span>{controlError || runtime.error}</span></div>}
+    {(syncError || runtime.error || controlError) && <div className="runtime-error" role="status"><CircleAlert size={16}/><span>{syncError || controlError || runtime.error}</span></div>}
 
     <div className="runtime-grid">
       <section className="runtime-panel runtime-pipeline">

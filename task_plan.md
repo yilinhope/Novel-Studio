@@ -6,7 +6,7 @@
 
 ## Current Phase
 
-Phase 17: M4-B 空正文保存拒绝与 CI 验收
+Phase 18: M4-C Studio Sync 闭环
 
 ## Phases
 
@@ -161,18 +161,18 @@ Phase 17: M4-B 空正文保存拒绝与 CI 验收
 - [x] 用回归测试证明规范化并 TrimSpace 后为空的正文被拒绝，且磁盘原文不变（先 RED）
 - [x] 在 SaveChapter 写盘前校验，不改 Core revision/sync，不自动 Sync
 - [x] 运行全仓 Go、Frontend、Wails Windows production 验证
-- [ ] 独立提交并更新 PR #3，等待现有 GitHub CI 全绿后再进入 M4-C
-- **Status:** in_progress
+- [x] 独立提交并更新 PR #3，等待现有 GitHub CI 全绿后再进入 M4-C（提交 `464ce1b`，四项 Checks 全绿）
+- **Status:** complete
 
 ### Phase 18: M4-C Studio Sync 闭环
 
-- [ ] 按需复用现有 Host 或由明确 Sync 写操作创建 Host；只读入口不创建 Host
-- [ ] 实现 EngineService / Bridge Sync，拒绝运行与过渡态，复用 Host.SyncChapterRevisions pending 恢复语义
-- [ ] Sync 成功后重读 Project/Overview、当前 Chapter 和 Revision 状态；失败不映射为 Synced
-- [ ] 前端提供立即同步、等待/恢复态、错误可重试及 Continue/Resume 恢复门禁
-- [ ] RED-GREEN 覆盖 Host 生命周期、pending 恢复、成功刷新、错误/重试和前端状态
+- [x] 按需复用现有 Host 或由明确 Sync 写操作创建 Host；只读入口不创建 Host
+- [x] 实现 EngineService / Bridge Sync，拒绝运行与过渡态，复用 Host.SyncChapterRevisions pending 恢复语义
+- [x] Sync 成功后重读 Project/Overview、当前 Chapter 和 Revision 状态；失败不映射为 Synced
+- [x] 前端提供立即同步、等待/恢复态、错误可重试及 Continue/Resume 恢复门禁
+- [x] RED-GREEN 覆盖 Host 生命周期、pending 恢复、成功刷新、错误/重试和前端状态
 - [ ] 全量验证、GitNexus detect-changes、独立 review 与 PR #3 更新
-- **Status:** pending
+- **Status:** in_progress
 
 ## Key Questions
 

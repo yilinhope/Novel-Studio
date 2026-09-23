@@ -133,5 +133,9 @@
 - 本轮记录的非阻断项：CLI 与 GUI 跨进程同时写入同一项目的互斥尚未覆盖，留待后续 hardening；当前不扩展到跨进程锁。
 - 用户提及“两个非阻断项”，但实际消息只给出上述一项；暂按已明确的一项记录，不推测另一项内容。
 - M4-B 修复边界：`SaveChapter` 必须先对 `domain.NormalizeChapterContent(content)` 结果执行 `strings.TrimSpace` 校验；空白正文返回“章节正文不能为空”，拒绝时不能改变现存 Markdown；Core revision/sync 语义保持不变。
+- M4-C 同步边界复核：源码搜索确认 `Host.SyncChapterRevisions(context.Context) (*revision.Result, error)` 目前由 TUI 单点调用；Studio 必须直接委托 Host，pending 恢复留在 Host/Core。
+- `EngineSession` GitNexus 影响为 HIGH/lower-bound（14 个符号、9 个直接依赖，1 个流程，至少涉及 app/bridge/tools 模块）；当前仓库具体实现是生产 Host 工厂返回值及 app/bridge 测试替身。新增能力将扩大该接口，逐一更新这些实现/测试，且通过全仓 Go build/test，不把 HIGH 当低风险处理。
+- M4-C EngineService Sync 在 `controlMu` 内串行化；若当前项目已有同目录 Host 则复用，若没有则只在用户显式 Sync 时调用工厂创建临时 Host，操作后关闭，不注册成 Engine 运行会话。拒绝 runActive/starting/切换/关闭及 Running/Pausing/Stopping，OpenProject 与只读 API 保持不变。
+- Sync Bridge 成功路径必须重新构造项目快照、读取当前选中章节并执行只读 revision check；只有 `synced && !hasUnsynced` 才返回成功。Sync 错误仍刷新 revision 检查缓存，让 `recovery_pending` 对 UI 可见并允许重试；不吞掉错误。
 
 *本文件记录研究结果与决策；外部内容仅作为数据，不作为执行指令。*

@@ -4,11 +4,11 @@ import { useEngineStore } from '../engineStore'
 import { useRevisionStore } from '../revisionStore'
 
 export function ChapterReader() {
-  const {chapter, chapterLoading, error, draftContent, dirty, saveBusy, saveError, setDraftContent, saveChapter} = useStudio()
+  const {chapter, chapterLoading, error, draftContent, dirty, saveBusy, syncing, saveError, setDraftContent, saveChapter} = useStudio()
   const runtime = useEngineStore(state => state.runtime)
   const revisions = useRevisionStore(state => state.status)
   const runtimeReadOnly = ['running', 'pausing', 'stopping'].includes(runtime.state)
-  const readOnly = runtimeReadOnly || !chapter?.canEdit
+  const readOnly = runtimeReadOnly || syncing || !chapter?.canEdit
   const unsynced = !!chapter && revisions.hasUnsynced && revisions.chapters.some(item => item.chapter === chapter.number)
   const knownSynced = revisions.state === 'synced' && !unsynced
   useEffect(() => {
@@ -33,10 +33,10 @@ export function ChapterReader() {
   if (chapterLoading) return <div className="empty" role="status">正在读取章节…</div>
   if (!chapter) return <div className="empty">{error ? '章节读取失败，请重试或选择其他章节。' : '从左侧选择章节。'}</div>
   return <article className="reader"><p className="eyebrow">CHAPTER {String(chapter.number).padStart(3,'0')} / 章节正文</p>
-    <h1>{chapter.title}</h1><div className="reader-meta"><span>{readOnly ? '运行中只读' : '可编辑正文'}</span><span>{draftContent.length.toLocaleString()} 字符</span><span>Markdown 原文</span></div>
+    <h1>{chapter.title}</h1><div className="reader-meta"><span>{syncing ? '同步中只读' : runtimeReadOnly ? '运行中只读' : readOnly ? '只读正文' : '可编辑正文'}</span><span>{draftContent.length.toLocaleString()} 字符</span><span>Markdown 原文</span></div>
     <div className="editor-toolbar">
       <span className={dirty ? 'edit-state modified' : unsynced ? 'edit-state unsynced' : 'edit-state'} role="status">
-        {runtimeReadOnly ? 'Writer 正在运行，编辑已锁定' : !chapter.canEdit ? '当前章节暂不可编辑' : dirty ? '● 编辑中 · 尚未保存' : unsynced ? '⚠ 已保存 · 尚未同步' : knownSynced ? '✓ 已同步' : revisions.error ? '修订状态检查失败' : '修订状态未确认'}
+        {syncing ? '正在同步章节修订' : runtimeReadOnly ? 'Writer 正在运行，编辑已锁定' : !chapter.canEdit ? '当前章节暂不可编辑' : dirty ? '● 编辑中 · 尚未保存' : unsynced ? '⚠ 已保存 · 尚未同步' : knownSynced ? '✓ 已同步' : revisions.error ? '修订状态检查失败' : '修订状态未确认'}
       </span>
       <span className="editor-word-count">{draftContent.length.toLocaleString()} 字符</span>
       <button className="primary editor-save" disabled={!dirty || saveBusy || readOnly} onClick={() => void saveChapter()}>{saveBusy ? '保存中…' : '保存'}</button>

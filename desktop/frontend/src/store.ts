@@ -8,16 +8,17 @@ interface StudioState {
   project: Project | null; chapter: Chapter | null; busy: boolean; error: string
   view: 'overview' | 'chapter' | 'runtime'; chapterLoading: boolean
   draftContent: string; savedContent: string; dirty: boolean; saveBusy: boolean; saveError: string
+  syncing: boolean; syncError: string; syncNotice: string
   open(path?: string): Promise<void>; read(number: number): Promise<void>; setDraftContent(content: string): void
-  saveChapter(): Promise<void>; overview(): void; runtime(): void
+  saveChapter(): Promise<void>; syncChapterRevisions(): Promise<void>; overview(): void; runtime(): void
 }
 let request = 0
 const normalizePath = (path: string) => path.replaceAll('\\', '/').replace(/\/+$/, '').toLocaleLowerCase()
 export const useStudio = create<StudioState>((set, get) => ({
   project: null, chapter: null, busy: false, error: '', view: 'overview', chapterLoading: false,
-  draftContent: '', savedContent: '', dirty: false, saveBusy: false, saveError: '',
+  draftContent: '', savedContent: '', dirty: false, saveBusy: false, saveError: '', syncing: false, syncError: '', syncNotice: '',
   async open(path) {
-    if (get().busy) return
+    if (get().busy || get().syncing) return
     const ticket = ++request
     set({busy: true, error: '', chapterLoading: false})
     try {
@@ -34,7 +35,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       }
       const project = await api.OpenProject(selected)
       if (ticket === request) {
-        set({project, chapter: null, draftContent: '', savedContent: '', dirty: false, saveError: '', view: 'overview'})
+        set({project, chapter: null, draftContent: '', savedContent: '', dirty: false, saveError: '', syncError: '', syncNotice: '', view: 'overview'})
         await useEngineStore.getState().selectProject(project.overview.path, api.GetRuntimeState)
         await useRevisionStore.getState().selectProject(project.outputDir, () => api.GetRevisionStatus())
         await useEngineStore.getState().refreshRuntime()
@@ -64,7 +65,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     finally { if (ticket === request) set({busy: false}) }
   },
   async read(number) {
-    if (get().busy) return
+    if (get().busy || get().syncing) return
     if (get().view === 'chapter' && get().chapter?.number === number) return
     if (get().saveBusy) return
     if (get().dirty && !window.confirm('当前章节有未保存修改。切换章节将放弃这些修改，是否继续？')) return
@@ -76,10 +77,13 @@ export const useStudio = create<StudioState>((set, get) => ({
     } catch (error) { if (ticket === request) set({error: String(error)}) }
     finally { if (ticket === request) set({chapterLoading: false}) }
   },
-  setDraftContent(content) { set({draftContent: content, dirty: content !== get().savedContent, saveError: ''}) },
+  setDraftContent(content) {
+    if (get().syncing) return
+    set({draftContent: content, dirty: content !== get().savedContent, saveError: '', syncNotice: ''})
+  },
   async saveChapter() {
-    const {project, chapter, draftContent, dirty, saveBusy} = get()
-    if (!project || !chapter || !dirty || saveBusy) return
+    const {project, chapter, draftContent, dirty, saveBusy, syncing} = get()
+    if (!project || !chapter || !dirty || saveBusy || syncing) return
     const projectId = project.outputDir
     const chapterNumber = chapter.number
     set({saveBusy: true, saveError: ''})
@@ -105,13 +109,70 @@ export const useStudio = create<StudioState>((set, get) => ({
       if (normalizePath(get().project?.outputDir ?? '') === normalizePath(projectId) && get().chapter?.number === chapterNumber) set({saveBusy: false})
     }
   },
+  async syncChapterRevisions() {
+    const {project, chapter, dirty, saveBusy, syncing} = get()
+    if (!project || syncing) return
+    const projectId = project.outputDir
+    if (dirty || saveBusy) {
+      set({syncError: '请先保存或放弃当前未保存正文。'})
+      return
+    }
+    const action = bridge().SyncChapterRevisions
+    if (!action) {
+      set({syncError: '桌面桥接尚未提供 SyncChapterRevisions'})
+      return
+    }
+    const chapterNumber = chapter?.number ?? 0
+    set({syncing: true, syncError: '', syncNotice: ''})
+    try {
+      const result = await action(chapterNumber)
+      if (normalizePath(result.project.outputDir) !== normalizePath(projectId)) return
+      if (result.revision.state !== 'synced' || result.revision.hasUnsynced) {
+        throw new Error('同步后仍存在未同步章节修订')
+      }
+      const current = get()
+      const selectedChapter = current.view === 'chapter' && current.chapter?.number === chapterNumber
+      const latestProject = normalizePath(current.project?.outputDir ?? '') === normalizePath(projectId)
+      if (!latestProject) return
+      set({
+        project: result.project,
+        syncNotice: '章节修订同步完成，项目与章节视图已刷新。',
+        ...(selectedChapter && result.chapter ? {
+          chapter: result.chapter,
+          draftContent: result.chapter.content,
+          savedContent: result.chapter.content,
+          dirty: false,
+          saveError: '',
+        } : {}),
+      })
+      useRevisionStore.getState().acceptStatus(result.revision)
+      await useEngineStore.getState().refreshRuntime()
+    } catch (error) {
+      if (normalizePath(get().project?.outputDir ?? '') === normalizePath(projectId)) {
+        set({syncError: String(error), syncNotice: ''})
+        try {
+          const status = await bridge().CheckChapterRevisions()
+          if (status.state === 'synced' && !status.hasUnsynced) {
+            // Host 已返回失败时，不能用随后成功的只读扫描把本次 Sync 错误覆盖成已同步。
+            useRevisionStore.setState({error: String(error)})
+          } else {
+            useRevisionStore.getState().acceptStatus(status)
+          }
+        } catch {
+          // 保留同步错误与上一次 revision 事实，绝不以读取失败推断已同步。
+        }
+      }
+    } finally {
+      if (normalizePath(get().project?.outputDir ?? '') === normalizePath(projectId)) set({syncing: false})
+    }
+  },
   overview() {
-    if (get().saveBusy || (get().dirty && !window.confirm('当前章节有未保存修改。离开将放弃这些修改，是否继续？'))) return
+    if (get().saveBusy || get().syncing || (get().dirty && !window.confirm('当前章节有未保存修改。离开将放弃这些修改，是否继续？'))) return
     ++request
     set({view:'overview', chapterLoading:false, error:'', draftContent:get().savedContent, dirty:false, saveError:''})
   },
   runtime() {
-    if (get().saveBusy || (get().dirty && !window.confirm('当前章节有未保存修改。离开将放弃这些修改，是否继续？'))) return
+    if (get().saveBusy || get().syncing || (get().dirty && !window.confirm('当前章节有未保存修改。离开将放弃这些修改，是否继续？'))) return
     ++request
     set({view:'runtime', chapterLoading:false, error:'', draftContent:get().savedContent, dirty:false, saveError:''})
   },

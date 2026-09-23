@@ -164,6 +164,62 @@ func (a *App) SaveChapter(chapter int, content string) (viewmodel.ChapterSaveRes
 	return viewmodel.ChapterSaveResult{Chapter: saved, Revision: status}, nil
 }
 
+// SyncChapterRevisions 只由用户显式 Sync 操作创建或复用 Host；只读入口不创建 Host。
+func (a *App) SyncChapterRevisions(chapter int) (viewmodel.ChapterSyncResult, error) {
+	if chapter < 0 {
+		return viewmodel.ChapterSyncResult{}, fmt.Errorf("章节号不能为负数")
+	}
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	a.mu.RLock()
+	projectDir, outputDir, engine, ctx := a.projectDir, a.outputDir, a.engine, a.ctx
+	a.mu.RUnlock()
+	if projectDir == "" || outputDir == "" {
+		return viewmodel.ChapterSyncResult{}, fmt.Errorf("请先打开小说项目")
+	}
+	if engine == nil {
+		engine = app.NewEngineService(nil)
+		a.mu.Lock()
+		if a.engine == nil {
+			a.engine = engine
+		} else {
+			engine = a.engine
+		}
+		a.mu.Unlock()
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := engine.SyncChapterRevisions(ctx, projectDir, outputDir); err != nil {
+		// 失败时重新检查 Store，让 Host 保留的 pending 恢复阶段继续阻止写作并允许重试。
+		_, _ = a.revisionStatusService().CheckChapterRevisions()
+		return viewmodel.ChapterSyncResult{}, err
+	}
+	project, err := a.service.OpenProject(outputDir)
+	if err != nil {
+		return viewmodel.ChapterSyncResult{}, fmt.Errorf("同步后重新读取项目失败：%w", err)
+	}
+	var selected *viewmodel.Chapter
+	if chapter > 0 {
+		refreshed, err := a.service.GetChapter(chapter)
+		if err != nil {
+			return viewmodel.ChapterSyncResult{}, fmt.Errorf("同步后重新读取第 %d 章失败：%w", chapter, err)
+		}
+		selected = &refreshed
+	}
+	status, err := a.revisionStatusService().CheckChapterRevisions()
+	if err != nil {
+		return viewmodel.ChapterSyncResult{}, fmt.Errorf("同步后复核章节修订失败：%w", err)
+	}
+	if status.State != viewmodel.RevisionSynced || status.HasUnsynced {
+		return viewmodel.ChapterSyncResult{}, fmt.Errorf("同步后仍存在未同步章节修订")
+	}
+	a.mu.Lock()
+	a.projectDir, a.outputDir = project.ProjectRoot, project.OutputDir
+	a.mu.Unlock()
+	return viewmodel.ChapterSyncResult{Project: project, Chapter: selected, Revision: status}, nil
+}
+
 // CheckChapterRevisions 只读检查 Store 中待同步章节，不创建 Host 或 Engine Session。
 func (a *App) CheckChapterRevisions() (viewmodel.RevisionStatus, error) {
 	// 独占项目控制锁，避免只读扫描与并发 Resume/项目切换交错。
