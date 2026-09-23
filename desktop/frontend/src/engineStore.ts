@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { revisionsAllowWriting, useRevisionStore } from './revisionStore'
 import { bridge, subscribeEngineEvents } from './services'
-import type { Runtime, RuntimeLog, RuntimeState, StudioEngineEvent } from './types'
+import type { ControlResult, Runtime, RuntimeLog, RuntimeState, StudioEngineEvent } from './types'
 
 const emptyRuntime = (projectId = '', generation = 0): Runtime => ({
   projectId, generation, state: 'idle', phase: '', flow: '', elapsedSeconds: 0,
@@ -27,6 +27,9 @@ interface EngineStore {
   resumeWriting(): Promise<void>
   pauseWriting(): Promise<void>
   stopWriting(): Promise<void>
+  setAdvanceMode(mode: 'auto' | 'review'): Promise<ControlResult | undefined>
+  advanceOneChapter(): Promise<ControlResult | undefined>
+  submitSteer(text: string): Promise<ControlResult | undefined>
 }
 
 let unsubscribe: (() => void) | undefined
@@ -55,9 +58,9 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
     }
   },
   async refreshRuntime() {
-    const getter = bridge().GetRuntimeState
-    if (!getter) return
     try {
+      const getter = bridge().GetRuntimeState
+      if (!getter) return
       const runtime = await getter()
       const current = get()
       if (normalizePath(runtime.projectId) === normalizePath(current.projectId) && runtime.generation >= current.runtime.generation) set({runtime})
@@ -106,6 +109,7 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
       advanceBlockedReason: next.runtime.advanceBlockedReason,
       nextChapter: next.runtime.nextChapter,
       hasCurrentReview: next.runtime.hasCurrentReview,
+      pendingSteer: event.runtime.pendingSteer,
     }, controlError: ''})
     if (event.runtime && !['running', 'pausing', 'stopping'].includes(event.runtime.state)) {
       void get().refreshRuntime()
@@ -153,7 +157,52 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
     } catch (error) { set({controlError: String(error)}) }
     finally { set({controlBusy: false}) }
   },
+  async setAdvanceMode(mode) {
+    return performControl(async () => {
+      const action = bridge().SetAdvanceMode
+      if (!action) throw new Error('桌面桥接尚未提供 SetAdvanceMode')
+      return action(mode)
+    })
+  },
+  async advanceOneChapter() {
+    return performControl(async () => {
+      const action = bridge().AdvanceOneChapter
+      if (!action) throw new Error('桌面桥接尚未提供 AdvanceOneChapter')
+      return action()
+    })
+  },
+  async submitSteer(text) {
+    if (!text.trim()) { set({controlError: '创作指令不能为空'}); return undefined }
+    return performControl(async () => {
+      const action = bridge().SubmitSteer
+      if (!action) throw new Error('桌面桥接尚未提供 SubmitSteer')
+      return action(text)
+    })
+  },
 }))
+
+async function performControl(invoke: () => Promise<ControlResult>): Promise<ControlResult | undefined> {
+  const set = useEngineStore.setState
+  const get = useEngineStore.getState
+  const projectId = get().projectId
+  set({controlBusy: true, controlError: ''})
+  try {
+    const result = await invoke()
+    const current = get()
+    if (normalizePath(current.projectId) !== normalizePath(projectId) || normalizePath(result.runtime.projectId) !== normalizePath(projectId)) return undefined
+    if (result.runtime.generation >= current.runtime.generation) set({runtime: result.runtime, controlError: result.refreshWarning ?? ''})
+    if (normalizePath(result.revision.projectId) === normalizePath(projectId)) useRevisionStore.getState().acceptStatus(result.revision)
+    return result
+  } catch (error) {
+    if (normalizePath(get().projectId) === normalizePath(projectId)) {
+      set({controlError: String(error)})
+      await get().refreshRuntime()
+    }
+    return undefined
+  } finally {
+    set({controlBusy: false})
+  }
+}
 
 export function runtimeLabel(state: RuntimeState): string {
   const labels: Record<RuntimeState, string> = {

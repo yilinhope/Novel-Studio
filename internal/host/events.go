@@ -57,6 +57,8 @@ type UISnapshot struct {
 	ThinkingLevel        string
 	Style                string
 	RuntimeState         string // idle / running / pausing / paused / completed
+	CoCreating           bool   `json:"coCreating,omitempty"` // 只读生命周期事实；Studio 用于 Steer 后端门禁，TUI 不依赖
+	Exclusive            string `json:"exclusive,omitempty"`  // 当前独占作业名称；Studio 用于 Steer 后端门禁
 	StatusLabel          string
 	Phase                string
 	Flow                 string

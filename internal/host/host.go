@@ -698,11 +698,9 @@ func (h *Host) doIntervention(text string, restart bool) error {
 	if derr != nil {
 		// 宁可不动,不可误动:不产生任何写入。调用错误与
 		// 输出校验错误共用同一 error 通道,必须原样回显,不得统一伪装成"未能理解"。
-		// 已当面告知 → 清除 pending(否则下次 Resume 会自动重放同一条失败干预)。
+		// 保留 PendingSteer：Arbiter 暂时失败不能丢用户指令；下次 Continue/Resume
+		// 会按 Core 既有恢复路径重新裁定。这里只记录失败，不执行未裁定动作。
 		h.emitEvent(newInterventionFailureEvent(derr))
-		if err := clearPending(); err != nil {
-			return fmt.Errorf("%v；%w", derr, err)
-		}
 		return derr
 	}
 
@@ -1190,6 +1188,7 @@ func (h *Host) emitClear() {
 func (h *Host) Snapshot() UISnapshot {
 	h.mu.Lock()
 	state := h.lifecycle
+	cocreating, exclusive := h.cocreating, h.exclusive
 	provider, model, _ := h.models.CurrentSelection("default")
 	modelWindow, _ := h.cfg.ResolveContextWindow(provider, model)
 	thinkingLevel := h.cfg.ResolveReasoningEffort("default")
@@ -1240,6 +1239,8 @@ func (h *Host) Snapshot() UISnapshot {
 		ThinkingLevel:          thinkingLevel,
 		Style:                  style,
 		RuntimeState:           string(state),
+		CoCreating:             cocreating,
+		Exclusive:              exclusive,
 		IsRunning:              state == lifecycleRunning,
 		TotalInputTokens:       tokIn,
 		TotalOutputTokens:      tokOut,

@@ -31,6 +31,7 @@ type Runtime struct {
 	AdvanceBlockedReason  string         `json:"advanceBlockedReason,omitempty"`
 	NextChapter           int            `json:"nextChapter"`
 	HasCurrentReview      bool           `json:"hasCurrentReview"`
+	PendingSteer          string         `json:"pendingSteer,omitempty"`
 	Step                  string         `json:"step,omitempty"`
 	ElapsedSeconds        int64          `json:"elapsedSeconds"`
 	InputTokens           int            `json:"inputTokens"`

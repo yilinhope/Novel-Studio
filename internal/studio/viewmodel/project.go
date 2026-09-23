@@ -27,6 +27,15 @@ type ChapterSyncResult struct {
 	RefreshWarning string         `json:"refreshWarning,omitempty"`
 }
 
+// ControlResult 是显式控制动作完成后重新读取的权威视图；刷新告警不撤销 Core 已成功的动作。
+type ControlResult struct {
+	Project        *Project       `json:"project,omitempty"`
+	Review         *ReviewCenter  `json:"review,omitempty"`
+	Runtime        Runtime        `json:"runtime"`
+	Revision       RevisionStatus `json:"revision"`
+	RefreshWarning string         `json:"refreshWarning,omitempty"`
+}
+
 type Overview struct {
 	Title             string `json:"title"`
 	Synopsis          string `json:"synopsis"`

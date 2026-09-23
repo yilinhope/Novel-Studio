@@ -14,18 +14,28 @@ import (
 )
 
 type fakeEngineSession struct {
-	mu          sync.Mutex
-	snapshot    host.UISnapshot
-	outcome     host.RunOutcome
-	closed      bool
-	abortCalls  int
-	resumeCalls int
-	syncCalls   int
-	syncErr     error
-	events      chan host.Event
-	stream      chan string
-	done        chan struct{}
-	closeOnce   sync.Once
+	mu             sync.Mutex
+	snapshot       host.UISnapshot
+	outcome        host.RunOutcome
+	closed         bool
+	abortCalls     int
+	resumeCalls    int
+	syncCalls      int
+	syncErr        error
+	setModeCalls   int
+	mode           domain.ChapterAdvanceMode
+	advanceCalls   int
+	advanceErr     error
+	advanceStarted chan struct{}
+	allowAdvance   chan struct{}
+	steerCalls     []string
+	steerErr       error
+	continueCalls  []string
+	continueErr    error
+	events         chan host.Event
+	stream         chan string
+	done           chan struct{}
+	closeOnce      sync.Once
 }
 
 func newFakeEngineSession() *fakeEngineSession {
@@ -47,6 +57,44 @@ func (f *fakeEngineSession) SyncChapterRevisions(context.Context) (*revision.Res
 	defer f.mu.Unlock()
 	f.syncCalls++
 	return &revision.Result{}, f.syncErr
+}
+func (f *fakeEngineSession) SetAdvanceMode(mode domain.ChapterAdvanceMode) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.setModeCalls++
+	f.mode = mode
+	return nil
+}
+func (f *fakeEngineSession) AdvanceOneChapter() error {
+	f.mu.Lock()
+	f.advanceCalls++
+	started, allow, err := f.advanceStarted, f.allowAdvance, f.advanceErr
+	f.mu.Unlock()
+	if started != nil {
+		close(started)
+	}
+	if allow != nil {
+		<-allow
+	}
+	return err
+}
+func (f *fakeEngineSession) Steer(text string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.steerCalls = append(f.steerCalls, text)
+	if f.steerErr != nil {
+		f.snapshot.PendingSteer = text
+	}
+	return f.steerErr
+}
+func (f *fakeEngineSession) Continue(text string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.continueCalls = append(f.continueCalls, text)
+	if f.continueErr != nil {
+		f.snapshot.PendingSteer = text
+	}
+	return f.continueErr
 }
 func (f *fakeEngineSession) Abort() bool {
 	f.mu.Lock()
@@ -242,5 +290,164 @@ func TestSyncChapterRevisionsPropagatesFailureAndClosesTemporaryHost(t *testing.
 	}
 	if !fake.closed || fake.syncCalls != 1 {
 		t.Fatal("临时 Host 返回失败后仍须关闭，且只委托一次")
+	}
+}
+
+func TestSetAdvanceModeCreatesHostWithoutResuming(t *testing.T) {
+	for _, mode := range []domain.ChapterAdvanceMode{domain.ChapterAdvanceReview, domain.ChapterAdvanceAuto} {
+		t.Run(string(mode), func(t *testing.T) {
+			path := t.TempDir()
+			fake := newFakeEngineSession()
+			factories := 0
+			s := NewEngineService(func(_, _ string) (EngineSession, error) { factories++; return fake, nil })
+			if _, err := s.SetAdvanceMode(path, path, mode); err != nil {
+				t.Fatal(err)
+			}
+			if factories != 1 || fake.setModeCalls != 1 || fake.mode != mode || fake.resumeCalls != 0 {
+				t.Fatalf("显式切换应只创建 Host 并委托 SetAdvanceMode，不得 Resume: factory=%d set=%d mode=%s resume=%d", factories, fake.setModeCalls, fake.mode, fake.resumeCalls)
+			}
+			if s.RuntimeState().State == viewmodel.RuntimeRunning {
+				t.Fatal("模式切换不得启动 Engine")
+			}
+			s.Close()
+		})
+	}
+}
+
+func TestAdvanceOneChapterDelegatesCoreAndPreservesReviewFacts(t *testing.T) {
+	path := t.TempDir()
+	fake := newFakeEngineSession()
+	before := domain.ReviewEntry{Chapter: 1, Scope: "chapter", Verdict: "revise", Summary: "保留"}
+	var factories int
+	s := NewEngineService(func(_, _ string) (EngineSession, error) { factories++; return fake, nil })
+	if _, err := s.AdvanceOneChapter(path, path); err != nil {
+		t.Fatal(err)
+	}
+	if factories != 1 || fake.advanceCalls != 1 || fake.resumeCalls != 0 {
+		t.Fatalf("Next 应只委托 Core AdvanceOneChapter: factory=%d advance=%d resume=%d", factories, fake.advanceCalls, fake.resumeCalls)
+	}
+	if before.Verdict != "revise" || before.Summary != "保留" {
+		t.Fatalf("Studio 不得篡改 ReviewEntry: %+v", before)
+	}
+	s.Close()
+}
+
+func TestAdvanceOneChapterWaitsForCoreAcceptanceBeforePublishingRunning(t *testing.T) {
+	path := t.TempDir()
+	fake := newFakeEngineSession()
+	fake.advanceStarted, fake.allowAdvance = make(chan struct{}), make(chan struct{})
+	s := NewEngineService(nil)
+	s.engine, s.outputDir = fake, path
+	s.runtime = viewmodel.Runtime{ProjectID: path, State: viewmodel.RuntimeWaitingReview}
+	result := make(chan error, 1)
+	go func() { _, err := s.AdvanceOneChapter(path, path); result <- err }()
+	<-fake.advanceStarted
+	if got := s.RuntimeState().State; got != viewmodel.RuntimeWaitingReview {
+		close(fake.allowAdvance)
+		t.Fatalf("Core 尚未接受 Next 时不能提前投影 Running，got %s", got)
+	}
+	close(fake.allowAdvance)
+	if err := <-result; err != nil {
+		t.Fatal(err)
+	}
+	if got := s.RuntimeState().State; got != viewmodel.RuntimeRunning {
+		t.Fatalf("Core 接受 Next 后应进入运行态，got %s", got)
+	}
+}
+
+func TestSubmitSteerRoutesByCoreLifecycle(t *testing.T) {
+	for _, tc := range []struct {
+		state                   viewmodel.RuntimeState
+		phase                   string
+		wantSteer, wantContinue bool
+	}{
+		{state: viewmodel.RuntimeRunning, phase: "writing", wantSteer: true},
+		{state: viewmodel.RuntimePaused, phase: "writing", wantContinue: true},
+		{state: viewmodel.RuntimeWaitingReview, phase: "writing", wantContinue: true},
+		{state: viewmodel.RuntimeIdle, phase: "writing", wantContinue: true},
+		{state: viewmodel.RuntimeCompleted, phase: "complete", wantContinue: true},
+	} {
+		t.Run(string(tc.state), func(t *testing.T) {
+			path := t.TempDir()
+			fake := newFakeEngineSession()
+			fake.snapshot.Phase = tc.phase
+			fake.snapshot.IsRunning = tc.state == viewmodel.RuntimeRunning
+			s := NewEngineService(nil)
+			s.engine, s.outputDir = fake, path
+			s.runtime = viewmodel.Runtime{ProjectID: path, State: tc.state}
+			if _, err := s.SubmitSteer(path, path, "保留人物动机"); err != nil {
+				t.Fatal(err)
+			}
+			if (len(fake.steerCalls) == 1) != tc.wantSteer || (len(fake.continueCalls) == 1) != tc.wantContinue {
+				t.Fatalf("路由不符合 TUI 语义: steer=%v continue=%v", fake.steerCalls, fake.continueCalls)
+			}
+		})
+	}
+}
+
+func TestSubmitSteerRejectsUnsafeStatesAndEmptyInput(t *testing.T) {
+	for _, state := range []viewmodel.RuntimeState{viewmodel.RuntimeWaitingSync, viewmodel.RuntimePausing, viewmodel.RuntimeStopping} {
+		t.Run(string(state), func(t *testing.T) {
+			path := t.TempDir()
+			fake := newFakeEngineSession()
+			s := NewEngineService(nil)
+			s.engine, s.outputDir, s.runtime = fake, path, viewmodel.Runtime{ProjectID: path, State: state}
+			if _, err := s.SubmitSteer(path, path, "改变方向"); err == nil {
+				t.Fatal("当前状态必须拒绝 Steer")
+			}
+			if len(fake.steerCalls)+len(fake.continueCalls) != 0 {
+				t.Fatal("拒绝状态不得调用 Host")
+			}
+		})
+	}
+	path := t.TempDir()
+	fake := newFakeEngineSession()
+	s := NewEngineService(nil)
+	s.engine, s.outputDir, s.runtime = fake, path, viewmodel.Runtime{ProjectID: path, State: viewmodel.RuntimePaused}
+	if _, err := s.SubmitSteer(path, path, " \n "); err == nil {
+		t.Fatal("空文本必须拒绝")
+	}
+	if len(fake.continueCalls) != 0 {
+		t.Fatal("空文本不得调用 Host")
+	}
+	for _, tc := range []struct {
+		name   string
+		mutate func(*host.UISnapshot)
+	}{
+		{name: "阶段共创", mutate: func(s *host.UISnapshot) { s.CoCreating = true }},
+		{name: "独占作业", mutate: func(s *host.UISnapshot) { s.Exclusive = "修订导入" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := t.TempDir()
+			session := newFakeEngineSession()
+			session.snapshot.IsRunning = true
+			tc.mutate(&session.snapshot)
+			service := NewEngineService(nil)
+			service.engine, service.outputDir = session, path
+			service.runActive = true
+			service.runtime = viewmodel.Runtime{ProjectID: path, State: viewmodel.RuntimeRunning}
+			if _, err := service.SubmitSteer(path, path, "修改节奏"); err == nil {
+				t.Fatal("exclusive/co-create 必须由 Studio 后端拒绝")
+			}
+			if len(session.steerCalls)+len(session.continueCalls) != 0 {
+				t.Fatal("被拒绝的 Steer 不得进入 Host action")
+			}
+		})
+	}
+}
+
+func TestSubmitSteerArbiterErrorKeepsPendingSteerInRuntime(t *testing.T) {
+	path := t.TempDir()
+	fake := newFakeEngineSession()
+	fake.snapshot.Phase = "writing"
+	fake.continueErr = context.DeadlineExceeded
+	s := NewEngineService(nil)
+	s.engine, s.outputDir = fake, path
+	s.runtime = viewmodel.Runtime{ProjectID: path, State: viewmodel.RuntimePaused}
+	if _, err := s.SubmitSteer(path, path, "保留重试指令"); err == nil {
+		t.Fatal("Arbiter 错误必须传播")
+	}
+	if got := s.RuntimeState().PendingSteer; got != "保留重试指令" {
+		t.Fatalf("错误后 Runtime 必须投影 Core PendingSteer，got %q", got)
 	}
 }

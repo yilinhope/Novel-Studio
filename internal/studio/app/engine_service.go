@@ -23,6 +23,10 @@ import (
 type EngineSession interface {
 	Snapshot() host.UISnapshot
 	Resume() (string, error)
+	SetAdvanceMode(domain.ChapterAdvanceMode) error
+	AdvanceOneChapter() error
+	Steer(string) error
+	Continue(string) error
 	SyncChapterRevisions(context.Context) (*revision.Result, error)
 	Abort() bool
 	Close()
@@ -284,13 +288,228 @@ func (s *EngineService) SyncChapterRevisions(ctx context.Context, projectDir, ou
 	return nil
 }
 
-func (s *EngineService) RuntimeState() viewmodel.Runtime {
+// SetAdvanceMode 只由用户显式切换模式时创建 Host；绝不隐式恢复 Engine。
+func (s *EngineService) SetAdvanceMode(projectDir, outputDir string, mode domain.ChapterAdvanceMode) (viewmodel.Runtime, error) {
+	if !mode.Valid() {
+		return viewmodel.Runtime{}, fmt.Errorf("不支持的章节推进模式：%q", mode)
+	}
+	engine, generation, err := s.lockedProjectHost(projectDir, outputDir)
+	if err != nil {
+		return viewmodel.Runtime{}, err
+	}
+	defer s.controlMu.Unlock()
+	if err := engine.SetAdvanceMode(mode); err != nil {
+		return s.RuntimeState(), err
+	}
+	return s.projectRuntime(engine, generation), nil
+}
+
+// AdvanceOneChapter 把唯一的推进许可与 Engine 启动交由 Core Host 原子处理。
+func (s *EngineService) AdvanceOneChapter(projectDir, outputDir string) (viewmodel.Runtime, error) {
+	engine, generation, err := s.lockedProjectHost(projectDir, outputDir)
+	if err != nil {
+		return viewmodel.Runtime{}, err
+	}
+	defer s.controlMu.Unlock()
+	if err := s.ensureStoppedForControl("继续下一章"); err != nil {
+		return s.RuntimeState(), err
+	}
+	err = engine.AdvanceOneChapter()
+	return s.finishCoreStart(engine, generation, err)
+}
+
+// SubmitSteer 用当前 Core 生命周期选择 TUI 同款路由；Continue 只携带 Arbiter 干预文本。
+func (s *EngineService) SubmitSteer(projectDir, outputDir, text string) (viewmodel.Runtime, error) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return viewmodel.Runtime{}, fmt.Errorf("创作指令不能为空")
+	}
+	engine, generation, err := s.lockedProjectHost(projectDir, outputDir)
+	if err != nil {
+		return viewmodel.Runtime{}, err
+	}
+	defer s.controlMu.Unlock()
+
+	s.mu.Lock()
+	state, runActive := s.runtime.State, s.runActive
+	s.mu.Unlock()
+	if state == viewmodel.RuntimeWaitingSync || state == viewmodel.RuntimePausing || state == viewmodel.RuntimeStopping {
+		return s.RuntimeState(), fmt.Errorf("当前状态为%s，暂不能提交创作指令", state)
+	}
+	snapshot := engine.Snapshot()
+	if snapshot.CoCreating {
+		return s.RuntimeState(), fmt.Errorf("阶段共创进行中，请先结束共创")
+	}
+	if snapshot.Exclusive != "" {
+		return s.RuntimeState(), fmt.Errorf("%s进行中，请先完成后再提交创作指令", snapshot.Exclusive)
+	}
+
+	if state == viewmodel.RuntimeRunning || runActive {
+		if !snapshot.IsRunning {
+			return s.RuntimeState(), fmt.Errorf("Studio 与 Core 运行状态尚未收敛，请刷新后重试")
+		}
+		if err := engine.Steer(text); err != nil {
+			return s.projectRuntime(engine, generation), err
+		}
+		return s.projectRuntime(engine, generation), nil
+	}
+	if state == viewmodel.RuntimeIdle && snapshot.Phase != string(domain.PhaseWriting) {
+		return s.projectRuntime(engine, generation), fmt.Errorf("空闲项目尚无可恢复的写作阶段，不能提交创作指令")
+	}
+	if state == viewmodel.RuntimeCompleted && snapshot.Phase != string(domain.PhaseComplete) {
+		return s.projectRuntime(engine, generation), fmt.Errorf("Core 尚未确认作品完成状态")
+	}
+	if !isRecoverableSteerState(state) {
+		return s.projectRuntime(engine, generation), fmt.Errorf("当前状态为%s，暂不能提交创作指令", state)
+	}
+	err = engine.Continue(text)
+	return s.finishCoreStart(engine, generation, err)
+}
+
+func isRecoverableSteerState(state viewmodel.RuntimeState) bool {
+	switch state {
+	case viewmodel.RuntimeIdle, viewmodel.RuntimePaused, viewmodel.RuntimeWaitingReview, viewmodel.RuntimeStopped, viewmodel.RuntimeError, viewmodel.RuntimeCompleted:
+		return true
+	default:
+		return false
+	}
+}
+
+// lockedProjectHost 返回持有 controlMu 的同项目 Host；调用方必须恰好 Unlock 一次。
+func (s *EngineService) lockedProjectHost(projectDir, outputDir string) (EngineSession, uint64, error) {
+	projectDir, outputDir = strings.TrimSpace(projectDir), strings.TrimSpace(outputDir)
+	if projectDir == "" || outputDir == "" {
+		return nil, 0, fmt.Errorf("项目目录与小说目录不能为空")
+	}
+	var err error
+	projectDir, err = filepath.Abs(projectDir)
+	if err != nil {
+		return nil, 0, err
+	}
+	outputDir, err = filepath.Abs(outputDir)
+	if err != nil {
+		return nil, 0, err
+	}
+	s.controlMu.Lock()
+	s.mu.Lock()
+	if s.closing || s.switching || s.starting {
+		s.mu.Unlock()
+		s.controlMu.Unlock()
+		return nil, 0, fmt.Errorf("Engine Session 当前不可执行控制操作")
+	}
+	engine := s.engine
+	if engine != nil && !samePath(s.outputDir, outputDir) {
+		s.mu.Unlock()
+		s.controlMu.Unlock()
+		return nil, 0, fmt.Errorf("另一个项目仍由当前 Engine Session 持有")
+	}
+	generation := s.sessionGeneration
+	if engine != nil {
+		s.mu.Unlock()
+		return engine, generation, nil
+	}
+	s.mu.Unlock()
+	engine, err = s.factory(projectDir, outputDir)
+	if err != nil {
+		s.controlMu.Unlock()
+		return nil, 0, fmt.Errorf("创建 Studio Host 失败：%w", err)
+	}
+	baseline := engine.Snapshot()
+	s.mu.Lock()
+	if s.closing || s.switching {
+		s.mu.Unlock()
+		s.controlMu.Unlock()
+		engine.Close()
+		return nil, 0, fmt.Errorf("Engine Session 当前不可执行控制操作")
+	}
+	s.engine, s.projectDir, s.outputDir = engine, projectDir, outputDir
+	s.sessionGeneration++
+	generation = s.sessionGeneration
+	s.baseInput, s.baseOutput, s.baseCost = baseline.TotalInputTokens, baseline.TotalOutputTokens, baseline.TotalCostUSD
+	s.lastError = ""
+	s.monitorDone = make(chan struct{})
+	monitorDone := s.monitorDone
+	s.runtime = runtimeFromSnapshot(baseline, runtimeStateFromHost(baseline), time.Time{}, s.baseInput, s.baseOutput, s.baseCost, "")
+	s.runtime.ProjectID, s.runtime.Generation = outputDir, generation
+	s.mu.Unlock()
+	go s.monitor(engine, monitorDone, generation)
+	return engine, generation, nil
+}
+
+func runtimeStateFromHost(snapshot host.UISnapshot) viewmodel.RuntimeState {
+	switch snapshot.RuntimeState {
+	case "running":
+		return viewmodel.RuntimeRunning
+	case "paused":
+		return viewmodel.RuntimePaused
+	case "completed":
+		return viewmodel.RuntimeCompleted
+	default:
+		return viewmodel.RuntimeIdle
+	}
+}
+
+func (s *EngineService) ensureStoppedForControl(action string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.runActive || s.runtime.State == viewmodel.RuntimeRunning || s.runtime.State == viewmodel.RuntimePausing || s.runtime.State == viewmodel.RuntimeStopping {
+		return fmt.Errorf("创作会话处于%s状态，暂不能%s", s.runtime.State, action)
+	}
+	return nil
+}
+
+func (s *EngineService) beginCoreStart(engine EngineSession, generation uint64) {
+	s.mu.Lock()
+	s.runID++
+	s.runActive, s.requestedEnd, s.runStarted = true, "", time.Now()
+	s.runtime = runtimeFromSnapshot(engine.Snapshot(), viewmodel.RuntimeRunning, s.runStarted, s.baseInput, s.baseOutput, s.baseCost, "")
+	s.runtime.ProjectID, s.runtime.Generation = s.outputDir, generation
+	s.mu.Unlock()
+}
+
+func (s *EngineService) finishCoreStart(engine EngineSession, generation uint64, actionErr error) (viewmodel.Runtime, error) {
+	if actionErr != nil {
+		s.mu.Lock()
+		if s.engine == engine && !engine.Snapshot().IsRunning {
+			s.runActive = false
+			s.runtime = runtimeFromSnapshot(engine.Snapshot(), runtimeStateFromHost(engine.Snapshot()), time.Time{}, s.baseInput, s.baseOutput, s.baseCost, s.lastError)
+			s.runtime.ProjectID, s.runtime.Generation = s.outputDir, generation
+		}
+		runtime := s.runtime
+		s.mu.Unlock()
+		return runtime, actionErr
+	}
+	// Core may reject a Next/Continue before it accepts an Engine run. Do not
+	// publish Running until the command has returned successfully.
+	s.beginCoreStart(engine, generation)
+	return s.projectRuntime(engine, generation), nil
+}
+
+func (s *EngineService) projectRuntime(engine EngineSession, generation uint64) viewmodel.Runtime {
+	snapshot := engine.Snapshot()
+	s.mu.Lock()
+	if s.engine == engine {
+		s.runtime.PendingSteer = snapshot.PendingSteer
+		s.runtime.Generation = generation
+		s.runtime.ProjectID = s.outputDir
+		s.runtime.UpdatedAt = time.Now()
+	}
 	runtime := s.runtime
+	s.mu.Unlock()
+	return runtime
+}
+
+func (s *EngineService) RuntimeState() viewmodel.Runtime {
+	s.mu.Lock()
+	runtime := s.runtime
+	engine := s.engine
 	if s.runActive && !s.runStarted.IsZero() {
 		runtime.ElapsedSeconds = int64(time.Since(s.runStarted).Seconds())
 		runtime.UpdatedAt = time.Now()
+	}
+	s.mu.Unlock()
+	if engine != nil {
+		runtime.PendingSteer = engine.Snapshot().PendingSteer
 	}
 	return runtime
 }
@@ -496,6 +715,9 @@ func (s *EngineService) monitor(engine EngineSession, done chan struct{}, genera
 				continue
 			}
 			s.publishLog(generation, event)
+			if event.Agent == "arbiter" || event.Category == "SYSTEM" || event.Category == "ERROR" {
+				s.refreshRuntime(engine, generation)
+			}
 			if event.Category == "ERROR" || event.Level == "error" {
 				s.mu.Lock()
 				s.lastError = event.Detail
@@ -579,8 +801,16 @@ func (s *EngineService) completeRun(engine EngineSession, generation uint64) {
 func (s *EngineService) refreshRuntime(engine EngineSession, generation uint64) {
 	core := engine.Snapshot()
 	s.mu.Lock()
-	if s.engine != engine || !s.runActive {
+	if s.engine != engine {
 		s.mu.Unlock()
+		return
+	}
+	if !s.runActive {
+		s.runtime.PendingSteer = core.PendingSteer
+		s.runtime.UpdatedAt = time.Now()
+		runtime := s.runtime
+		s.mu.Unlock()
+		s.emit(generation, "runtime", nil, &runtime)
 		return
 	}
 	state := s.runtime.State
@@ -660,6 +890,7 @@ func runtimeFromSnapshot(core host.UISnapshot, state viewmodel.RuntimeState, sta
 			runtime.Step = agent.Tool
 		}
 	}
+	runtime.PendingSteer = core.PendingSteer
 	if runtime.Chapter == 0 {
 		runtime.Chapter = core.CurrentChapter
 	}

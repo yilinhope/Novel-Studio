@@ -1,12 +1,17 @@
 package host
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/voocel/agentcore"
+	"github.com/voocel/ainovel-cli/assets"
+	"github.com/voocel/ainovel-cli/internal/bootstrap"
 	"github.com/voocel/ainovel-cli/internal/domain"
 	storepkg "github.com/voocel/ainovel-cli/internal/store"
 )
@@ -121,6 +126,91 @@ func TestInterventionStopsWhenPersistenceFails(t *testing.T) {
 		t.Fatalf("Steer should return persistence error, got %v", err)
 	}
 }
+
+func TestInterventionArbiterErrorKeepsPendingSteer(t *testing.T) {
+	st := storepkg.NewStore(t.TempDir())
+	if err := st.Init(); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.RunMeta.Init("default", "test", "model"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Progress.Init(2); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Progress.UpdatePhase(domain.PhaseWriting); err != nil {
+		t.Fatal(err)
+	}
+	model := failingArbiterChatModel{}
+	models := &bootstrap.ModelSet{Default: bootstrap.NewSwappableModel("test", "test", model, nil)}
+	h := &Host{
+		store: st, engine: &engine{store: st}, events: make(chan Event, 16),
+		models: models, usage: NewUsageTracker(models, st), bundle: assets.Bundle{}, runCtx: context.Background(),
+	}
+	err := h.doIntervention("保留并稍后重试", false)
+	if err == nil {
+		t.Fatal("非法 Arbiter 输出应返回错误")
+	}
+	meta, loadErr := st.RunMeta.Load()
+	if loadErr != nil || meta == nil {
+		t.Fatalf("读取 RunMeta: %+v %v", meta, loadErr)
+	}
+	if meta.PendingSteer != "保留并稍后重试" {
+		t.Fatalf("Arbiter 失败不得清除待恢复指令，got %q", meta.PendingSteer)
+	}
+	var arbiterFailure bool
+	for len(h.events) > 0 {
+		event := <-h.events
+		if event.Agent == "arbiter" && event.Category == "ERROR" {
+			arbiterFailure = true
+		}
+	}
+	if !arbiterFailure {
+		t.Fatal("Arbiter 错误应继续发出真实失败事件")
+	}
+}
+
+func TestResumeRetriesPendingSteerWithoutDroppingOnArbiterError(t *testing.T) {
+	st := storepkg.NewStore(t.TempDir())
+	if err := st.Init(); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.RunMeta.Init("default", "test", "model"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.RunMeta.SetPendingSteer("崩溃前尚未裁定的指令"); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Progress.Init(2); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Progress.UpdatePhase(domain.PhaseWriting); err != nil {
+		t.Fatal(err)
+	}
+	model := failingArbiterChatModel{}
+	models := &bootstrap.ModelSet{Default: bootstrap.NewSwappableModel("test", "test", model, nil)}
+	h := &Host{
+		store: st, engine: &engine{store: st}, events: make(chan Event, 16),
+		models: models, usage: NewUsageTracker(models, st), bundle: assets.Bundle{}, runCtx: context.Background(),
+	}
+	if label, err := h.Resume(); err == nil || label == "" {
+		t.Fatalf("恢复应重放 PendingSteer 并返回 Arbiter 错误，label=%q err=%v", label, err)
+	}
+	meta, err := st.RunMeta.Load()
+	if err != nil || meta == nil || meta.PendingSteer != "崩溃前尚未裁定的指令" {
+		t.Fatalf("恢复裁定失败后必须保留 PendingSteer，meta=%+v err=%v", meta, err)
+	}
+}
+
+type failingArbiterChatModel struct{}
+
+func (failingArbiterChatModel) Generate(context.Context, []agentcore.Message, []agentcore.ToolSpec, ...agentcore.CallOption) (*agentcore.LLMResponse, error) {
+	return nil, errors.New("Arbiter provider unavailable")
+}
+func (failingArbiterChatModel) GenerateStream(context.Context, []agentcore.Message, []agentcore.ToolSpec, ...agentcore.CallOption) (<-chan agentcore.StreamEvent, error) {
+	return nil, errors.New("unused")
+}
+func (failingArbiterChatModel) SupportsTools() bool { return true }
 
 func TestCloseWaitsForRegisteredAsyncWork(t *testing.T) {
 	h := &Host{
