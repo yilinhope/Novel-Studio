@@ -44,6 +44,21 @@
 - 本轮刷新 GitNexus 时误将 `desktop/frontend/node_modules` 与 Vite 输出纳入索引，索引扩大到 58,539 nodes / 154,373 edges / 1,100 clusters / 815 flows，并报告大量第三方 callable-flow 截断；因此流程影响数字仅作下界，不据此推断未受影响。未改动忽略规则或清理依赖目录。
 - M4-A 已完成；未提交、未推送，Save/Sync 留待后续阶段。
 
+## Session: 2026-09-23 — M4-B 章节编辑与统一写入互斥
+
+- **Status:** complete
+- M4-A 验收后按用户要求进入 M4-B；范围限于共享写入互斥、章节编辑/保存与 SavedUnsynced/WaitingSync，不实现 M4-C Sync。
+- 先新增不同 Store 实例/路径别名共享锁测试并确认 RED，再实现进程级规范化项目路径互斥；锁 API 覆盖 Host 初始化、Engine run 生命周期、Host 独占写任务与 Studio Save。
+- Studio 保存要求章节已完成且存在接受基线；保存仅写章节 Markdown，后续只读检查 RevisionStatus，不改 ChapterRecord、不创建 Host、不自动 Sync。Save 与 Engine 活动/过渡态冲突时拒绝；未完成正文章节只读。
+- 前端增加正文编辑器、Dirty/保存态、Ctrl/Cmd+S、离开确认、保存错误保留草稿；SavedUnsynced 映射 WaitingSync，Resume 在未同步时禁用。
+- 全量验证通过：`go test ./...`、`go vet ./...`、Vitest 19/19、`npm run build`、`pwsh -File scripts/studio.ps1 build`（Windows/amd64 production）。
+- Playwright 使用 mock Wails bridge 完成编辑、Ctrl+S、SavedUnsynced/WaitingSync 和 Resume disabled QA；浏览器控制台无应用错误。没有将 mock 页面验证描述为原生 Wails 窗口 runtime 验收。
+- GitNexus `detect-changes --scope all --repo .`：18 files、71 symbols、15 affected processes、HIGH；由于 `Host.New` 被共享写锁调用，受影响生命周期流程需谨慎按下界阅读。未提交/推送，PR #3 状态未更改。
+- 独立只读 review 发现保存中的新输入可能被成功回调覆盖；增加延迟保存竞态回归测试并观察 RED，改为只提交保存快照、保留更新后的草稿且继续标记 Dirty。修复后 Vitest 17/17、TypeScript/Vite 和 Wails Windows production build 再次通过。
+- 第二轮独立审查发现提交章节后编辑器草稿未随 Store 二次确认刷新，以及清空保存会使章节失去编辑入口；为两项分别增加 RED 回归用例。修复后提交确认会同步干净的选中草稿（不覆盖 Dirty 草稿），且完成+有基线章节即使正文为空仍可编辑；最终全量 Go、Vet、Vitest、Vite、Wails 验证已再次通过。
+- 修复复审发现章节提交后的异步 GetChapter 若晚于用户切章返回会把另一章的草稿与章号错配；新增延迟响应 RED 测试，并增加项目/视图/章节三重身份复核。最终独立复审确认三项发现均已修复、无剩余 Critical/Important；全量验证再次通过。
+- `git diff --check` 通过；最终复审通过，准备将 M4-B 增量提交并更新现有 Draft PR #3。
+
 ## Session: 2026-09-23 — PR #2 M3 Review Fixes
 
 - **Status:** in_progress

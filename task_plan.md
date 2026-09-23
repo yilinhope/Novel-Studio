@@ -6,7 +6,7 @@
 
 ## Current Phase
 
-Phase 14: M4-A Revision Status 与只读 Check
+Phase 16: M4-B 章节编辑与统一写入互斥
 
 ## Phases
 
@@ -145,6 +145,16 @@ Phase 14: M4-A Revision Status 与只读 Check
 - [x] 中文提交、推送分支并创建 Draft PR #3
 - [x] 将 PR #3 关联到当前 Codex 任务
 - **Status:** complete
+
+### Phase 16: M4-B 章节编辑与统一写入互斥
+
+- [x] 核对 M4-B 需求、当前 PR/M4-A 基线及 Store/Host/Engine/UI 写入调用图
+- [x] 先为跨 Store 实例的项目级写入互斥写回归测试，观察 RED，再落地共享锁 API
+- [x] 将同一互斥边界接入 Host 初始化、Engine 运行、Host 独占写任务和 Studio Save；验证运行/过渡态与当前生成章节拒绝保存
+- [x] 实现 SaveChapter：只写章节 Markdown，不改 ChapterRecord，不创建 Host、不触发 Sync；保存后只做只读 revision check
+- [x] 实现编辑器、Dirty/保存态、Ctrl/Cmd+S、未保存离开保护及 SavedUnsynced → WaitingSync / Resume gate
+- [x] 运行定向 Go/Vitest RED-GREEN 记录、全套 Go/前端/构建验证并完成 GitNexus `detect-changes --scope all`
+- **Status:** complete; independent review passed, ready for PR update
 
 ## Key Questions
 

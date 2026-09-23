@@ -143,7 +143,47 @@ func (s *Service) GetChapter(number int) (viewmodel.Chapter, error) {
 	if err != nil {
 		return viewmodel.Chapter{}, fmt.Errorf("读取章节正文失败：%w", err)
 	}
-	return viewmodel.Chapter{Number: number, Title: selected.Title, Content: content, WordCount: domain.WordCount(content), HasContent: content != ""}, nil
+	progress, err := st.Progress.Load()
+	if err != nil {
+		return viewmodel.Chapter{}, fmt.Errorf("读取项目进度失败：%w", err)
+	}
+	record, recordErr := st.ChapterRecords.Load(number)
+	canEdit := progress != nil && slices.Contains(progress.CompletedChapters, number) && recordErr == nil && record != nil
+	return viewmodel.Chapter{Number: number, Title: selected.Title, Content: content, WordCount: domain.WordCount(content), HasContent: content != "", CanEdit: canEdit}, nil
+}
+
+// SaveChapter 只写章节 Markdown 工作区；不修改 ChapterRecord 接纳基线，也不执行 Sync。
+func (s *Service) SaveChapter(number int, content string) (viewmodel.Chapter, error) {
+	if number < 1 {
+		return viewmodel.Chapter{}, fmt.Errorf("章节号必须为正整数")
+	}
+	st, _, err := s.currentProject()
+	if err != nil {
+		return viewmodel.Chapter{}, err
+	}
+	release, acquired := st.TryAcquireProjectWrite()
+	if !acquired {
+		return viewmodel.Chapter{}, fmt.Errorf("项目正在写入，暂不能保存章节")
+	}
+	defer release()
+	progress, err := st.Progress.Load()
+	if err != nil {
+		return viewmodel.Chapter{}, fmt.Errorf("读取项目进度失败：%w", err)
+	}
+	if progress == nil || !slices.Contains(progress.CompletedChapters, number) {
+		return viewmodel.Chapter{}, fmt.Errorf("第 %d 章尚未完成，当前只支持编辑已完成章节", number)
+	}
+	record, err := st.ChapterRecords.Load(number)
+	if err != nil {
+		return viewmodel.Chapter{}, err
+	}
+	if record == nil {
+		return viewmodel.Chapter{}, fmt.Errorf("第 %d 章尚无 Core 接纳基线，暂不能作为人工修订保存", number)
+	}
+	if err := st.Drafts.SaveFinalChapter(number, content); err != nil {
+		return viewmodel.Chapter{}, fmt.Errorf("保存第 %d 章正文失败：%w", number, err)
+	}
+	return s.GetChapter(number)
 }
 
 // ConfirmChapterCommit 在前端收到 commit_chapter 成功事件后，重新从磁盘 Store

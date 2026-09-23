@@ -139,6 +139,26 @@ func TestAcquireExclusive(t *testing.T) {
 	}
 }
 
+func TestAcquireExclusiveSharesProjectWriteLockWithOtherStores(t *testing.T) {
+	path := t.TempDir()
+	h := newFlagTestHost(lifecycleIdle, false)
+	h.store = store.NewStore(path)
+	if err := h.acquireExclusive("导入"); err != nil {
+		t.Fatal(err)
+	}
+	otherStore := store.NewStore(path)
+	if release, acquired := otherStore.TryAcquireProjectWrite(); acquired {
+		release()
+		t.Fatal("Host 独占作业期间，不同 Store 实例不得进入项目写入")
+	}
+	h.releaseExclusive()
+	if release, acquired := otherStore.TryAcquireProjectWrite(); !acquired {
+		t.Fatal("Host 独占作业结束后应释放统一项目写锁")
+	} else {
+		release()
+	}
+}
+
 // TestExclusiveBlocksCreationEntries 守护 #2：后台独占作业（导入/仿写）进行中时，
 // 不仅第二个后台作业被堵，创作写入口（Continue/Resume）与新后台作业也必须被堵，
 // 否则 Continue 会在引擎被门禁拦下前就让 Arbiter 改状态、Resume/next 期间引擎可抢跑。

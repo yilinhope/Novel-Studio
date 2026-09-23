@@ -70,10 +70,12 @@ type Host struct {
 	// exclusiveCancel 是当前独占作业的取消函数：预算硬停/手动暂停须能停掉正在烧钱的
 	// 导入，而不仅是 Engine——abortWithEvent 在 Engine 未运行时取消它（预算哨兵的
 	// abort 回调与手动 Abort 共用同一停机机制）。releaseExclusive 一并清空。
-	exclusiveCancel context.CancelFunc
-	closeOnce       sync.Once
-	asyncWG         sync.WaitGroup
-	closing         bool
+	exclusiveCancel       context.CancelFunc
+	exclusiveWriteRelease func()
+	engineWriteRelease    func()
+	closeOnce             sync.Once
+	asyncWG               sync.WaitGroup
+	closing               bool
 
 	interMu sync.Mutex // 干预裁定 FIFO 串行(同一时刻至多一次在途咨询)
 
@@ -142,6 +144,11 @@ func New(cfg bootstrap.Config, bundle assets.Bundle, options ...NewOption) (*Hos
 	slog.Info("启动", "module", "boot", "provider", cfg.Provider, "model", cfg.ModelName, "output", cfg.OutputDir)
 
 	store := storepkg.NewStore(cfg.OutputDir)
+	initWriteRelease, acquired := store.AcquireProjectWrite()
+	if !acquired {
+		return nil, fmt.Errorf("无法取得项目写入互斥")
+	}
+	defer initWriteRelease()
 	if err := store.Init(); err != nil {
 		return nil, fmt.Errorf("init store: %w", err)
 	}
@@ -485,20 +492,29 @@ func (h *Host) startEngine(initial *flow.Instruction) bool {
 			Summary: "存在未完成的外部小说导入，请先执行 /import 恢复完成后再继续创作"})
 		return false
 	}
+	writeRelease, acquired := h.store.TryAcquireProjectWrite()
+	if !acquired {
+		return false
+	}
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	if h.closing {
+		h.mu.Unlock()
+		writeRelease()
 		return false
 	}
 	// 后台独占作业（导入/仿写）进行中时，引擎不得抢跑，避免与其写入竞争。这是所有引擎启动路径
 	// （Resume/Continue 重启/自动接力/next）的统一 backstop——入口守卫是第一道，这里是最后一道。
 	if h.exclusive != "" {
+		h.mu.Unlock()
+		writeRelease()
 		return false
 	}
 	// lifecycle 可能已经是 paused，但旧 Engine goroutine 仍在执行退出 defer。
 	// 必须同时核对 Engine 真状态；否则会把 lifecycle 改回 running，而 start
 	// 实际 no-op，随后旧 runEnded 又把它落成 idle。
 	if h.engine.isRunning() {
+		h.mu.Unlock()
+		writeRelease()
 		return false
 	}
 	h.lastRunOutcome = ""
@@ -506,8 +522,12 @@ func (h *Host) startEngine(initial *flow.Instruction) bool {
 	h.lifecycle = lifecycleRunning
 	if !h.engine.start(initial) {
 		h.lifecycle = previous
+		h.mu.Unlock()
+		writeRelease()
 		return false
 	}
+	h.engineWriteRelease = writeRelease
+	h.mu.Unlock()
 	return true
 }
 
@@ -979,6 +999,7 @@ func (h *Host) FileLogError() error {
 //   - Phase=Complete  → 标记 completed，发"创作完成"事件
 //   - 其它            → 标记 idle/paused，发"创作停止"事件
 func (h *Host) runEnded(outcome RunOutcome) {
+	defer h.releaseEngineProjectWrite()
 	h.observer.finalize()
 
 	h.mu.Lock()
@@ -1060,6 +1081,16 @@ func (h *Host) runEnded(outcome RunOutcome) {
 	select {
 	case h.done <- struct{}{}:
 	default:
+	}
+}
+
+func (h *Host) releaseEngineProjectWrite() {
+	h.mu.Lock()
+	release := h.engineWriteRelease
+	h.engineWriteRelease = nil
+	h.mu.Unlock()
+	if release != nil {
+		release()
 	}
 }
 
@@ -1849,21 +1880,44 @@ func (h *Host) ImportSimulationProfile(ctx context.Context, path string) (<-chan
 // 或已有独占作业在跑时拒绝。成功即登记占用，作业结束须调 releaseExclusive 释放——否则两个导入
 // 或导入+仿写会并发抢改同一状态。补上此前只查 ==running/cocreating、不登记作业本身的缺口。
 func (h *Host) acquireExclusive(action string) error {
+	checkUnavailable := func() error {
+		switch {
+		case h.closing:
+			return fmt.Errorf("Host 正在关闭，不能%s", action)
+		case h.lifecycle == lifecycleRunning || h.engine.isRunning():
+			return fmt.Errorf("创作引擎运行中或正在停止，请稍候再%s", action)
+		case h.cocreating:
+			return fmt.Errorf("阶段共创进行中，请先结束共创后再%s", action)
+		case h.exclusive != "":
+			return fmt.Errorf("%s进行中，请先完成后再%s", h.exclusive, action)
+		}
+		return nil
+	}
+	h.mu.Lock()
+	if err := checkUnavailable(); err != nil {
+		h.mu.Unlock()
+		return err
+	}
+	h.mu.Unlock()
+
+	var writeRelease func()
+	if h.store != nil {
+		var acquired bool
+		writeRelease, acquired = h.store.TryAcquireProjectWrite()
+		if !acquired {
+			return fmt.Errorf("项目正在写入，请稍候再%s", action)
+		}
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	switch {
-	case h.closing:
-		return fmt.Errorf("Host 正在关闭，不能%s", action)
-	// engine.isRunning() 必查：Abort 先置 lifecycle=paused 再异步等 goroutine 退出，
-	// 该窗口内 lifecycle 已非 running 但引擎仍可能在写 store（与启动门禁同一纪律）。
-	case h.lifecycle == lifecycleRunning || h.engine.isRunning():
-		return fmt.Errorf("创作引擎运行中或正在停止，请稍候再%s", action)
-	case h.cocreating:
-		return fmt.Errorf("阶段共创进行中，请先结束共创后再%s", action)
-	case h.exclusive != "":
-		return fmt.Errorf("%s进行中，请先完成后再%s", h.exclusive, action)
+	if err := checkUnavailable(); err != nil {
+		if writeRelease != nil {
+			writeRelease()
+		}
+		return err
 	}
 	h.exclusive = action
+	h.exclusiveWriteRelease = writeRelease
 	return nil
 }
 
@@ -1871,11 +1925,16 @@ func (h *Host) acquireExclusive(action string) error {
 func (h *Host) releaseExclusive() {
 	h.mu.Lock()
 	cancel := h.exclusiveCancel
+	writeRelease := h.exclusiveWriteRelease
 	h.exclusive = ""
 	h.exclusiveCancel = nil
+	h.exclusiveWriteRelease = nil
 	h.mu.Unlock()
 	if cancel != nil {
 		cancel() // 作业已结束：释放派生 context；对已退出的 runner 无副作用
+	}
+	if writeRelease != nil {
+		writeRelease()
 	}
 }
 

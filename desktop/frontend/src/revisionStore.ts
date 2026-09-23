@@ -10,6 +10,7 @@ interface RevisionStore {
   error: string
   selectProject(projectId: string, getStatus: () => Promise<RevisionStatus>): Promise<void>
   checkChapterRevisions(): Promise<void>
+  acceptStatus(status: RevisionStatus): void
 }
 
 const emptyStatus = (projectId = ''): RevisionStatus => ({
@@ -55,5 +56,10 @@ export const useRevisionStore = create<RevisionStore>((set, get) => ({
     } finally {
       if (ticket === generation && ticket === get().generation) set({checking: false})
     }
+  },
+  acceptStatus(status) {
+    const current = get()
+    if (normalizePath(status.projectId) !== normalizePath(current.projectId)) return
+    set({status, error: status.error ?? ''})
   },
 }))

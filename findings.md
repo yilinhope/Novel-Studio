@@ -22,6 +22,12 @@
 - 用户已确认审计通过并批准 M4-A：实现 Revision ViewModel、只读 RevisionService、`GetRevisionStatus` / `CheckChapterRevisions` 与前端独立 revisionStore；不实现正文 Save 或 Sync。
 - 用户补充硬约束：M4-C 的 Sync 必须允许当前没有 Host，并只由明确需要 Host 的写操作按需创建；只读 OpenProject/GetChapter/Revision Check 永不隐式创建 Host。Sync 优先复用当前 `Host.SyncChapterRevisions`。
 - M4-B 写正文前必须先提供跨 Studio/Store/Host/Engine 的统一项目写入互斥；不同 `Store.IO` 实例锁不共享，不能把 `SaveFinalChapter` 的实例锁视为并发保护。
+- M4-B 已落地进程内按规范化项目路径共享的写入互斥：Store 暴露等待式 `AcquireProjectWrite` 与非阻塞 `TryAcquireProjectWrite`；Host 初始化等待租约，Engine run 与 Host 独占写任务持有运行期租约，Studio Save 非阻塞并发冲突时拒绝。
+- Studio Save 只允许已有完成记录且有 accepted ChapterRecord 基线的章节；`SaveChapter` 仅调用 `SaveFinalChapter` 写正文 Markdown，再通过只读 Revision Check 刷新 SavedUnsynced 状态，不修改 ChapterRecord、不创建 Host、不自动 Sync。未完成/缺少基线章节保持只读。
+- 编辑器使用本地 draft/saved 状态实现 Dirty、Ctrl/Cmd+S、保存中/错误提示和离开确认；Save 后展示 SavedUnsynced 与 WaitingSync，并在 revision 非 synced 时阻止 Resume。M4-C Sync UI/执行尚未实现。
+- 保存竞态 review 证明请求期间继续输入会导致草稿覆盖；现成功回调对比提交快照与当前草稿，只更新 saved baseline，保留新草稿并维持 Dirty。异步延迟响应回归测试先失败后通过。
+- 独立 review 另确认章节提交 Store 二次确认后的正文快照也必须同步编辑器 draft/saved（且 Dirty 时不得覆盖）；已增加确认后事件刷新测试。空正文是可恢复的人工编辑状态，完成且有接纳基线的章节即使保存空文本仍保持 CanEdit 并渲染编辑器。
+- GitNexus 编辑后 `detect-changes --scope all` 报告 18 个文件、71 个符号、15 个受影响流程、HIGH；包括 `Host.New` 共享生命周期图。`Host.New` 上游调用逐项核对并选择等待式 Acquire 保持 TUI/Eval/Headless 初始化语义；按下界看待有截断的 flow 统计，独立 review 仍待完成。
 - M4-A 编辑前 GitNexus 索引刷新到 9,481 nodes、39,228 edges、330 clusters、669 flows；流程抽取仍有截断。`Service.currentProject` 上游 HIGH（4 个 Studio 查询流程），实现只调用、不修改；`EngineService.RuntimeState` 与 Wails `App.GetChapter` 为 UNKNOWN，文本检索确认实际 Studio Bridge/前端入口；前端 `useStudio.open` 为 lower-bound UNKNOWN（索引漏 3 个接收者），已检索确认 App、欢迎页、项目重新读取均调用。`revision.Scan` 的已有 CRITICAL 影响不修改，只读复用。
 - M4-A 当前设计区分缓存读取 `GetRevisionStatus` 与显式重扫 `CheckChapterRevisions`：新项目状态为 `unknown`，打开项目后前端触发只读 Check；状态只按 OutputDir 缓存，Scan/pending 事实仍来自当前 Store。
 - 运行入口需将 revision status 与当前 Engine 项目 ID 对齐，并且只允许 `synced && !hasUnsynced` 且检查完成无错误时 Resume；UI 禁用态之外，Engine Store action 也应复核，Core 的 clean-chapter gate 仍是最终保护。

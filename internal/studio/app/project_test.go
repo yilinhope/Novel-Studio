@@ -70,6 +70,9 @@ func TestReadProjectPreservesFilesAndCoreNumbering(t *testing.T) {
 	if err != nil || ch.Content != "# 启航\n\n海水拍打着舷窗。" {
 		t.Fatalf("正文不匹配：%+v %v", ch, err)
 	}
+	if ch.CanEdit {
+		t.Fatal("缺少 Core 接纳基线的已完成正文不得进入编辑态")
+	}
 	ch, err = s.GetChapter(2)
 	if err != nil || ch.HasContent {
 		t.Fatalf("未生成章节状态错误：%+v %v", ch, err)
@@ -85,6 +88,65 @@ func TestReadProjectPreservesFilesAndCoreNumbering(t *testing.T) {
 	}
 	if !reflect.DeepEqual(before, fingerprint(t, path)) {
 		t.Fatal("只读浏览修改了项目文件")
+	}
+}
+
+func TestSaveChapterRejectsProjectWriteAlreadyHeldByAnotherStore(t *testing.T) {
+	path := fixture(t)
+	st := store.NewStore(path)
+	if _, err := st.ChapterRecords.Accept(1, domain.ChapterOriginGenerated, "# 启航\n\n海水拍打着舷窗。", domain.ChapterFacts{Title: "启航"}, domain.StyleDelta{}); err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{}
+	if _, err := service.OpenProject(path); err != nil {
+		t.Fatal(err)
+	}
+	other := store.NewStore(path)
+	release, acquired := other.TryAcquireProjectWrite()
+	if !acquired {
+		t.Fatal("测试应先取得外部项目锁")
+	}
+	defer release()
+	if _, err := service.SaveChapter(1, "不应写入"); err == nil {
+		t.Fatal("项目锁被另一 Store 持有时应拒绝保存")
+	}
+	got, err := st.Drafts.LoadChapterText(1)
+	if err != nil || got != "# 启航\n\n海水拍打着舷窗。" {
+		t.Fatalf("拒绝保存不得改写正文：got=%q err=%v", got, err)
+	}
+}
+
+func TestSaveChapterRejectsIncompleteChapter(t *testing.T) {
+	path := fixture(t)
+	service := &Service{}
+	if _, err := service.OpenProject(path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SaveChapter(2, "未完成章节"); err == nil {
+		t.Fatal("未完成章节不能进入 Core 已完成章节的修订接纳流程")
+	}
+}
+
+func TestSaveEmptyChapterRemainsEditable(t *testing.T) {
+	path := fixture(t)
+	st := store.NewStore(path)
+	if _, err := st.ChapterRecords.Accept(1, domain.ChapterOriginGenerated, "# 启航\n\n海水拍打着舷窗。", domain.ChapterFacts{Title: "启航"}, domain.StyleDelta{}); err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{}
+	if _, err := service.OpenProject(path); err != nil {
+		t.Fatal(err)
+	}
+	chapter, err := service.SaveChapter(1, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if chapter.HasContent || !chapter.CanEdit {
+		t.Fatalf("保存空正文后仍须保留已完成章节的编辑入口：%+v", chapter)
+	}
+	chapter, err = service.GetChapter(1)
+	if err != nil || chapter.HasContent || !chapter.CanEdit {
+		t.Fatalf("重新读取空正文时仍须可编辑：chapter=%+v err=%v", chapter, err)
 	}
 }
 
