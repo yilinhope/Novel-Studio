@@ -12,12 +12,13 @@ beforeEach(() => {
     SelectProjectDirectory:vi.fn().mockResolvedValue(''),OpenProject:vi.fn().mockResolvedValue(project),
     GetProjectOverview:vi.fn(),GetProjectTree:vi.fn(),GetChapter:vi.fn(),SaveChapter:vi.fn(),SyncChapterRevisions:vi.fn(),
     GetRuntimeState:vi.fn(),
+    ResumeWriting:vi.fn().mockResolvedValue({projectId:project.outputDir,generation:0,state:'idle',phase:'',flow:'',elapsedSeconds:0,inputTokens:0,outputTokens:0,projectInputTokens:0,projectOutputTokens:0,runCostUsd:0,projectCostUsd:0,agents:[],updatedAt:''}),
     GetRevisionStatus:vi.fn().mockResolvedValue({projectId:project.outputDir,state:'unknown',hasUnsynced:false,chapters:[]}),
     CheckChapterRevisions:vi.fn().mockResolvedValue({projectId:project.outputDir,state:'synced',hasUnsynced:false,chapters:[]}),
     ConfirmChapterCommit:vi.fn().mockResolvedValue({confirmed:true,project}),
   }
   vi.stubGlobal('window',{go:{bridge:{App:api}}})
-  useStudio.setState({project:null,chapter:null,busy:false,error:'',view:'overview',chapterLoading:false,draftContent:'',savedContent:'',dirty:false,saveBusy:false,saveError:'',syncing:false,syncError:'',syncNotice:''})
+  useStudio.setState({project:null,chapter:null,busy:false,error:'',view:'overview',chapterLoading:false,draftContent:'',savedContent:'',dirty:false,saveBusy:false,saveError:'',syncing:false,syncError:'',syncNotice:'',refreshWarning:''})
   useRevisionStore.setState({projectId:'',generation:0,status:{projectId:'',state:'unknown',hasUnsynced:false,chapters:[]},checking:false,error:''})
   useEngineStore.setState({projectId:'',runtime:{projectId:'',generation:0,state:'idle',phase:'',flow:'',elapsedSeconds:0,inputTokens:0,outputTokens:0,projectInputTokens:0,projectOutputTokens:0,runCostUsd:0,projectCostUsd:0,agents:[],updatedAt:''},logs:[],pipeline:{},lastSequence:0,controlBusy:false,controlError:''})
 })
@@ -118,6 +119,28 @@ test('立即同步刷新项目章节与修订状态并恢复继续创作',async 
   expect(useStudio.getState().syncError).toBe('')
   expect(useStudio.getState().syncNotice).toContain('同步完成')
   expect(useStudio.getState().syncing).toBe(false)
+})
+
+test('Sync 已成功但视图刷新失败仍保持 Synced 并允许 Resume',async () => {
+  const syncedRevision = {projectId:project.outputDir,state:'synced' as const,hasUnsynced:false,chapters:[]}
+  const refreshWarning = '第 1 章视图刷新失败：读取超时'
+  vi.mocked(api.SyncChapterRevisions!).mockResolvedValue({revision:syncedRevision,refreshWarning} as ChapterSyncResult)
+  vi.mocked(api.GetRuntimeState!).mockResolvedValue({projectId:project.outputDir,generation:0,state:'idle',phase:'',flow:'',elapsedSeconds:0,inputTokens:0,outputTokens:0,projectInputTokens:0,projectOutputTokens:0,runCostUsd:0,projectCostUsd:0,agents:[],updatedAt:''})
+  await useStudio.getState().open('C:/小说')
+  await useStudio.getState().read(1)
+  useRevisionStore.getState().acceptStatus({projectId:project.outputDir,state:'saved_unsynced',hasUnsynced:true,chapters:[{chapter:1,acceptedHash:'old',currentHash:'new'}]})
+  useEngineStore.setState({runtime:{...useEngineStore.getState().runtime,projectId:project.outputDir,state:'waiting_sync'}})
+
+  await useStudio.getState().syncChapterRevisions()
+
+  expect(useRevisionStore.getState().status.state).toBe('synced')
+  expect(useRevisionStore.getState().error).toBe('')
+  expect(revisionsAllowWriting(project.outputDir,useRevisionStore.getState().status,useRevisionStore.getState().checking,useRevisionStore.getState().error)).toBe(true)
+  expect(useStudio.getState().syncError).toBe('')
+  expect(useStudio.getState().refreshWarning).toContain('读取超时')
+  await useEngineStore.getState().resumeWriting()
+  expect(api.ResumeWriting).toHaveBeenCalledOnce()
+  expect(useEngineStore.getState().controlError).toBe('')
 })
 
 test('同步失败后刷新 pending 恢复态并保留错误',async () => {

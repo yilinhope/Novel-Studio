@@ -19,11 +19,12 @@ type ChapterSaveResult struct {
 	Revision RevisionStatus `json:"revision"`
 }
 
-// ChapterSyncResult 包含显式同步完成后的项目、当前章节与 Store 修订状态快照。
+// ChapterSyncResult 区分 Store 已确认的同步状态与可能失败的视图刷新。
 type ChapterSyncResult struct {
-	Project  Project        `json:"project"`
-	Chapter  *Chapter       `json:"chapter,omitempty"`
-	Revision RevisionStatus `json:"revision"`
+	Project        *Project       `json:"project,omitempty"`
+	Chapter        *Chapter       `json:"chapter,omitempty"`
+	Revision       RevisionStatus `json:"revision"`
+	RefreshWarning string         `json:"refreshWarning,omitempty"`
 }
 
 type Overview struct {

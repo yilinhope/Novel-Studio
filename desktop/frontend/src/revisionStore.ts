@@ -27,6 +27,10 @@ export function revisionRecoveryStageLabel(stage?: string): string {
   }
 }
 
+export function shouldOfferImmediateChapterSync(state: RevisionStatus['state'], chapterUnsynced: boolean, dirty: boolean): boolean {
+  return state === 'saved_unsynced' && chapterUnsynced && !dirty
+}
+
 export function revisionsAllowWriting(projectId: string, status: RevisionStatus, checking: boolean, error: string) {
   return !checking && !error && normalizePath(projectId) !== ''
     && normalizePath(status.projectId) === normalizePath(projectId)

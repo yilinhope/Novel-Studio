@@ -14,7 +14,7 @@ export interface RevisionStatus {
   pendingStage?: string; checkedAt?: string; error?: string
 }
 export interface ChapterSaveResult { chapter: Chapter; revision: RevisionStatus }
-export interface ChapterSyncResult { project: Project; chapter?: Chapter; revision: RevisionStatus }
+export interface ChapterSyncResult { project?: Project; chapter?: Chapter; revision: RevisionStatus; refreshWarning?: string }
 export type RuntimeState = 'idle' | 'running' | 'pausing' | 'paused' | 'stopping' | 'stopped' | 'waiting_review' | 'waiting_sync' | 'completed' | 'error'
 export interface RuntimeAgent { name: string; state: string; tool?: string; summary?: string }
 export interface Runtime {

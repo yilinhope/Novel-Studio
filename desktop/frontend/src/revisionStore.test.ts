@@ -1,5 +1,5 @@
 import { beforeEach, expect, test, vi } from 'vitest'
-import { revisionRecoveryStageLabel, useRevisionStore } from './revisionStore'
+import { revisionRecoveryStageLabel, shouldOfferImmediateChapterSync, useRevisionStore } from './revisionStore'
 import type { RevisionStatus, StudioBridge } from './types'
 
 const status = (projectId: string, state: RevisionStatus['state']): RevisionStatus => ({
@@ -60,4 +60,11 @@ test('恢复状态按 Core pending stage 展示真实阶段而非进度百分比
   expect(revisionRecoveryStageLabel('records_applied')).toBe('章节记录已应用，待重建派生状态')
   expect(revisionRecoveryStageLabel('projections_applied')).toBe('派生状态已应用，待记录同步检查点')
   expect(revisionRecoveryStageLabel('future_core_stage')).toBe('future_core_stage')
+})
+
+test('章节编辑器只在 SavedUnsynced 且正文干净时提供同步入口', () => {
+  expect(shouldOfferImmediateChapterSync('saved_unsynced', true, false)).toBe(true)
+  expect(shouldOfferImmediateChapterSync('saved_unsynced', true, true)).toBe(false)
+  expect(shouldOfferImmediateChapterSync('recovery_pending', true, false)).toBe(false)
+  expect(shouldOfferImmediateChapterSync('saved_unsynced', false, false)).toBe(false)
 })

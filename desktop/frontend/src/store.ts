@@ -8,7 +8,7 @@ interface StudioState {
   project: Project | null; chapter: Chapter | null; busy: boolean; error: string
   view: 'overview' | 'chapter' | 'runtime'; chapterLoading: boolean
   draftContent: string; savedContent: string; dirty: boolean; saveBusy: boolean; saveError: string
-  syncing: boolean; syncError: string; syncNotice: string
+  syncing: boolean; syncError: string; syncNotice: string; refreshWarning: string
   open(path?: string): Promise<void>; read(number: number): Promise<void>; setDraftContent(content: string): void
   saveChapter(): Promise<void>; syncChapterRevisions(): Promise<void>; overview(): void; runtime(): void
 }
@@ -16,7 +16,7 @@ let request = 0
 const normalizePath = (path: string) => path.replaceAll('\\', '/').replace(/\/+$/, '').toLocaleLowerCase()
 export const useStudio = create<StudioState>((set, get) => ({
   project: null, chapter: null, busy: false, error: '', view: 'overview', chapterLoading: false,
-  draftContent: '', savedContent: '', dirty: false, saveBusy: false, saveError: '', syncing: false, syncError: '', syncNotice: '',
+  draftContent: '', savedContent: '', dirty: false, saveBusy: false, saveError: '', syncing: false, syncError: '', syncNotice: '', refreshWarning: '',
   async open(path) {
     if (get().busy || get().syncing) return
     const ticket = ++request
@@ -35,7 +35,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       }
       const project = await api.OpenProject(selected)
       if (ticket === request) {
-        set({project, chapter: null, draftContent: '', savedContent: '', dirty: false, saveError: '', syncError: '', syncNotice: '', view: 'overview'})
+        set({project, chapter: null, draftContent: '', savedContent: '', dirty: false, saveError: '', syncError: '', syncNotice: '', refreshWarning: '', view: 'overview'})
         await useEngineStore.getState().selectProject(project.overview.path, api.GetRuntimeState)
         await useRevisionStore.getState().selectProject(project.outputDir, () => api.GetRevisionStatus())
         await useEngineStore.getState().refreshRuntime()
@@ -123,10 +123,10 @@ export const useStudio = create<StudioState>((set, get) => ({
       return
     }
     const chapterNumber = chapter?.number ?? 0
-    set({syncing: true, syncError: '', syncNotice: ''})
+    set({syncing: true, syncError: '', syncNotice: '', refreshWarning: ''})
     try {
       const result = await action(chapterNumber)
-      if (normalizePath(result.project.outputDir) !== normalizePath(projectId)) return
+      if (normalizePath(result.revision.projectId) !== normalizePath(projectId)) return
       if (result.revision.state !== 'synced' || result.revision.hasUnsynced) {
         throw new Error('同步后仍存在未同步章节修订')
       }
@@ -134,9 +134,21 @@ export const useStudio = create<StudioState>((set, get) => ({
       const selectedChapter = current.view === 'chapter' && current.chapter?.number === chapterNumber
       const latestProject = normalizePath(current.project?.outputDir ?? '') === normalizePath(projectId)
       if (!latestProject) return
+      useRevisionStore.getState().acceptStatus(result.revision)
+      const refreshWarnings = [result.refreshWarning ?? '']
+      const refreshedProject = result.project && normalizePath(result.project.outputDir) === normalizePath(projectId)
+        ? result.project
+        : undefined
+      if (result.project && !refreshedProject) {
+        refreshWarnings.push('项目刷新返回了不匹配的项目，已保留当前视图。')
+      }
+      if (!result.project && !result.refreshWarning) refreshWarnings.push('项目视图未返回刷新结果。')
+      if (selectedChapter && !result.chapter) refreshWarnings.push('当前章节视图未返回刷新结果。')
+      const refreshWarning = refreshWarnings.filter(Boolean).join('；')
       set({
-        project: result.project,
-        syncNotice: '章节修订同步完成，项目与章节视图已刷新。',
+        ...(refreshedProject ? {project: refreshedProject} : {}),
+        syncNotice: refreshWarning ? '章节修订同步已完成。' : '章节修订同步完成，项目与章节视图已刷新。',
+        refreshWarning,
         ...(selectedChapter && result.chapter ? {
           chapter: result.chapter,
           draftContent: result.chapter.content,
@@ -145,7 +157,6 @@ export const useStudio = create<StudioState>((set, get) => ({
           saveError: '',
         } : {}),
       })
-      useRevisionStore.getState().acceptStatus(result.revision)
       await useEngineStore.getState().refreshRuntime()
     } catch (error) {
       if (normalizePath(get().project?.outputDir ?? '') === normalizePath(projectId)) {

@@ -195,29 +195,38 @@ func (a *App) SyncChapterRevisions(chapter int) (viewmodel.ChapterSyncResult, er
 		_, _ = a.revisionStatusService().CheckChapterRevisions()
 		return viewmodel.ChapterSyncResult{}, err
 	}
+	status, err := a.revisionStatusService().CheckChapterRevisions()
+	if err != nil {
+		return viewmodel.ChapterSyncResult{}, fmt.Errorf("Core Sync 已返回成功，但无法复核 Store 修订状态：%w", err)
+	}
+	if status.State != viewmodel.RevisionSynced || status.HasUnsynced {
+		return viewmodel.ChapterSyncResult{}, fmt.Errorf("Core Sync 已返回成功，但 Store 仍报告未同步章节修订")
+	}
+	result := viewmodel.ChapterSyncResult{Revision: status}
 	project, err := a.service.OpenProject(outputDir)
 	if err != nil {
-		return viewmodel.ChapterSyncResult{}, fmt.Errorf("同步后重新读取项目失败：%w", err)
+		result.RefreshWarning = fmt.Sprintf("重新读取项目视图失败：%v", err)
+	} else {
+		result.Project = &project
+		a.mu.Lock()
+		a.projectDir, a.outputDir = project.ProjectRoot, project.OutputDir
+		a.mu.Unlock()
 	}
 	var selected *viewmodel.Chapter
 	if chapter > 0 {
 		refreshed, err := a.service.GetChapter(chapter)
 		if err != nil {
-			return viewmodel.ChapterSyncResult{}, fmt.Errorf("同步后重新读取第 %d 章失败：%w", chapter, err)
+			warning := fmt.Sprintf("重新读取第 %d 章失败：%v", chapter, err)
+			if result.RefreshWarning != "" {
+				result.RefreshWarning += "；"
+			}
+			result.RefreshWarning += warning
+		} else {
+			selected = &refreshed
 		}
-		selected = &refreshed
 	}
-	status, err := a.revisionStatusService().CheckChapterRevisions()
-	if err != nil {
-		return viewmodel.ChapterSyncResult{}, fmt.Errorf("同步后复核章节修订失败：%w", err)
-	}
-	if status.State != viewmodel.RevisionSynced || status.HasUnsynced {
-		return viewmodel.ChapterSyncResult{}, fmt.Errorf("同步后仍存在未同步章节修订")
-	}
-	a.mu.Lock()
-	a.projectDir, a.outputDir = project.ProjectRoot, project.OutputDir
-	a.mu.Unlock()
-	return viewmodel.ChapterSyncResult{Project: project, Chapter: selected, Revision: status}, nil
+	result.Chapter = selected
+	return result, nil
 }
 
 // CheckChapterRevisions 只读检查 Store 中待同步章节，不创建 Host 或 Engine Session。
