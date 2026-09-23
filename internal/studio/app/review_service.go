@@ -99,7 +99,7 @@ func loadAdvanceProjection(st *store.Store, revisionStatus viewmodel.RevisionSta
 	// Advance Gate 不是 Editor Review。该字段只在当前正向推进的 Store 门条件
 	// 均成立、修订已确认干净时，才表示 Core 正等待一次性 review-mode 许可。
 	permitMatches := result.NextChapter > 0 && meta.AdvancePermitChapter == result.NextChapter
-	forwardWorkReady := progress.Phase == domain.PhaseWriting && progress.Flow != domain.FlowReviewing &&
+	forwardWorkReady := result.NextChapter > 0 && progress.Phase == domain.PhaseWriting && progress.Flow != domain.FlowReviewing &&
 		progress.Flow != domain.FlowSteering && progress.Flow != domain.FlowRewriting &&
 		progress.Flow != domain.FlowPolishing && len(progress.PendingRewrites) == 0 &&
 		progress.InProgressChapter == 0 && pending == nil

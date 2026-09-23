@@ -158,6 +158,28 @@ func TestGetRuntimeStateDoesNotAttachStaleProjectGate(t *testing.T) {
 	}
 }
 
+func TestZeroNextChapterNeverProjectsWaitingReview(t *testing.T) {
+	a, _, path := newAdvanceRuntimeFixture(t)
+	synced, err := a.CheckChapterRevisions()
+	if err != nil || synced.State != viewmodel.RevisionSynced {
+		t.Fatalf("clean revision check failed: %+v %v", synced, err)
+	}
+	if err := os.Remove(filepath.Join(path, "meta", "progress.json")); err != nil {
+		t.Fatal(err)
+	}
+	projection, err := a.service.GetAdvanceProjection(synced)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if projection.NextChapter != 0 || projection.RequiresAdvancePermit || projection.CanAdvance {
+		t.Fatalf("zero next chapter must not be presented as an advance gate: %+v", projection)
+	}
+	runtime := a.GetRuntimeState()
+	if runtime.State == viewmodel.RuntimeWaitingReview || runtime.RequiresAdvancePermit || runtime.CanAdvance {
+		t.Fatalf("zero next chapter must not derive WaitingReview: %+v", runtime)
+	}
+}
+
 func TestSaveChapterLeavesAcceptedRecordUnchangedAndMarksWaitingSync(t *testing.T) {
 	path := t.TempDir()
 	st := store.NewStore(path)
