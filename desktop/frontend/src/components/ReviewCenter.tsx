@@ -29,9 +29,11 @@ function ReviewCard({review}: {review: ReviewEntry}) {
 
 export function ReviewCenter() {
   const projectId = useStudio(state => state.project?.outputDir ?? '')
+  const controlError = useEngineStore(state => state.controlError)
   const [data, setData] = useState<ReviewCenterData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [controlBusy, setControlBusy] = useState(false)
   const load = async () => {
     const getter = bridge().GetReviewCenter
     if (!getter) { setError('桌面桥接尚未提供 Review Center 数据。'); return }
@@ -44,18 +46,44 @@ export function ReviewCenter() {
     } catch (cause) { setError(String(cause)) }
     finally { setLoading(false) }
   }
+  const switchMode = async (mode: 'auto' | 'review') => {
+    const action = useEngineStore.getState().setAdvanceMode
+    setControlBusy(true)
+    try {
+      const result = await action(mode)
+      if (!result) return
+      if (result.project && result.project.outputDir.replaceAll('\\', '/').toLocaleLowerCase() === projectId.replaceAll('\\', '/').toLocaleLowerCase()) useStudio.setState({project: result.project, refreshWarning: result.refreshWarning ?? ''})
+      if (result.review && result.review.projectId.replaceAll('\\', '/').toLocaleLowerCase() === projectId.replaceAll('\\', '/').toLocaleLowerCase()) setData(result.review)
+    } finally { setControlBusy(false) }
+  }
+  const nextChapter = async () => {
+    setControlBusy(true)
+    try {
+      const result = await useEngineStore.getState().advanceOneChapter()
+      if (!result) return
+      if (result.project && result.project.outputDir.replaceAll('\\', '/').toLocaleLowerCase() === projectId.replaceAll('\\', '/').toLocaleLowerCase()) useStudio.setState({project: result.project, refreshWarning: result.refreshWarning ?? ''})
+      if (result.review && result.review.projectId.replaceAll('\\', '/').toLocaleLowerCase() === projectId.replaceAll('\\', '/').toLocaleLowerCase()) setData(result.review)
+    } finally { setControlBusy(false) }
+  }
   useEffect(() => { void load() }, [])
 
   return <section className="review-center">
     <div className="review-heading"><div><p className="eyebrow">CORE REVIEW RECORDS</p><h1>审阅中心</h1><p className="review-subtitle">这里只展示 Core 已写入 Store 的 Editor Review；推进许可单独读取，不会生成审阅结果。</p></div><button onClick={() => void load()} disabled={loading}><RefreshCw size={14}/>{loading ? '读取中…' : '重新读取'}</button></div>
     {error && <div className="review-error" role="alert"><AlertTriangle size={15}/>{error}</div>}
+    {controlError && <div className="review-error" role="status"><AlertTriangle size={15}/>{controlError}</div>}
     {data && <>
+      <section className="advance-mode" aria-label="章节推进模式">
+        <span>推进模式</span>
+        <button aria-pressed={data.advanceMode === 'auto'} disabled={controlBusy || loading || data.advanceMode === 'auto'} onClick={() => void switchMode('auto')}>自动推进</button>
+        <button aria-pressed={data.advanceMode === 'review'} disabled={controlBusy || loading || data.advanceMode === 'review'} onClick={() => void switchMode('review')}>逐章确认</button>
+      </section>
       <section className="advance-gate" aria-label="下一章推进门状态">
         <div className="advance-gate-icon"><ClipboardCheck size={18}/></div>
         <div><span>下一章推进门</span><strong>{data.advanceMode === 'auto' ? '自动推进模式' : !data.canAdvance ? '当前不能放行下一章' : data.requiresAdvancePermit ? `第 ${data.nextChapter} 章等待一次性推进许可` : data.advanceMode === 'review' ? `第 ${data.nextChapter} 章当前无需新增推进许可` : '推进状态未确认'}</strong>
           <small>{data.hasCurrentReview ? '最新已完成章节存在 Core ReviewEntry。' : '最新已完成章节没有 Core ReviewEntry；等待许可不代表已审阅。'}</small>
           {data.advanceBlockedReason && <small>{data.advanceBlockedReason}</small>}
           {data.advanceHoldReason && <small>Core 暂停意图：{data.advanceHoldReason}</small>}
+          {data.advanceMode === 'review' && data.requiresAdvancePermit && <button className="primary" disabled={!data.canAdvance || controlBusy || loading} title={data.advanceBlockedReason} onClick={() => void nextChapter()}>{controlBusy ? '正在继续…' : '继续下一章'}</button>}
         </div>
       </section>
       <div className="review-list-heading"><h2>真实审阅记录</h2><span>{data.reviews.length} 条</span></div>

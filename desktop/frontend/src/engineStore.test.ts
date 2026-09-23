@@ -50,6 +50,35 @@ test('拒绝旧项目和旧序号事件', () => {
   expect(useEngineStore.getState().lastSequence).toBe(1)
 })
 
+test('拒绝旧项目代际事件', () => {
+  useEngineStore.setState({runtime: {...runtime('C:/A', 3), state:'paused'}})
+  useEngineStore.getState().handleEvent({...event('C:/A', 9, commit(3)), generation:2})
+  expect(useEngineStore.getState().logs).toHaveLength(0)
+  expect(useEngineStore.getState().lastSequence).toBe(0)
+})
+
+test('Auto/Review 切换只调用模式 API，不隐式 Resume', async () => {
+  const result = {runtime:{...runtime('C:/A'), state:'paused' as const}, revision:{projectId:'C:/A',state:'synced' as const,hasUnsynced:false,chapters:[]}}
+  const setMode = vi.fn().mockResolvedValue(result)
+  const resume = vi.fn()
+  vi.stubGlobal('window', {go:{bridge:{App:{SetAdvanceMode:setMode, ResumeWriting:resume} as unknown as StudioBridge}}})
+  await useEngineStore.getState().setAdvanceMode('review')
+  await useEngineStore.getState().setAdvanceMode('auto')
+  expect(setMode).toHaveBeenNthCalledWith(1, 'review')
+  expect(setMode).toHaveBeenNthCalledWith(2, 'auto')
+  expect(resume).not.toHaveBeenCalled()
+  expect(useEngineStore.getState().runtime.state).toBe('paused')
+})
+
+test('继续下一章使用 Core 结果而不是前端伪造状态', async () => {
+  const nextRuntime = {...runtime('C:/A', 2), state:'running' as const, canAdvance:false}
+  const advance = vi.fn().mockResolvedValue({runtime:nextRuntime,revision:{projectId:'C:/A',state:'synced',hasUnsynced:false,chapters:[]}})
+  vi.stubGlobal('window', {go:{bridge:{App:{AdvanceOneChapter:advance} as unknown as StudioBridge}}})
+  await useEngineStore.getState().advanceOneChapter()
+  expect(advance).toHaveBeenCalledOnce()
+  expect(useEngineStore.getState().runtime).toEqual(nextRuntime)
+})
+
 test('有未同步修订时阻止 ResumeWriting 调用', async () => {
   const resume = vi.fn().mockResolvedValue(runtime('C:/A'))
   vi.stubGlobal('window', {go:{bridge:{App:{ResumeWriting:resume} as unknown as StudioBridge}}})

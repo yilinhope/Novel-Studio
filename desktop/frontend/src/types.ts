@@ -28,12 +28,14 @@ export interface RevisionStatus {
 }
 export interface ChapterSaveResult { chapter: Chapter; revision: RevisionStatus }
 export interface ChapterSyncResult { project?: Project; chapter?: Chapter; revision: RevisionStatus; refreshWarning?: string }
+export interface ControlResult { project?: Project; review?: ReviewCenter; runtime: Runtime; revision: RevisionStatus; refreshWarning?: string }
 export type RuntimeState = 'idle' | 'running' | 'pausing' | 'paused' | 'stopping' | 'stopped' | 'waiting_review' | 'waiting_sync' | 'completed' | 'error'
 export interface RuntimeAgent { name: string; state: string; tool?: string; summary?: string }
 export interface Runtime {
   projectId: string; generation: number; state: RuntimeState; phase: string; flow: string
   requiresAdvancePermit?: boolean; canAdvance?: boolean; advanceBlockedReason?: string
   nextChapter?: number; hasCurrentReview?: boolean
+  pendingSteer?: string
   agent?: string; chapter?: number; step?: string; elapsedSeconds: number
   inputTokens: number; outputTokens: number; projectInputTokens: number; projectOutputTokens: number
   runCostUsd: number; projectCostUsd: number; error?: string; agents: RuntimeAgent[]; updatedAt: string
@@ -61,6 +63,9 @@ export interface StudioBridge {
   ResumeWriting?(): Promise<Runtime>
   PauseWriting?(): Promise<Runtime>
   StopWriting?(): Promise<Runtime>
+  SetAdvanceMode?(mode: 'auto' | 'review'): Promise<ControlResult>
+  AdvanceOneChapter?(): Promise<ControlResult>
+  SubmitSteer?(text: string): Promise<ControlResult>
   ConfirmChapterCommit?(chapter: number, startedAt: string): Promise<ChapterCommitConfirmation>
 }
 declare global {

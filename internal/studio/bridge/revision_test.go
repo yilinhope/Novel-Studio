@@ -18,19 +18,42 @@ import (
 )
 
 type bridgeTestEngine struct {
-	events chan host.Event
-	stream chan string
-	done   chan struct{}
-	close  sync.Once
-	syncFn func(context.Context) (*revision.Result, error)
-	syncs  int
+	events        chan host.Event
+	stream        chan string
+	done          chan struct{}
+	close         sync.Once
+	syncFn        func(context.Context) (*revision.Result, error)
+	syncs         int
+	resumeCalls   int
+	modeCalls     int
+	mode          domain.ChapterAdvanceMode
+	advanceCalls  int
+	advanceErr    error
+	steerCalls    []string
+	steerErr      error
+	continueCalls []string
+	continueErr   error
 }
 
 func newBridgeTestEngine() *bridgeTestEngine {
 	return &bridgeTestEngine{events: make(chan host.Event), stream: make(chan string), done: make(chan struct{})}
 }
 func (e *bridgeTestEngine) Snapshot() host.UISnapshot { return host.UISnapshot{} }
-func (e *bridgeTestEngine) Resume() (string, error)   { return "继续", nil }
+func (e *bridgeTestEngine) Resume() (string, error)   { e.resumeCalls++; return "继续", nil }
+func (e *bridgeTestEngine) SetAdvanceMode(mode domain.ChapterAdvanceMode) error {
+	e.modeCalls++
+	e.mode = mode
+	return nil
+}
+func (e *bridgeTestEngine) AdvanceOneChapter() error { e.advanceCalls++; return e.advanceErr }
+func (e *bridgeTestEngine) Steer(text string) error {
+	e.steerCalls = append(e.steerCalls, text)
+	return e.steerErr
+}
+func (e *bridgeTestEngine) Continue(text string) error {
+	e.continueCalls = append(e.continueCalls, text)
+	return e.continueErr
+}
 func (e *bridgeTestEngine) SyncChapterRevisions(ctx context.Context) (*revision.Result, error) {
 	e.syncs++
 	if e.syncFn != nil {
@@ -177,6 +200,153 @@ func TestZeroNextChapterNeverProjectsWaitingReview(t *testing.T) {
 	runtime := a.GetRuntimeState()
 	if runtime.State == viewmodel.RuntimeWaitingReview || runtime.RequiresAdvancePermit || runtime.CanAdvance {
 		t.Fatalf("zero next chapter must not derive WaitingReview: %+v", runtime)
+	}
+}
+
+func TestExplicitReviewModeCreatesHostWithoutResume(t *testing.T) {
+	a, _, path := newAdvanceRuntimeFixture(t)
+	a.projectDir = path
+	fake := newBridgeTestEngine()
+	factories := 0
+	a.engine = studioapp.NewEngineService(func(_, _ string) (studioapp.EngineSession, error) { factories++; return fake, nil })
+	for _, mode := range []string{"review", "auto"} {
+		if _, err := a.SetAdvanceMode(mode); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if factories != 1 || fake.modeCalls != 2 || fake.mode != domain.ChapterAdvanceAuto {
+		t.Fatalf("模式调用未复用显式 Host: factories=%d calls=%d mode=%s", factories, fake.modeCalls, fake.mode)
+	}
+	if fake.modeCalls != 2 || fake.resumeCalls != 0 || a.engine.RuntimeState().State == viewmodel.RuntimeRunning {
+		t.Fatal("模式切换本身不得 Resume Engine")
+	}
+	a.engine.Close()
+}
+
+func TestAdvanceOneChapterRejectsWaitingSyncBeforeHost(t *testing.T) {
+	a, st, path := newAdvanceRuntimeFixture(t)
+	a.projectDir = path
+	if err := st.Drafts.SaveFinalChapter(1, "第一章正文被手工修改"); err != nil {
+		t.Fatal(err)
+	}
+	factories := 0
+	a.engine = studioapp.NewEngineService(func(_, _ string) (studioapp.EngineSession, error) { factories++; return newBridgeTestEngine(), nil })
+	if _, err := a.AdvanceOneChapter(); err == nil {
+		t.Fatal("WaitingSync 必须拒绝 Next")
+	}
+	if factories != 0 {
+		t.Fatal("WaitingSync 下不得创建 Host")
+	}
+}
+
+func TestAdvanceOneChapterRejectsProjectedCoreRecoveryGates(t *testing.T) {
+	for _, gate := range []string{"AdvanceHold", "PendingCommit", "PendingRewrite"} {
+		t.Run(gate, func(t *testing.T) {
+			a, st, path := newAdvanceRuntimeFixture(t)
+			a.projectDir = path
+			switch gate {
+			case "AdvanceHold":
+				if err := st.RunMeta.SetAdvanceHold(domain.AdvanceHold{After: domain.AdvanceHoldAtBoundary, Reason: "先停一下"}); err != nil {
+					t.Fatal(err)
+				}
+			case "PendingCommit":
+				if err := st.Signals.SavePendingCommit(domain.PendingCommit{Chapter: 2, Stage: domain.CommitStageStarted}); err != nil {
+					t.Fatal(err)
+				}
+			case "PendingRewrite":
+				if err := st.Progress.SetPendingRewrites([]int{1}, "返工未排空"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			factoryCalls := 0
+			a.engine = studioapp.NewEngineService(func(_, _ string) (studioapp.EngineSession, error) { factoryCalls++; return newBridgeTestEngine(), nil })
+			if _, err := a.AdvanceOneChapter(); err == nil {
+				t.Fatalf("%s 必须由后端推进门拒绝", gate)
+			}
+			if factoryCalls != 0 {
+				t.Fatalf("%s gate 下不得创建 Host，factory=%d", gate, factoryCalls)
+			}
+		})
+	}
+}
+
+func TestAdvanceOneChapterDelegatesCoreGateFailures(t *testing.T) {
+	for _, gate := range []string{"AdvanceHold", "PendingCommit", "PendingRewrite"} {
+		t.Run(gate, func(t *testing.T) {
+			a, _, path := newAdvanceRuntimeFixture(t)
+			a.projectDir = path
+			fake := newBridgeTestEngine()
+			fake.advanceErr = errors.New("Core gate: " + gate)
+			a.engine = studioapp.NewEngineService(func(_, _ string) (studioapp.EngineSession, error) { return fake, nil })
+			if _, err := a.AdvanceOneChapter(); err == nil || !strings.Contains(err.Error(), gate) {
+				t.Fatalf("Next 必须返回 Core %s gate 错误，got %v", gate, err)
+			}
+			if fake.advanceCalls != 1 {
+				t.Fatalf("Studio 应委托 Core AdvanceOneChapter，got %d calls", fake.advanceCalls)
+			}
+			a.engine.Close()
+		})
+	}
+}
+
+func TestAdvanceOneChapterDoesNotChangeReviewEntry(t *testing.T) {
+	a, st, path := newAdvanceRuntimeFixture(t)
+	a.projectDir = path
+	want := domain.ReviewEntry{Chapter: 1, Scope: "chapter", Verdict: "rewrite", Summary: "保留真实审阅结果"}
+	if err := st.World.SaveReview(want); err != nil {
+		t.Fatal(err)
+	}
+	fake := newBridgeTestEngine()
+	a.engine = studioapp.NewEngineService(func(_, _ string) (studioapp.EngineSession, error) { return fake, nil })
+	if _, err := a.AdvanceOneChapter(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.World.LoadReview(1)
+	if err != nil || got == nil || got.Chapter != want.Chapter || got.Scope != want.Scope || got.Verdict != want.Verdict || got.Summary != want.Summary {
+		t.Fatalf("Next 不得改写 ReviewEntry: got=%+v err=%v", got, err)
+	}
+	if fake.advanceCalls != 1 || fake.resumeCalls != 0 {
+		t.Fatalf("Next 必须走 AdvanceOneChapter，不能走 Resume: advance=%d resume=%d", fake.advanceCalls, fake.resumeCalls)
+	}
+	a.engine.Close()
+}
+
+func TestGetRuntimeStateProjectsPendingSteerFromStoreWithoutHost(t *testing.T) {
+	a, st, path := newAdvanceRuntimeFixture(t)
+	if err := st.RunMeta.SetPendingSteer("崩溃恢复中的用户指令"); err != nil {
+		t.Fatal(err)
+	}
+	runtime := a.GetRuntimeState()
+	if runtime.PendingSteer != "崩溃恢复中的用户指令" {
+		t.Fatalf("只读 Runtime 应投影 Store 中真实 PendingSteer: %+v", runtime)
+	}
+	if a.engine != nil {
+		t.Fatal("只读 PendingSteer 投影不得创建 Host")
+	}
+	if runtime.ProjectID != path {
+		t.Fatalf("project mismatch: %+v", runtime)
+	}
+}
+
+func TestSubmitSteerRejectsUnsyncedAndEmptyText(t *testing.T) {
+	a, st, path := newAdvanceRuntimeFixture(t)
+	a.projectDir = path
+	fake := newBridgeTestEngine()
+	a.engine = studioapp.NewEngineService(func(_, _ string) (studioapp.EngineSession, error) { return fake, nil })
+	if _, err := a.SubmitSteer(" \n "); err == nil || !strings.Contains(err.Error(), "不能为空") {
+		t.Fatalf("空文本必须拒绝：%v", err)
+	}
+	if fake.steerCalls != nil || fake.continueCalls != nil {
+		t.Fatal("空文本不得触发 Host")
+	}
+	if err := st.Drafts.SaveFinalChapter(1, "人工修改"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.SubmitSteer("调整节奏"); err == nil {
+		t.Fatal("未同步修订必须拒绝 Steer")
+	}
+	if fake.steerCalls != nil || fake.continueCalls != nil {
+		t.Fatal("WaitingSync 不得触发 Host")
 	}
 }
 

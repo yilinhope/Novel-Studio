@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/voocel/ainovel-cli/internal/domain"
+	"github.com/voocel/ainovel-cli/internal/store"
 	"github.com/voocel/ainovel-cli/internal/studio/app"
 	"github.com/voocel/ainovel-cli/internal/studio/viewmodel"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -239,6 +241,129 @@ func (a *App) SyncChapterRevisions(chapter int) (viewmodel.ChapterSyncResult, er
 	return result, nil
 }
 
+// SetAdvanceMode 仅在用户显式切换时创建 Host；切换本身不启动或恢复 Engine。
+func (a *App) SetAdvanceMode(mode string) (viewmodel.ControlResult, error) {
+	advanceMode := domain.ChapterAdvanceMode(strings.TrimSpace(mode))
+	if !advanceMode.Valid() {
+		return viewmodel.ControlResult{}, fmt.Errorf("不支持的章节推进模式：%q", mode)
+	}
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	projectDir, outputDir := a.openProjectPaths()
+	if projectDir == "" || outputDir == "" {
+		return viewmodel.ControlResult{}, fmt.Errorf("请先打开小说项目")
+	}
+	engine := a.ensureEngineService()
+	if _, err := engine.SetAdvanceMode(projectDir, outputDir, advanceMode); err != nil {
+		return viewmodel.ControlResult{}, err
+	}
+	return a.refreshControlResult(outputDir)
+}
+
+// AdvanceOneChapter 只委托 Core Host.AdvanceOneChapter；permit 和 ReviewEntry 均由 Core 管理。
+func (a *App) AdvanceOneChapter() (viewmodel.ControlResult, error) {
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	projectDir, outputDir := a.openProjectPaths()
+	if projectDir == "" || outputDir == "" {
+		return viewmodel.ControlResult{}, fmt.Errorf("请先打开小说项目")
+	}
+	status, err := a.revisionStatusService().CheckChapterRevisions()
+	if err != nil {
+		return viewmodel.ControlResult{}, fmt.Errorf("检查章节修订失败，暂不能继续下一章：%w", err)
+	}
+	if !sameProjectPath(status.ProjectID, outputDir) || status.HasUnsynced || status.State != viewmodel.RevisionSynced {
+		return viewmodel.ControlResult{}, fmt.Errorf("存在未同步或待恢复的章节修订，请先完成同步")
+	}
+	projection, err := a.service.GetAdvanceProjection(status)
+	if err != nil {
+		return viewmodel.ControlResult{}, fmt.Errorf("读取 Core 下一章推进门失败：%w", err)
+	}
+	if !projection.RequiresAdvancePermit || !projection.CanAdvance {
+		reason := projection.AdvanceBlockedReason
+		if reason == "" {
+			reason = "当前 Core 状态不允许继续下一章"
+		}
+		return viewmodel.ControlResult{}, fmt.Errorf("不能继续下一章：%s", reason)
+	}
+	if _, err := a.ensureEngineService().AdvanceOneChapter(projectDir, outputDir); err != nil {
+		return viewmodel.ControlResult{}, err
+	}
+	return a.refreshControlResult(outputDir)
+}
+
+// SubmitSteer 将用户明确输入的创作干预交给 Core Arbiter，不作为普通 Resume 使用。
+func (a *App) SubmitSteer(text string) (viewmodel.ControlResult, error) {
+	if strings.TrimSpace(text) == "" {
+		return viewmodel.ControlResult{}, fmt.Errorf("创作指令不能为空")
+	}
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	projectDir, outputDir := a.openProjectPaths()
+	if projectDir == "" || outputDir == "" {
+		return viewmodel.ControlResult{}, fmt.Errorf("请先打开小说项目")
+	}
+	status, err := a.revisionStatusService().CheckChapterRevisions()
+	if err != nil {
+		return viewmodel.ControlResult{}, fmt.Errorf("检查章节修订失败，暂不能提交创作指令：%w", err)
+	}
+	if !sameProjectPath(status.ProjectID, outputDir) || status.HasUnsynced || status.State != viewmodel.RevisionSynced {
+		return viewmodel.ControlResult{}, fmt.Errorf("存在未同步或待恢复的章节修订，请先完成同步")
+	}
+	if _, err := a.ensureEngineService().SubmitSteer(projectDir, outputDir, text); err != nil {
+		return viewmodel.ControlResult{}, err
+	}
+	return a.refreshControlResult(outputDir)
+}
+
+func (a *App) openProjectPaths() (string, string) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.projectDir, a.outputDir
+}
+
+func (a *App) ensureEngineService() *app.EngineService {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.engine == nil {
+		a.engine = app.NewEngineService(nil)
+	}
+	return a.engine
+}
+
+func (a *App) refreshControlResult(outputDir string) (viewmodel.ControlResult, error) {
+	result := viewmodel.ControlResult{Revision: viewmodel.RevisionStatus{ProjectID: outputDir}}
+	project, projectErr := a.service.OpenProject(outputDir)
+	if projectErr != nil {
+		result.RefreshWarning = fmt.Sprintf("Core 操作已成功，但项目视图刷新失败：%v", projectErr)
+	} else {
+		result.Project = &project
+		a.mu.Lock()
+		a.projectDir, a.outputDir = project.ProjectRoot, project.OutputDir
+		a.mu.Unlock()
+	}
+	status, statusErr := a.revisionStatusService().CheckChapterRevisions()
+	if statusErr != nil {
+		warning := fmt.Sprintf("修订状态刷新失败：%v", statusErr)
+		if result.RefreshWarning != "" {
+			result.RefreshWarning += "；"
+		}
+		result.RefreshWarning += warning
+	} else {
+		result.Revision = status
+		if review, err := a.service.GetReviewCenter(status); err == nil {
+			result.Review = &review
+		} else {
+			if result.RefreshWarning != "" {
+				result.RefreshWarning += "；"
+			}
+			result.RefreshWarning += fmt.Sprintf("审阅/推进状态刷新失败：%v", err)
+		}
+	}
+	result.Runtime = a.GetRuntimeState()
+	return result, nil
+}
+
 // CheckChapterRevisions 只读检查 Store 中待同步章节，不创建 Host 或 Engine Session。
 func (a *App) CheckChapterRevisions() (viewmodel.RevisionStatus, error) {
 	// 独占项目控制锁，避免只读扫描与并发 Resume/项目切换交错。
@@ -262,6 +387,11 @@ func (a *App) GetRuntimeState() viewmodel.Runtime {
 		}
 	}
 	a.enrichRuntime(&state)
+	if outputDir != "" {
+		if meta, err := store.NewStore(outputDir).RunMeta.Load(); err == nil && meta != nil {
+			state.PendingSteer = meta.PendingSteer
+		}
+	}
 	status, statusErr := a.revisionStatusService().GetRevisionStatus()
 	if statusErr == nil && sameProjectPath(status.ProjectID, outputDir) {
 		if status.HasUnsynced || status.State == viewmodel.RevisionSavedUnsynced || status.State == viewmodel.RevisionRecoveryPending {
@@ -280,8 +410,8 @@ func (a *App) GetRuntimeState() viewmodel.Runtime {
 
 // ResumeWriting 是 M3-A EngineService 的显式启动入口；打开项目本身仍只读。
 func (a *App) ResumeWriting() (viewmodel.Runtime, error) {
-	a.projectMu.RLock()
-	defer a.projectMu.RUnlock()
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
 	a.mu.RLock()
 	projectDir, outputDir, engine := a.projectDir, a.outputDir, a.engine
 	a.mu.RUnlock()
