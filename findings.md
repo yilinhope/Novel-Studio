@@ -9,6 +9,23 @@
 
 ## Research Findings
 
+### M4 章节编辑与同步 Core 审计（2026-09-23）
+
+- 18 项源码核对及 M4-A 文件级实施方案见 `docs/studio-m4-revision-audit.md`。
+- `revision.Scan` 通过已完成章节的工作区正文与 `ChapterRecord.ContentSHA256` 识别人工修订；哈希前规范化 BOM/换行，空正文拒绝接纳。
+- `/sync --check` 只读加载 pending/Progress/ChapterRecord 与章节文件；正式 Sync 由 Host 独占槽保护，并复用 Revision Service 的批次分析、ChapterRecord 接纳、Projector 重建、聚合失效和 checkpoint 恢复。
+- Sync pending 阶段为 `prepared → records_applied → projections_applied`；除准备数据已过期外，阶段性失败保留 pending 以供恢复。检查 API 不能将 pending 状态报告为 Synced。
+- Studio 当前无正文保存和 revision status API；`OpenProject` 只读，不创建 Host。Store IO 锁是每实例独立的，Editor Save 与 Engine 生命周期尚无共同互斥。
+- Host.New 持有项目 lease 并执行 Store 初始化/迁移、RunMeta、模型和 Usage 初始化；必须保持只在显式 Engine Session 启动时构造。
+- GitNexus 刷新后：`revision.Scan` CRITICAL；`Host.CheckChapterRevisions`、`Host.Resume` HIGH；`Host.acquireExclusive` CRITICAL；`Host.SyncChapterRevisions` LOW；`Service.Sync` 为下界 LOW 且漏掉 5 个接收者类型未知调用点；`AdvanceOneChapter` UNKNOWN 并漏掉 1 个调用点，已以文本搜索核对 TUI `/next`。流程枚举截断，缺失流程不代表无影响。
+- `docs/studio-m4-revision-audit.md` 是审计方案；用户已批准 M4-A，当前只读实现按该方案完成。
+- 用户已确认审计通过并批准 M4-A：实现 Revision ViewModel、只读 RevisionService、`GetRevisionStatus` / `CheckChapterRevisions` 与前端独立 revisionStore；不实现正文 Save 或 Sync。
+- 用户补充硬约束：M4-C 的 Sync 必须允许当前没有 Host，并只由明确需要 Host 的写操作按需创建；只读 OpenProject/GetChapter/Revision Check 永不隐式创建 Host。Sync 优先复用当前 `Host.SyncChapterRevisions`。
+- M4-B 写正文前必须先提供跨 Studio/Store/Host/Engine 的统一项目写入互斥；不同 `Store.IO` 实例锁不共享，不能把 `SaveFinalChapter` 的实例锁视为并发保护。
+- M4-A 编辑前 GitNexus 索引刷新到 9,481 nodes、39,228 edges、330 clusters、669 flows；流程抽取仍有截断。`Service.currentProject` 上游 HIGH（4 个 Studio 查询流程），实现只调用、不修改；`EngineService.RuntimeState` 与 Wails `App.GetChapter` 为 UNKNOWN，文本检索确认实际 Studio Bridge/前端入口；前端 `useStudio.open` 为 lower-bound UNKNOWN（索引漏 3 个接收者），已检索确认 App、欢迎页、项目重新读取均调用。`revision.Scan` 的已有 CRITICAL 影响不修改，只读复用。
+- M4-A 当前设计区分缓存读取 `GetRevisionStatus` 与显式重扫 `CheckChapterRevisions`：新项目状态为 `unknown`，打开项目后前端触发只读 Check；状态只按 OutputDir 缓存，Scan/pending 事实仍来自当前 Store。
+- 运行入口需将 revision status 与当前 Engine 项目 ID 对齐，并且只允许 `synced && !hasUnsynced` 且检查完成无错误时 Resume；UI 禁用态之外，Engine Store action 也应复核，Core 的 clean-chapter gate 仍是最终保护。
+
 ### PR #2 审查修正（2026-09-23）
 
 - 项目切换确有后台写入风险：Bridge 的 `OpenProject` 改写当前项目路径，但不检查 `EngineService` 持有的 Host；前端过滤旧项目事件不等于停止旧 Engine。暂停 Host 仍保留目录租约。

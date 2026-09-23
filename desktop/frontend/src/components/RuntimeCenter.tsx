@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Activity, Bot, CircleAlert, Clock3, Coins, Cpu, Play, Sparkles, SquareTerminal } from 'lucide-react'
 import { runtimeLabel, useEngineStore } from '../engineStore'
+import { revisionsAllowWriting, useRevisionStore } from '../revisionStore'
 import type { RuntimeLog } from '../types'
 
 const writerSteps = ['novel_context', 'read_chapter', 'plan_chapter', 'draft_chapter', 'check_consistency', 'commit_chapter']
@@ -35,6 +36,9 @@ function LogRow({log}: {readonly log: RuntimeLog}) {
 
 export function RuntimeCenter() {
   const {runtime, logs, pipeline, controlBusy, controlError, resumeWriting, pauseWriting, stopWriting} = useEngineStore()
+  const revisions = useRevisionStore()
+  const canResume = revisionsAllowWriting(runtime.projectId, revisions.status, revisions.checking, revisions.error)
+  const canResumeState = ['idle', 'paused', 'stopped', 'error'].includes(runtime.state)
   const tools = useMemo(() => {
     const seen = new Set(Object.keys(pipeline))
     return [...writerSteps.slice(0, 4), ...(seen.has('edit_chapter') ? ['edit_chapter'] : []), ...writerSteps.slice(4)]
@@ -48,7 +52,8 @@ export function RuntimeCenter() {
         {runtime.state === 'running' && <button disabled={controlBusy} onClick={() => void pauseWriting()}>暂停</button>}
         {runtime.state === 'pausing' && <button disabled>正在暂停…</button>}
         {runtime.state === 'stopping' && <button disabled>正在停止…</button>}
-        {['idle', 'paused', 'stopped', 'error'].includes(runtime.state) && <button className="primary runtime-control-primary" disabled={controlBusy} onClick={() => void resumeWriting()}>{runtime.state === 'idle' ? '开始创作' : runtime.state === 'paused' ? '继续创作' : '恢复创作'}</button>}
+        {canResumeState && <button className="primary runtime-control-primary" disabled={controlBusy || !canResume} title={!canResume ? '请先完成章节修订检查，并同步所有未同步修订' : undefined} onClick={() => void resumeWriting()}>{runtime.state === 'idle' ? '开始创作' : runtime.state === 'paused' ? '继续创作' : '恢复创作'}</button>}
+        {canResumeState && !canResume && <span className="runtime-subtitle" role="status">{revisions.checking ? '正在检查章节修订…' : revisions.status.hasUnsynced ? '发现未同步章节修订，请先同步后继续。' : revisions.error ? '修订检查失败，暂不能继续创作。' : '章节修订状态尚未确认。'}</span>}
         {['running', 'pausing', 'paused'].includes(runtime.state) && <button disabled={controlBusy || runtime.state === 'stopping'} onClick={() => void stopWriting()}>停止</button>}
       </div>
     </div>

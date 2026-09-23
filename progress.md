@@ -1,5 +1,48 @@
 # Progress Log
 
+## Session: 2026-09-23 — M4-A Review 与 PR
+
+- **Status:** in_progress
+- 用户要求按不依赖 gstack checklist 的替代流程完成人工 review 后创建 PR；缺失 checklist 不再阻断本轮。
+- 手工审查 M4-A 全量源码后发现审计方案中的 Resume 门禁尚未接入 UI；已补充 RuntimeCenter 禁用态、原因提示和 Engine Store action 级防护，未知/检查中/错误/未同步状态均不会调用 ResumeWriting。
+- GitNexus 编辑前影响：RuntimeCenter LOW（1 个调用者、0 条图流程）；`resumeWriting` 查询 UNKNOWN（多候选/调用关系解析不足），已用 rg 核实按钮与 action 调用边界。
+- 补齐后验证通过：`go test ./...`、`go vet ./...`、Vitest 13/13、`npm run build`、Windows/amd64 Wails production build、`git diff --check`。
+- Vite/Wails 构建移除了已跟踪 `desktop/frontend/dist/.gitkeep`；已恢复基线 1 字节占位文件。
+- 暂存后的 GitNexus 检查完成：17 个文件、108 个符号、0 个受影响流程、LOW；图索引含 node_modules/Vite 产物并有第三方流程截断，流程结果仍按下界解读。
+- `git diff --cached --check` 首次发现审计 Markdown 元信息行的两个尾随空格；已改为列表并复查通过。
+- 当前人工 review 未发现未解决问题；分支提交、推送和 Draft PR 尚待完成。
+
+## Session: 2026-09-23 — M4 章节编辑与同步 Core 审计
+
+- **Status:** awaiting_confirmation
+- 已读取 M4 规格要求；本轮限制为先核查当前 Core 修订链并输出 M4-A 实施方案。
+- 确认 PR #2 已合并，merge commit `8e815ad2beae8a30063f8f80c991ee64923e1713`；从更新后的 `origin/main` 创建 `codex/m4-chapter-editing-sync`。
+- 刷新 GitNexus 到 9,469 nodes、39,216 edges、330 clusters、669 flows。流程提取有入口及分支截断；审计报告明确按下界处理。
+- 分析 `revision.Scan`（CRITICAL）、`Host.CheckChapterRevisions`（HIGH）、`Host.Resume`（HIGH）、`Host.acquireExclusive`（CRITICAL）、`Host.SyncChapterRevisions`（LOW）、`revision.Service.Sync`（下界 LOW）和 `Host.AdvanceOneChapter`（UNKNOWN）；对 UNKNOWN/接收者解析遗漏通过仓库文本搜索复核。
+- 逐项核对 18 个问题：扫描只读语义、哈希基线、批量 Sync、Projector 派生状态、三阶段崩溃恢复、继续/下一章 gate、Studio OpenProject 只读边界、Host lease 与 Store 实例锁、暂停 Done 时序。
+- 新增 `docs/studio-m4-revision-audit.md`，含代码级调用链、影响风险、并发缺口和 M4-A 文件/API/测试方案。
+- 本轮未修改产品源码，未运行测试；M4-A 等待用户确认审计结论。
+
+## Session: 2026-09-23 — M4-A Revision Check
+
+- **Status:** complete
+- 用户已明确批准 M4-A，并确认范围仅包含 Revision ViewModel、只读 RevisionService、两个只读 API 和前端 revisionStore。
+- 已将 M4-C 按需创建 Host 与 M4-B 统一项目写入互斥列为强制约束；M4-A 不引入 Save 或 Sync。
+- 当前分支为 `codex/m4-chapter-editing-sync`；上一轮审计文档和计划文件为本工作树既有改动，予以保留。
+- GitNexus 刷新及编辑前影响分析完成；`currentProject` HIGH（只读调用）、RuntimeState/Bridge 动态绑定 UNKNOWN（已源码检索核实），前端 Store `open` / `selectProject` 为 UNKNOWN 下界结果（调用站点已检索）。
+- 已增加 RevisionStatus 状态/哈希/pending-stage ViewModel、只读 RevisionService、Bridge Get/Check API、前端 revisionStore，并接入打开项目后的 Store 检查；新增 Go/前端测试。
+- 首次 `go test ./internal/studio/...` 暴露空章节 slice 缓存复制为 nil 的一致性问题；已修复为保留空数组语义，后续 Go 测试全部通过。
+- `npm ci` 成功，安装 97 个依赖，审计报告 0 vulnerabilities。
+- 已实现 ViewModel `RevisionStatus`（unknown/synced/saved_unsynced/recovery_pending/error）、只读 RevisionService、hash/pending stage 返回、读取最近检查状态缓存；扫描错误保留 error 和保守 `hasUnsynced`，不误报 synced。
+- Bridge 暴露 `GetRevisionStatus` / `CheckChapterRevisions`；检查只读加载 pending 或调用 `revision.Scan`，Running/Pausing/Stopping 时拒绝。API 不调用 `Host.New`；bridge 测试确认 GetChapter + Revision Check 后 Host 仍未创建。
+- 检查期间以 App 项目控制锁串行化 OpenProject/Resume，避免检查与并发 Resume 或项目切换交错；Store 文件检查本身不写数据。
+- 前端新增独立 `revisionStore`，项目选择时先读缓存再执行真实 Store Check，使用项目 ID/请求代次丢弃旧结果；Studio Store 打开项目时触发检查，不把 revision 数据放入 Engine Store。
+- 验证通过：`go test ./internal/studio/...`、`go vet ./internal/studio/...`、Vitest 11/11、`npm run build`、`scripts/studio.ps1 build`（Wails windows/amd64 production）及 `git diff --check`。Wails 生成绑定时出现既有 `time.Time` KnownStructs 提示，但应用构建成功。
+- 构建清理了已跟踪的 `desktop/frontend/dist/.gitkeep`；已从当前基线恢复其原始 1 字节占位文件。
+- GitNexus `detect-changes --scope all` 完成：7 个已跟踪变更文件、43 个符号、0 个受影响流程、LOW。新增未跟踪文件不纳入该 diff 结果；对已有调用入口的编辑前 impact 已完成并按 UNKNOWN/下界结果做文本核验。
+- 本轮刷新 GitNexus 时误将 `desktop/frontend/node_modules` 与 Vite 输出纳入索引，索引扩大到 58,539 nodes / 154,373 edges / 1,100 clusters / 815 flows，并报告大量第三方 callable-flow 截断；因此流程影响数字仅作下界，不据此推断未受影响。未改动忽略规则或清理依赖目录。
+- M4-A 已完成；未提交、未推送，Save/Sync 留待后续阶段。
+
 ## Session: 2026-09-23 — PR #2 M3 Review Fixes
 
 - **Status:** in_progress

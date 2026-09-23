@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { revisionsAllowWriting, useRevisionStore } from './revisionStore'
 import { bridge, subscribeEngineEvents } from './services'
 import type { Runtime, RuntimeLog, RuntimeState, StudioEngineEvent } from './types'
 
@@ -88,6 +89,11 @@ export const useEngineStore = create<EngineStore>((set, get) => ({
     }
   },
   async resumeWriting() {
+    const revisions = useRevisionStore.getState()
+    if (!revisionsAllowWriting(get().projectId, revisions.status, revisions.checking, revisions.error)) {
+      set({controlError: '请先完成章节修订检查，并同步所有未同步修订后再继续创作'})
+      return
+    }
     set({controlBusy: true, controlError: ''})
     try {
       const action = bridge().ResumeWriting

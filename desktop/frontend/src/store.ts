@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { bridge } from './services'
 import { setChapterCommitHandler, useEngineStore } from './engineStore'
+import { useRevisionStore } from './revisionStore'
 import type { Chapter, Project, StudioEngineEvent } from './types'
 
 interface StudioState {
@@ -24,6 +25,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       if (ticket === request) {
         set({project, chapter: null, view: 'overview'})
         void useEngineStore.getState().selectProject(project.overview.path, api.GetRuntimeState)
+        void useRevisionStore.getState().selectProject(project.outputDir, () => api.GetRevisionStatus())
         setChapterCommitHandler(async (chapter: number, event: StudioEngineEvent) => {
           if (!api.ConfirmChapterCommit || !event.log) throw new Error('桌面桥接尚未提供章节提交复核')
           const active = useStudio.getState()

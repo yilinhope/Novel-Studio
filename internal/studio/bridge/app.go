@@ -18,6 +18,7 @@ type App struct {
 	eventCancel context.CancelFunc
 	service     app.Service
 	engine      *app.EngineService
+	revisions   *app.RevisionService
 	projectDir  string
 	outputDir   string
 }
@@ -90,6 +91,23 @@ func (a *App) GetProjectOverview() (viewmodel.Overview, error)  { return a.servi
 func (a *App) GetProjectTree() ([]viewmodel.Node, error)        { return a.service.GetProjectTree() }
 func (a *App) GetChapter(number int) (viewmodel.Chapter, error) { return a.service.GetChapter(number) }
 
+// GetRevisionStatus 读取当前项目最近一次修订检查结果；首次检查前返回 unknown。
+func (a *App) GetRevisionStatus() (viewmodel.RevisionStatus, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	service := a.revisionStatusService()
+	return service.GetRevisionStatus()
+}
+
+// CheckChapterRevisions 只读检查 Store 中待同步章节，不创建 Host 或 Engine Session。
+func (a *App) CheckChapterRevisions() (viewmodel.RevisionStatus, error) {
+	// 独占项目控制锁，避免只读扫描与并发 Resume/项目切换交错。
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	service := a.revisionStatusService()
+	return service.CheckChapterRevisions()
+}
+
 // GetRuntimeState 返回已有的 Runtime 投影，不创建 Host 或 Engine Session。
 func (a *App) GetRuntimeState() viewmodel.Runtime {
 	a.mu.RLock()
@@ -154,4 +172,13 @@ func (a *App) engineService() *app.EngineService {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.engine
+}
+
+func (a *App) revisionStatusService() *app.RevisionService {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.revisions == nil {
+		a.revisions = app.NewRevisionService(&a.service, a.GetRuntimeState)
+	}
+	return a.revisions
 }
