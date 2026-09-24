@@ -5,7 +5,7 @@ import { useCreateProjectStore } from '../createProjectStore'
 import { useImportStore } from '../importStore'
 import { useConfigStore } from '../configStore'
 import { useExportStore } from '../exportStore'
-import type { ConfigSnapshot, ExportOptions } from '../types'
+import type { ConfigSnapshot, CreateEvent, ExportOptions } from '../types'
 
 const cardStyle = {maxWidth: 900, margin: '0 auto', padding: '30px'}
 
@@ -13,6 +13,11 @@ function AgentModelControls({config, onSwitch, onThinking}: {config: ConfigSnaps
   const models = config.providers.flatMap(provider => provider.models.map(model => ({provider: provider.name, model: model.name})))
   const levels = ['off', 'low', 'medium', 'high', 'xhigh', 'max']
   return <div className="panel"><h3>Agent Models</h3><p className="muted">仅修改下一次 Core Agent 调用；不会偷偷重启正在运行的 Engine。</p>{Object.entries(config.roles).map(([role, setting]) => <div key={role} style={{display: 'grid', gridTemplateColumns: 'minmax(130px, .7fr) 1fr 1fr', gap: 8, alignItems: 'center', marginTop: 8}}><strong>{role}</strong><select value={`${setting.provider}\0${setting.model}`} onChange={e => {const [provider, model] = e.target.value.split('\0'); onSwitch(role, provider, model)}}>{models.map(item => <option key={`${item.provider}/${item.model}`} value={`${item.provider}\0${item.model}`}>{item.provider} / {item.model}</option>)}</select><select value={setting.reasoningEffort || ''} onChange={e => onThinking(role, e.target.value)}><option value="">继承 Core 默认</option>{levels.map(level => <option key={level} value={level}>{level}</option>)}</select></div>)}</div>
+}
+
+export function CreateEventStatus({event}: {event: CreateEvent | null}) {
+  if (event?.state !== 'completed' || !event.message) return null
+  return <div className="panel" role="status">{event.message}</div>
 }
 
 export function CreateCenter() {
@@ -39,6 +44,7 @@ export function CreateCenter() {
     </form>
     {message && <p className="muted">{message}</p>}
     {state.error && <div className="editor-error" role="alert">{state.error}</div>}
+    <CreateEventStatus event={state.event}/>
     {state.previewText && <div className="panel" style={{marginTop: 20}}><h3>Core 校验后的大纲预览</h3><pre className="prose">{state.previewText}</pre></div>}
     {state.mode === 'cocreate' && state.coCreate && <div className="panel" style={{marginTop: 20}}><h3>Core 共创回复</h3><p style={{whiteSpace: 'pre-wrap'}}>{state.coCreate.reply || state.coCreate.text || 'Core 正在整理…'}</p>{state.coCreate.draft && <details><summary>当前创作指令草稿</summary><pre className="prose">{state.coCreate.draft}</pre></details>}<div style={{display: 'flex', gap: 8, marginTop: 12}}><input value={sent} onChange={e => setSent(e.target.value)} placeholder="继续告诉 Core 你的想法"/><button disabled={state.busy || !state.ack || !sent.trim()} onClick={() => {void state.send(sent); setSent('')}}>发送</button>{state.coCreate.ready && state.ack && <button disabled={state.busy} onClick={() => void state.complete()}>完成并开始创作</button>}</div></div>}
     {state.recovery?.exists && <div className="panel" style={{marginTop: 20}}><h3>发现已有共创会话</h3><p>{state.recovery.interrupted ? '上一轮未完成，Core 已保留可恢复的最后一轮。' : 'Core 已保留最近共创记录。'}</p><small>{state.recovery.history?.length ?? 0} 条已落盘消息</small>{state.recovery.history?.length ? <details open><summary>恢复历史</summary><div className="prose">{state.recovery.history.map((item, index) => <p key={`${item.role}-${index}`}><strong>{item.role === 'assistant' ? 'Core' : '你'}：</strong>{item.content}</p>)}</div></details> : null}{state.recovery.draft && <details open><summary>已落盘草稿</summary><pre className="prose">{state.recovery.draft}</pre></details>}<button className="primary" disabled={state.busy} onClick={() => void state.resumeRecovery()}>继续上次共创</button></div>}
