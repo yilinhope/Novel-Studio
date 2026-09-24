@@ -8,8 +8,11 @@ interface CreateState {
   prompt: string
   stage: boolean
   ack: OperationAck | CoCreateStart | null
+  requestId: string
   event: CreateEvent | null
   coCreate: CoCreateEvent | null
+  pendingCreateEvent: CreateEvent | null
+  pendingCoCreateEvent: CoCreateEvent | null
   recovery: CoCreateRecovery | null
   history: CoCreateMessage[]
   busy: boolean
@@ -25,24 +28,41 @@ interface CreateState {
   complete(): Promise<void>
   cancel(): Promise<void>
   loadRecovery(): Promise<void>
+  resumeRecovery(): Promise<void>
   previewOutline(): Promise<void>
 }
 
 let sequence = 0
 let unsubscribe: (() => void) | undefined
 const same = (left: string, right: string) => left.replaceAll('\\', '/').replace(/\/+$/, '').toLowerCase() === right.replaceAll('\\', '/').replace(/\/+$/, '').toLowerCase()
+const newRequestID = () => globalThis.crypto?.randomUUID?.() ?? `studio-${Date.now()}-${Math.random().toString(16).slice(2)}`
+const createTerminal = (state: string) => state === 'completed' || state === 'error'
+const coCreateTerminal = (state: string) => state === 'reply' || state === 'ready' || state === 'error' || state === 'cancelled'
+
+function matchesRequest(event: {projectId: string; requestId?: string}, current: CreateState) {
+  if (event.requestId && event.requestId === current.requestId) return true
+  return !event.requestId && !!current.ack && same(event.projectId, current.ack.projectId)
+}
 
 function bindEvents(set: (value: Partial<CreateState>) => void, get: () => CreateState) {
   if (unsubscribe) return
   ++sequence
   const createUnsubscribe = subscribeStudioEvent<CreateEvent>('studio:create-event', event => {
     const current = get()
-    if (!current.ack || !same(event.projectId, current.ack.projectId) || event.generation < (current.ack.generation ?? 0)) return
+    if (!matchesRequest(event, current) || (current.ack && event.generation < (current.ack.generation ?? 0))) return
+    if (!current.ack) {
+      set({pendingCreateEvent: event, busy: !createTerminal(event.state), error: event.error ?? ''})
+      return
+    }
     set({event, busy: event.state === 'started' || event.state === 'running', error: event.error ?? ''})
   })
   const coCreateUnsubscribe = subscribeStudioEvent<CoCreateEvent>('studio:cocreate-event', event => {
     const current = get()
-    if (!current.ack || !same(event.projectId, current.ack.projectId) || event.generation < (current.ack.generation ?? 0)) return
+    if (!matchesRequest(event, current) || (current.ack && event.generation < (current.ack.generation ?? 0))) return
+    if (!current.ack) {
+      set({pendingCoCreateEvent: event, busy: !coCreateTerminal(event.state), error: event.error ?? ''})
+      return
+    }
     if (event.history) set({history: [...event.history, ...(event.reply ? [{role: 'assistant', content: event.reply} as CoCreateMessage] : [])]})
     set({coCreate: event, busy: event.state !== 'reply' && event.state !== 'error', error: event.error ?? ''})
   })
@@ -50,8 +70,8 @@ function bindEvents(set: (value: Partial<CreateState>) => void, get: () => Creat
 }
 
 export const useCreateProjectStore = create<CreateState>((set, get) => ({
-  mode: 'quick', projectRoot: '', prompt: '', stage: false, ack: null, event: null, coCreate: null, recovery: null, history: [], busy: false, previewing: false, previewText: '', error: '',
-  setMode(mode) { set({mode, error: '', event: null, coCreate: null}) },
+  mode: 'quick', projectRoot: '', prompt: '', stage: false, ack: null, requestId: '', event: null, coCreate: null, pendingCreateEvent: null, pendingCoCreateEvent: null, recovery: null, history: [], busy: false, previewing: false, previewText: '', error: '',
+  setMode(mode) { set({mode, error: '', event: null, coCreate: null, recovery: null, pendingCreateEvent: null, pendingCoCreateEvent: null, history: []}) },
   setProjectRoot(projectRoot) { set({projectRoot}) },
   setStage(stage) { set({stage}) },
   setPrompt(prompt) { set({prompt}) },
@@ -61,18 +81,22 @@ export const useCreateProjectStore = create<CreateState>((set, get) => ({
     const api = bridge()
     bindEvents(set, get)
     const ticket = ++sequence
-    set({busy: true, error: '', ack: null, event: null, coCreate: null, history: current.mode === 'cocreate' ? [{role: 'user', content: current.prompt.trim()}] : []})
+    const requestId = newRequestID()
+    set({busy: true, error: '', ack: null, requestId, event: null, coCreate: null, pendingCreateEvent: null, pendingCoCreateEvent: null, history: current.mode === 'cocreate' ? [{role: 'user', content: current.prompt.trim()}] : []})
     try {
       if (current.mode === 'cocreate') {
         if (!api.StartCoCreate) throw new Error('桌面桥接尚未提供 StartCoCreate')
-        const ack = await api.StartCoCreate(current.projectRoot, current.prompt, current.stage)
+        const ack = await api.StartCoCreate(current.projectRoot, current.prompt, current.stage, requestId)
         if (ticket !== sequence) return
-        set({ack, busy: true})
+        const pending = get().pendingCoCreateEvent
+        set({ack, pendingCoCreateEvent: null, coCreate: pending ?? get().coCreate, busy: pending ? !coCreateTerminal(pending.state) : true, error: pending?.error ?? ''})
+        if (pending?.history) set({history: [...pending.history, ...(pending.reply ? [{role: 'assistant' as const, content: pending.reply}] : [])]})
       } else {
         if (!api.StartQuickStart) throw new Error('桌面桥接尚未提供 StartQuickStart')
-        const ack = await api.StartQuickStart({projectRoot: current.projectRoot, prompt: current.prompt, mode: current.mode})
+        const ack = await api.StartQuickStart({projectRoot: current.projectRoot, prompt: current.prompt, mode: current.mode, requestId})
         if (ticket !== sequence) return
-        set({ack, busy: true})
+        const pending = get().pendingCreateEvent
+        set({ack, pendingCreateEvent: null, event: pending ?? get().event, busy: pending ? !createTerminal(pending.state) : true, error: pending?.error ?? ''})
       }
     } catch (error) { if (ticket === sequence) set({busy: false, error: String(error)}) }
   },
@@ -106,8 +130,26 @@ export const useCreateProjectStore = create<CreateState>((set, get) => ({
   async loadRecovery() {
     const api = bridge()
     if (!api.GetCoCreateRecovery) return
-    try { set({recovery: await api.GetCoCreateRecovery()}) }
+    try {
+      const recovery = await api.GetCoCreateRecovery()
+      const history = recovery.history ?? []
+      const last = history[history.length - 1]
+      set({recovery, history, coCreate: recovery.exists ? {projectId: recovery.projectId, generation: recovery.generation ?? 0, requestId: '', state: 'recovery', reply: last?.role === 'assistant' ? last.content : '', draft: recovery.draft, ready: recovery.ready, suggestions: recovery.suggestions, history, error: recovery.error ?? ''} : null})
+    }
     catch (error) { set({error: String(error)}) }
+  },
+  async resumeRecovery() {
+    const current = get()
+    const api = bridge()
+    if (!current.recovery?.exists || !api.ResumeCoCreate || current.busy) return
+    const requestId = newRequestID()
+    set({busy: true, error: '', ack: null, requestId, pendingCoCreateEvent: null})
+    try {
+      const ack = await api.ResumeCoCreate(current.recovery.mode === 'stage', current.history, requestId)
+      const pending = get().pendingCoCreateEvent
+      set({ack, pendingCoCreateEvent: null, coCreate: pending ?? get().coCreate, busy: pending ? !coCreateTerminal(pending.state) : true, error: pending?.error ?? ''})
+      if (pending?.history) set({history: [...pending.history, ...(pending.reply ? [{role: 'assistant' as const, content: pending.reply}] : [])]})
+    } catch (error) { set({busy: false, error: String(error)}) }
   },
   async previewOutline() {
     const api = bridge()

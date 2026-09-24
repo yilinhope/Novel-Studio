@@ -7,18 +7,21 @@ type OperationAck struct {
 	ProjectID  string `json:"projectId"`
 	Generation uint64 `json:"generation"`
 	Operation  string `json:"operation"`
+	RequestID  string `json:"requestId,omitempty"`
 }
 
 type CreateProjectRequest struct {
 	ProjectRoot string `json:"projectRoot"`
 	Prompt      string `json:"prompt"`
 	Mode        string `json:"mode"` // quick / outline / cocreate
+	RequestID   string `json:"requestId,omitempty"`
 }
 
 type CreateEvent struct {
 	ProjectID  string   `json:"projectId"`
 	Generation uint64   `json:"generation"`
 	Operation  string   `json:"operation"`
+	RequestID  string   `json:"requestId,omitempty"`
 	State      string   `json:"state"` // started / running / completed / error
 	Message    string   `json:"message,omitempty"`
 	Error      string   `json:"error,omitempty"`
@@ -39,6 +42,7 @@ type CoCreateStart struct {
 type CoCreateEvent struct {
 	ProjectID   string            `json:"projectId"`
 	Generation  uint64            `json:"generation"`
+	RequestID   string            `json:"requestId,omitempty"`
 	State       string            `json:"state"` // thinking / reply / ready / error / cancelled
 	Kind        string            `json:"kind,omitempty"`
 	Text        string            `json:"text,omitempty"`
@@ -52,6 +56,7 @@ type CoCreateEvent struct {
 
 type CoCreateRecovery struct {
 	ProjectID   string            `json:"projectId"`
+	Generation  uint64            `json:"generation,omitempty"`
 	Exists      bool              `json:"exists"`
 	Interrupted bool              `json:"interrupted"`
 	Mode        string            `json:"mode"`

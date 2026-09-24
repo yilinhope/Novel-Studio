@@ -48,13 +48,13 @@ export interface StudioEngineEvent {
   projectId: string; generation: number; runId: number; sequence: number; timestamp: string
   type: 'runtime' | 'log'; log?: RuntimeLog; runtime?: Runtime
 }
-export interface OperationAck { projectId: string; generation: number; operation: string }
-export interface CreateProjectRequest { projectRoot: string; prompt: string; mode: 'quick' | 'outline' }
-export interface CreateEvent { projectId: string; generation: number; operation: string; state: string; message?: string; error?: string; project?: Project; runtime?: Runtime }
+export interface OperationAck { projectId: string; generation: number; operation: string; requestId?: string }
+export interface CreateProjectRequest { projectRoot: string; prompt: string; mode: 'quick' | 'outline'; requestId?: string }
+export interface CreateEvent { projectId: string; generation: number; operation: string; requestId?: string; state: string; message?: string; error?: string; project?: Project; runtime?: Runtime }
 export interface CoCreateMessage { role: 'user' | 'assistant'; content: string }
 export interface CoCreateStart extends OperationAck { mode: 'cold' | 'stage' }
-export interface CoCreateEvent { projectId: string; generation: number; state: string; kind?: string; text?: string; reply?: string; draft?: string; ready: boolean; suggestions?: string[]; history?: CoCreateMessage[]; error?: string }
-export interface CoCreateRecovery { projectId: string; exists: boolean; interrupted: boolean; mode: string; history?: CoCreateMessage[]; draft?: string; ready: boolean; suggestions?: string[]; error?: string }
+export interface CoCreateEvent { projectId: string; generation: number; requestId?: string; state: string; kind?: string; text?: string; reply?: string; draft?: string; ready: boolean; suggestions?: string[]; history?: CoCreateMessage[]; error?: string }
+export interface CoCreateRecovery { projectId: string; generation?: number; exists: boolean; interrupted: boolean; mode: string; history?: CoCreateMessage[]; draft?: string; ready: boolean; suggestions?: string[]; error?: string }
 export interface ImportOptions { projectRoot: string; sourcePath: string; autoConfirm: boolean; acceptSegmentation: boolean; storyResolution: string; continueAfter: boolean; guidance: string }
 export interface ImportChapter { number: number; title: string; startByte: number; endByte: number; uncertain: boolean }
 export interface ImportStatus { projectId: string; generation: number; active: boolean; stage: string; current: number; total: number; message: string; level?: string; key?: string; retryAt?: string; error?: string; continued: boolean; recoveryHint?: string; chapters?: ImportChapter[]; uncertain?: number[]; notes?: string[] }
@@ -93,11 +93,12 @@ export interface StudioBridge {
   ConfirmChapterCommit?(chapter: number, startedAt: string): Promise<ChapterCommitConfirmation>
   StartQuickStart?(request: CreateProjectRequest): Promise<OperationAck>
   PreviewOutline?(path: string): Promise<string>
-  StartCoCreate?(projectRoot: string, initial: string, stage: boolean): Promise<CoCreateStart>
+  StartCoCreate?(projectRoot: string, initial: string, stage: boolean, requestId?: string): Promise<CoCreateStart>
   SendCoCreate?(projectRoot: string, outputDir: string, stage: boolean, history: CoCreateMessage[]): Promise<void>
   CompleteCoCreate?(stage: boolean, draft: string): Promise<Runtime>
   CancelCoCreate?(stage: boolean): Promise<void>
   GetCoCreateRecovery?(): Promise<CoCreateRecovery>
+  ResumeCoCreate?(stage: boolean, history: CoCreateMessage[], requestId?: string): Promise<CoCreateStart>
   StartImport?(options: ImportOptions): Promise<OperationAck>
   CancelImport?(): Promise<void>
   GetImportStatus?(): Promise<ImportStatus>

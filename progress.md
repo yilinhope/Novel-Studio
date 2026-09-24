@@ -16,6 +16,7 @@
 - 新增前端 `createProjectStore`、`importStore`、`configStore`、`exportStore` 与对应 Create/Import/Settings/Export 页面；事件与异步响应按 projectId/generation/request sequence 过滤，API key 仅显示 Core 脱敏结果。
 - 设置页补齐 Core 已有的 Agent 角色模型与 Reasoning Effort 控制，仍通过既有 `SwitchModel` / `SetRoleThinking` 写回并重新读取 effective config。
 - 最终 GitNexus 检查发现跨 Wails 动态边界带来的 `UNKNOWN`/`critical` 风险包络，已对 `Host.New` 做 HIGH 影响说明，并以调用点搜索、全量测试、vet 与 Wails 构建补证，未发现 CLI 默认路径或现有 Core 语义变化。
+- M6 冻结修正：Budget 改为项目层补丁写入；Quick Start/Co-create 增加 requestId 与 ack 前 terminal event 暂存；共创恢复 hydrate 已落盘历史/草稿并可显式 Resume；Import 文案改为 UTF-8 / GB18030 文本文件。
 
 ## Verification
 
@@ -23,8 +24,8 @@
 |---|---|
 | `git fetch origin main codex/m5-review-steer-bc` | passed |
 | `git switch -c codex/m6-v1 origin/main` | passed |
-| `go test ./... -count=1` | passed: 1016 tests |
+| `go test ./... -count=1` | passed: 1017 tests |
 | `go vet ./...` | passed |
-| `npm test -- --run` | passed: 34 tests |
+| `npm test -- --run` | passed: 37 tests |
 | `npm run build` | passed |
 | `go run github.com/wailsapp/wails/v2/cmd/wails@v2.15.0 build` | passed: Windows production `cmd/novel-studio/build/bin/Novel-Studio.exe` |

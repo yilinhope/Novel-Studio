@@ -21,18 +21,19 @@ import (
 )
 
 type App struct {
-	mu          sync.RWMutex
-	projectMu   sync.RWMutex
-	ctx         context.Context
-	eventCancel context.CancelFunc
-	service     app.Service
-	engine      *app.EngineService
-	revisions   *app.RevisionService
-	projectDir  string
-	outputDir   string
-	operationMu sync.Mutex
-	operation   string
-	operationID uint64
+	mu                 sync.RWMutex
+	projectMu          sync.RWMutex
+	ctx                context.Context
+	eventCancel        context.CancelFunc
+	service            app.Service
+	engine             *app.EngineService
+	revisions          *app.RevisionService
+	projectDir         string
+	outputDir          string
+	operationMu        sync.Mutex
+	operation          string
+	operationID        uint64
+	operationRequestID string
 }
 
 func (a *App) Startup(ctx context.Context) {
@@ -542,7 +543,7 @@ func (a *App) activeOperation() string {
 	return a.operation
 }
 
-func (a *App) beginOperation(operation string) (uint64, error) {
+func (a *App) beginOperation(operation, requestID string) (uint64, error) {
 	a.operationMu.Lock()
 	defer a.operationMu.Unlock()
 	if a.operation != "" {
@@ -550,6 +551,7 @@ func (a *App) beginOperation(operation string) (uint64, error) {
 	}
 	a.operationID++
 	a.operation = operation
+	a.operationRequestID = strings.TrimSpace(requestID)
 	return a.operationID, nil
 }
 
@@ -557,6 +559,7 @@ func (a *App) finishOperation(id uint64) {
 	a.operationMu.Lock()
 	if a.operationID == id {
 		a.operation = ""
+		a.operationRequestID = ""
 	}
 	a.operationMu.Unlock()
 }
@@ -602,6 +605,7 @@ func (a *App) currentProjectPaths() (string, string, error) {
 // StartQuickStart 通过现有 Host.PrepareUserRules/StartPrepared 创建项目。
 // mode=outline 时 Prompt 被视为 Core 现有 /start 接受的文本文件路径。
 func (a *App) StartQuickStart(request viewmodel.CreateProjectRequest) (viewmodel.OperationAck, error) {
+	requestID := operationRequestID(request.RequestID, "create")
 	mode := strings.ToLower(strings.TrimSpace(request.Mode))
 	if mode == "" {
 		mode = "quick"
@@ -637,15 +641,15 @@ func (a *App) StartQuickStart(request viewmodel.CreateProjectRequest) (viewmodel
 			}
 		}
 	}
-	id, err := a.beginOperation("创建项目")
+	id, err := a.beginOperation("创建项目", requestID)
 	if err != nil {
 		return viewmodel.OperationAck{}, err
 	}
-	ack := viewmodel.OperationAck{ProjectID: output, Operation: "create"}
+	ack := viewmodel.OperationAck{ProjectID: output, Operation: "create", RequestID: requestID}
 	go func() {
 		defer a.finishOperation(id)
 		runtimeState, runErr := a.ensureEngineService().StartPreparedProject(root, output, prompt)
-		event := viewmodel.CreateEvent{ProjectID: output, Generation: runtimeState.Generation, Operation: "create"}
+		event := viewmodel.CreateEvent{ProjectID: output, Generation: runtimeState.Generation, Operation: "create", RequestID: requestID}
 		if runErr != nil {
 			event.State, event.Error = "error", runErr.Error()
 		} else {
@@ -671,7 +675,8 @@ func (a *App) PreviewOutline(path string) (string, error) {
 	return startup.PrepareQuick(loaded)
 }
 
-func (a *App) StartCoCreate(projectRoot, initial string, stage bool) (viewmodel.CoCreateStart, error) {
+func (a *App) StartCoCreate(projectRoot, initial string, stage bool, requestID string) (viewmodel.CoCreateStart, error) {
+	requestID = operationRequestID(requestID, "cocreate")
 	var root, output string
 	var err error
 	if stage {
@@ -698,18 +703,18 @@ func (a *App) StartCoCreate(projectRoot, initial string, stage bool) (viewmodel.
 	if operation := a.activeOperation(); operation != "" {
 		return viewmodel.CoCreateStart{}, fmt.Errorf("当前%s操作仍在进行", operation)
 	}
-	id, err := a.beginOperation("共创")
+	id, err := a.beginOperation("共创", requestID)
 	if err != nil {
 		return viewmodel.CoCreateStart{}, err
 	}
-	ack := viewmodel.CoCreateStart{OperationAck: viewmodel.OperationAck{ProjectID: output, Operation: "cocreate"}, Mode: map[bool]string{true: "stage", false: "cold"}[stage]}
+	ack := viewmodel.CoCreateStart{OperationAck: viewmodel.OperationAck{ProjectID: output, Operation: "cocreate", RequestID: requestID}, Mode: map[bool]string{true: "stage", false: "cold"}[stage]}
 	if !stage {
 		a.mu.Lock()
 		a.projectDir, a.outputDir = root, output
 		a.mu.Unlock()
 	}
 	// 冷启动 Host.New 会初始化 Store；阶段共创沿用当前 Engine Session。
-	go a.runCoCreate(id, root, output, stage, []host.CoCreateMessage{{Role: "user", Content: initial}}, true)
+	go a.runCoCreate(id, requestID, root, output, stage, []host.CoCreateMessage{{Role: "user", Content: initial}}, true)
 	return ack, nil
 }
 
@@ -722,7 +727,7 @@ func (a *App) SendCoCreate(projectRoot, outputDir string, stage bool, history []
 	if id == 0 {
 		return fmt.Errorf("当前没有进行中的共创")
 	}
-	go a.runCoCreateTurn(id, projectRoot, outputDir, stage, coreHistory, false)
+	go a.runCoCreateTurn(id, a.currentOperationRequestID("共创"), projectRoot, outputDir, stage, coreHistory, false)
 	return nil
 }
 
@@ -731,7 +736,42 @@ func (a *App) GetCoCreateRecovery() (viewmodel.CoCreateRecovery, error) {
 	if err != nil {
 		return viewmodel.CoCreateRecovery{}, err
 	}
-	return app.ReadCoCreateRecovery(outputDir)
+	recovery, err := app.ReadCoCreateRecovery(outputDir)
+	if err != nil {
+		return viewmodel.CoCreateRecovery{}, err
+	}
+	recovery.ProjectID = outputDir
+	if engine := a.engineService(); engine != nil {
+		recovery.Generation = engine.RuntimeState().Generation
+	}
+	return recovery, nil
+}
+
+// ResumeCoCreate 从 Core 已落盘的最后一轮历史继续共创；不会恢复未落盘的请求。
+func (a *App) ResumeCoCreate(stage bool, history []viewmodel.CoCreateMessage, requestID string) (viewmodel.CoCreateStart, error) {
+	projectDir, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return viewmodel.CoCreateStart{}, err
+	}
+	if len(history) == 0 {
+		return viewmodel.CoCreateStart{}, fmt.Errorf("没有可恢复的共创历史")
+	}
+	requestID = operationRequestID(requestID, "cocreate-recovery")
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	if operation := a.activeOperation(); operation != "" {
+		return viewmodel.CoCreateStart{}, fmt.Errorf("当前%s操作仍在进行", operation)
+	}
+	id, err := a.beginOperation("共创", requestID)
+	if err != nil {
+		return viewmodel.CoCreateStart{}, err
+	}
+	coreHistory := make([]host.CoCreateMessage, 0, len(history))
+	for _, item := range history {
+		coreHistory = append(coreHistory, host.CoCreateMessage{Role: item.Role, Content: item.Content})
+	}
+	go a.runCoCreate(id, requestID, projectDir, outputDir, stage, coreHistory, true)
+	return viewmodel.CoCreateStart{OperationAck: viewmodel.OperationAck{ProjectID: outputDir, Operation: "cocreate", RequestID: requestID}, Mode: map[bool]string{true: "stage", false: "cold"}[stage]}, nil
 }
 
 func (a *App) CompleteCoCreate(stage bool, draft string) (viewmodel.Runtime, error) {
@@ -754,9 +794,9 @@ func (a *App) CompleteCoCreate(stage bool, draft string) (viewmodel.Runtime, err
 		return runtimeState, err
 	}
 	if project, projectErr := a.publishProject(outputDir); projectErr == nil {
-		a.emitCreateEvent(viewmodel.CreateEvent{ProjectID: outputDir, Generation: runtimeState.Generation, Operation: "cocreate", State: "completed", Message: "共创已交给 Core，创作已恢复", Project: &project, Runtime: &runtimeState})
+		a.emitCreateEvent(viewmodel.CreateEvent{ProjectID: outputDir, Generation: runtimeState.Generation, Operation: "cocreate", RequestID: a.currentOperationRequestID("共创"), State: "completed", Message: "共创已交给 Core，创作已恢复", Project: &project, Runtime: &runtimeState})
 	} else {
-		a.emitCreateEvent(viewmodel.CreateEvent{ProjectID: outputDir, Generation: runtimeState.Generation, Operation: "cocreate", State: "completed", Message: fmt.Sprintf("共创已交给 Core，但项目视图刷新失败：%v", projectErr), Runtime: &runtimeState})
+		a.emitCreateEvent(viewmodel.CreateEvent{ProjectID: outputDir, Generation: runtimeState.Generation, Operation: "cocreate", RequestID: a.currentOperationRequestID("共创"), State: "completed", Message: fmt.Sprintf("共创已交给 Core，但项目视图刷新失败：%v", projectErr), Runtime: &runtimeState})
 	}
 	a.finishOperation(a.currentOperationID("共创"))
 	return runtimeState, nil
@@ -780,11 +820,11 @@ func (a *App) CancelCoCreate(stage bool) error {
 	return err
 }
 
-func (a *App) runCoCreate(id uint64, projectDir, outputDir string, stage bool, history []host.CoCreateMessage, first bool) {
-	a.runCoCreateTurn(id, projectDir, outputDir, stage, history, first)
+func (a *App) runCoCreate(id uint64, requestID, projectDir, outputDir string, stage bool, history []host.CoCreateMessage, first bool) {
+	a.runCoCreateTurn(id, requestID, projectDir, outputDir, stage, history, first)
 }
 
-func (a *App) runCoCreateTurn(id uint64, projectDir, outputDir string, stage bool, history []host.CoCreateMessage, first bool) {
+func (a *App) runCoCreateTurn(id uint64, requestID, projectDir, outputDir string, stage bool, history []host.CoCreateMessage, first bool) {
 	engine := a.ensureEngineService()
 	run := engine.RunCoCreate
 	if !first {
@@ -794,16 +834,16 @@ func (a *App) runCoCreateTurn(id uint64, projectDir, outputDir string, stage boo
 	var reply host.CoCreateReply
 	var err error
 	reply, generation, err = run(context.Background(), projectDir, outputDir, stage, history, func(eventGeneration uint64, kind, text string) {
-		a.emitCoCreateEvent(viewmodel.CoCreateEvent{ProjectID: outputDir, Generation: eventGeneration, State: kind, Kind: kind, Text: text})
+		a.emitCoCreateEvent(viewmodel.CoCreateEvent{ProjectID: outputDir, Generation: eventGeneration, RequestID: requestID, State: kind, Kind: kind, Text: text})
 	})
 	if err != nil {
-		a.emitCoCreateEvent(viewmodel.CoCreateEvent{ProjectID: outputDir, Generation: generation, State: "error", Error: err.Error()})
+		a.emitCoCreateEvent(viewmodel.CoCreateEvent{ProjectID: outputDir, Generation: generation, RequestID: requestID, State: "error", Error: err.Error()})
 		if first {
 			a.finishOperation(id)
 		}
 		return
 	}
-	a.emitCoCreateEvent(viewmodel.CoCreateEvent{ProjectID: outputDir, Generation: generation, State: "reply", Reply: reply.Message, Draft: reply.Prompt, Ready: reply.Ready, Suggestions: reply.Suggestions, History: convertHistory(history)})
+	a.emitCoCreateEvent(viewmodel.CoCreateEvent{ProjectID: outputDir, Generation: generation, RequestID: requestID, State: "reply", Reply: reply.Message, Draft: reply.Prompt, Ready: reply.Ready, Suggestions: reply.Suggestions, History: convertHistory(history)})
 }
 
 func convertHistory(history []host.CoCreateMessage) []viewmodel.CoCreateMessage {
@@ -840,7 +880,7 @@ func (a *App) StartImport(options viewmodel.ImportOptions) (viewmodel.OperationA
 	a.mu.Lock()
 	a.projectDir, a.outputDir = projectDir, outputDir
 	a.mu.Unlock()
-	id, err := a.beginOperation("导入")
+	id, err := a.beginOperation("导入", "")
 	if err != nil {
 		return viewmodel.OperationAck{}, err
 	}
@@ -928,7 +968,7 @@ func (a *App) SaveBudgetConfig(budget viewmodel.BudgetConfig) (viewmodel.ConfigS
 	if err := cfg.ValidateBase(); err != nil {
 		return viewmodel.ConfigSnapshot{}, fmt.Errorf("预算配置无效：%w", err)
 	}
-	if err := bootstrap.SaveConfig(bootstrap.EffectiveConfigPathFromDir(projectDir), cfg); err != nil {
+	if err := bootstrap.SaveBudgetConfig(bootstrap.ProjectConfigPathFromDir(projectDir), cfg.Budget); err != nil {
 		return viewmodel.ConfigSnapshot{}, fmt.Errorf("保存预算配置失败：%w", err)
 	}
 	return app.ReadConfigSnapshot(projectDir)
@@ -1052,4 +1092,21 @@ func (a *App) currentOperationID(expected string) uint64 {
 		return 0
 	}
 	return a.operationID
+}
+
+func (a *App) currentOperationRequestID(expected string) string {
+	a.operationMu.Lock()
+	defer a.operationMu.Unlock()
+	if a.operation != expected {
+		return ""
+	}
+	return a.operationRequestID
+}
+
+func operationRequestID(requestID, operation string) string {
+	requestID = strings.TrimSpace(requestID)
+	if requestID != "" {
+		return requestID
+	}
+	return fmt.Sprintf("studio-%s-%d", operation, time.Now().UnixNano())
 }

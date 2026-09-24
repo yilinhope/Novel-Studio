@@ -38,6 +38,13 @@
 - Budget 配置保存使用现有 `bootstrap.SaveConfig` effective path；由于 `BudgetSentinel` 在 Host.New 创建且 Core 没有热更新语义，Studio 在已有 Engine Session 时拒绝 Budget mutation，UI 明示“下一次 Host 生效”。
 - 最终 GitNexus `detect-changes --scope all` 覆盖 15 个变更文件、261 个变更符号、39 个受影响符号，整体标为 `critical`。其中可定位的高风险点是 `Host.New`（HIGH）：已通过可选 `WithConfigPath` 保持 CLI/TUI/headless/eval 默认路径不变，并用 Go 全量测试与 Wails 生产构建验证；Bridge 的 `StartImport`、`StartCoCreate` 和跨 Wails 的 `SaveBudgetConfig` 为 `UNKNOWN`，原因是动态 Wails/TypeScript 属性调用无法完整解析，已用前端调用点搜索、领域 Store 测试、Go 全量测试和生产构建补证，不能将 UNKNOWN 解释为无影响。
 
+### M6 Freeze Fixes
+
+- Budget 写入改为 `bootstrap.SaveBudgetConfig(ProjectConfigPathFromDir(projectRoot), budget)`，只读取/重写项目层自身；即使项目配置原本不存在，也不会把全局 Provider、Model 或 API Key 复制到项目文件。
+- Quick Start 与 Co-create 的 ack/event 共享前端生成的 `requestId`；Store 在 ack 尚未返回时暂存匹配的 terminal event，ack 到达后回放，覆盖立即失败/快速完成竞态。
+- Co-create recovery 仍只读取最后一条完整 JSONL；Store hydrate 已落盘 History/Draft/Ready/Suggestions，并通过显式 `ResumeCoCreate` 继续 Core 共创，未落盘请求不会被恢复。
+- Import UI 文案改为“文本文件（UTF-8 / GB18030）”，不再暗示 Core 支持 EPUB Import。
+
 ## Decisions
 
 | Decision | Rationale |
