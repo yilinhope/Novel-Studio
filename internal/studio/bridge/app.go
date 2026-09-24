@@ -594,6 +594,16 @@ func (a *App) publishProject(outputDir string) (viewmodel.Project, error) {
 	return project, nil
 }
 
+func applyCreateProjectRefresh(event *viewmodel.CreateEvent, project viewmodel.Project, refreshErr error) {
+	if refreshErr == nil {
+		event.Project = &project
+		return
+	}
+	if event.State == "completed" {
+		event.Message = fmt.Sprintf("项目已创建，但项目视图刷新失败：%v", refreshErr)
+	}
+}
+
 func (a *App) currentProjectPaths() (string, string, error) {
 	projectDir, outputDir := a.openProjectPaths()
 	if projectDir == "" || outputDir == "" {
@@ -656,11 +666,8 @@ func (a *App) StartQuickStart(request viewmodel.CreateProjectRequest) (viewmodel
 			event.State, event.Message = "completed", "Core 已接受创建请求并开始创作"
 			event.Runtime = &runtimeState
 		}
-		if project, projectErr := a.publishProject(output); projectErr == nil {
-			event.Project = &project
-		} else if runErr == nil {
-			event.State, event.Error = "error", fmt.Sprintf("项目已创建，但读取 Overview 失败：%v", projectErr)
-		}
+		project, projectErr := a.publishProject(output)
+		applyCreateProjectRefresh(&event, project, projectErr)
 		a.emitCreateEvent(event)
 	}()
 	return ack, nil
