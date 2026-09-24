@@ -66,8 +66,8 @@
 - [x] 完成 Go tests、vet、Frontend tests/build、Windows Wails production build
 - [x] 完成 CLI/GUI 最终 Store/Config 语义对照
 - [x] GitNexus `detect-changes --scope all`、diff review、提交中文说明
-- [ ] 创建/更新统一 M6 PR，附审计摘要和验证证据
-- **Status:** in_progress
+- [x] 创建/更新统一 M6 PR，附审计摘要和验证证据（PR #6）
+- **Status:** complete
 
 ## Global Constraints
 
