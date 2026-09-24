@@ -99,6 +99,54 @@ func TestEffectiveConfigPathPrefersProject(t *testing.T) {
 	}
 }
 
+func TestEffectiveConfigPathFromDirUsesProjectRoot(t *testing.T) {
+	root := t.TempDir()
+	projectConfig := filepath.Join(root, configDirName, "config.json")
+	if err := os.MkdirAll(filepath.Dir(projectConfig), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(projectConfig, []byte(`{"provider":"local","model":"demo"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got := EffectiveConfigPathFromDir(root)
+	if got != projectConfig {
+		t.Fatalf("project config path = %q, want %q", got, projectConfig)
+	}
+}
+
+func TestSaveBudgetConfigOnlyPatchesProjectLayer(t *testing.T) {
+	home := writeGlobal(t, `{
+  "provider": "global-provider",
+  "model": "global-model",
+  "providers": {"global-provider": {"type": "openai", "api_key": "sk-global-secret"}}
+}`)
+	root := t.TempDir()
+	path := ProjectConfigPathFromDir(root)
+	if err := SaveBudgetConfig(path, BudgetConfig{BookUSD: 50, WarnRatio: 0.8, HardStop: true}); err != nil {
+		t.Fatalf("保存项目预算失败: %v", err)
+	}
+	project, err := LoadConfigFile(path)
+	if err != nil {
+		t.Fatalf("读取项目配置失败: %v", err)
+	}
+	if project.Budget.BookUSD != 50 || !project.Budget.HardStop {
+		t.Fatalf("项目预算未写入目标层: %+v", project.Budget)
+	}
+	if project.Provider != "" || project.ModelName != "" || len(project.Providers) != 0 {
+		t.Fatalf("全局 provider/model/API key 不得固化到项目配置: %+v", project)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".ainovel", "config.json")); err != nil {
+		t.Fatalf("全局配置不应被删除: %v", err)
+	}
+	merged, err := LoadConfigFromDir(root)
+	if err != nil {
+		t.Fatalf("读取合并配置失败: %v", err)
+	}
+	if merged.Provider != "global-provider" || merged.ModelName != "global-model" || merged.Providers["global-provider"].APIKey != "sk-global-secret" {
+		t.Fatalf("项目预算修改不应改变全局 effective 配置: %+v", merged)
+	}
+}
+
 // 文件不存在是正常情况（便携/首次），不能报错。
 func TestLoadConfig_MissingFilesNoError(t *testing.T) {
 	home := t.TempDir()

@@ -35,6 +35,25 @@ type bridgeTestEngine struct {
 	continueErr   error
 }
 
+func TestCreateEventKeepsCompletedWhenProjectRefreshFails(t *testing.T) {
+	event := viewmodel.CreateEvent{
+		State:   "completed",
+		Message: "Core 已接受创建请求并开始创作",
+	}
+
+	applyCreateProjectRefresh(&event, viewmodel.Project{}, errors.New("Overview 读取失败"))
+
+	if event.State != "completed" {
+		t.Fatalf("Core 创建成功后视图刷新失败不得改成 error：%+v", event)
+	}
+	if event.Error != "" {
+		t.Fatalf("视图刷新失败应使用 message/warning，不应伪装成 Core 创建失败：%+v", event)
+	}
+	if !strings.Contains(event.Message, "项目已创建，但项目视图刷新失败") {
+		t.Fatalf("缺少项目视图刷新 warning：%+v", event)
+	}
+}
+
 func newBridgeTestEngine() *bridgeTestEngine {
 	return &bridgeTestEngine{events: make(chan host.Event), stream: make(chan string), done: make(chan struct{})}
 }

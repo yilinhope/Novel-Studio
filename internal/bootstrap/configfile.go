@@ -56,12 +56,39 @@ func projectConfigPath() string {
 // 保证"改当前生效的那份"、改完立刻生效；否则写全局 ~/.ainovel/config.json。
 // 仅编辑已存在的项目配置，不会凭空创建（创建项目覆盖是用户主动放文件的动作）。
 func EffectiveConfigPath() string {
-	rel := projectConfigPath()
-	if _, err := os.Stat(rel); err == nil {
-		if abs, err := filepath.Abs(rel); err == nil {
-			return abs
-		}
-		return rel
+	return EffectiveConfigPathFromDir(".")
+}
+
+// ProjectConfigPathFromDir 返回指定项目根目录的项目级配置路径。
+// 与 EffectiveConfigPathFromDir 不同，它即使项目级配置尚不存在也仍指向
+// 项目层，用于只更新某一个项目配置字段，避免把合并后的全局配置固化进去。
+func ProjectConfigPathFromDir(projectDir string) string {
+	projectDir = strings.TrimSpace(projectDir)
+	if projectDir == "" {
+		return filepath.Join(configDirName, "config.json")
+	}
+	abs, err := filepath.Abs(projectDir)
+	if err != nil {
+		return filepath.Join(projectDir, projectConfigPath())
+	}
+	return filepath.Join(abs, projectConfigPath())
+}
+
+// EffectiveConfigPathFromDir 返回指定项目根目录对应的有效写入层。
+// 与 LoadConfigFromDir 使用同一 ProjectRoot 语义，避免调用方当前 cwd
+// 与目标小说项目不一致时把配置保存到错误目录。
+func EffectiveConfigPathFromDir(projectDir string) string {
+	projectDir = strings.TrimSpace(projectDir)
+	if projectDir == "" {
+		return DefaultConfigPath()
+	}
+	abs, err := filepath.Abs(projectDir)
+	if err != nil {
+		return DefaultConfigPath()
+	}
+	projectPath := ProjectConfigPathFromDir(abs)
+	if _, err := os.Stat(projectPath); err == nil {
+		return projectPath
 	}
 	return DefaultConfigPath()
 }
@@ -285,6 +312,20 @@ func SaveProviderConfig(path string, provider string, pc ProviderConfig) error {
 		target.Providers = make(map[string]ProviderConfig)
 	}
 	target.Providers[provider] = pc
+	return SaveConfig(path, target)
+}
+
+// SaveBudgetConfig 补丁式更新目标配置层里的预算策略。
+// 它只读取并重写 path 自身，不读取全局配置，也不把 merged Config 写回目标层。
+func SaveBudgetConfig(path string, budget BudgetConfig) error {
+	target, found, err := loadOptionalJSON(path)
+	if err != nil {
+		return err
+	}
+	if !found {
+		target = Config{}
+	}
+	target.Budget = budget
 	return SaveConfig(path, target)
 }
 

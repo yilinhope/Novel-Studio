@@ -3,12 +3,17 @@ package bridge
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/voocel/ainovel-cli/internal/bootstrap"
 	"github.com/voocel/ainovel-cli/internal/domain"
+	"github.com/voocel/ainovel-cli/internal/entry/startup"
+	"github.com/voocel/ainovel-cli/internal/host"
+	"github.com/voocel/ainovel-cli/internal/host/imp"
 	"github.com/voocel/ainovel-cli/internal/store"
 	"github.com/voocel/ainovel-cli/internal/studio/app"
 	"github.com/voocel/ainovel-cli/internal/studio/viewmodel"
@@ -16,15 +21,19 @@ import (
 )
 
 type App struct {
-	mu          sync.RWMutex
-	projectMu   sync.RWMutex
-	ctx         context.Context
-	eventCancel context.CancelFunc
-	service     app.Service
-	engine      *app.EngineService
-	revisions   *app.RevisionService
-	projectDir  string
-	outputDir   string
+	mu                 sync.RWMutex
+	projectMu          sync.RWMutex
+	ctx                context.Context
+	eventCancel        context.CancelFunc
+	service            app.Service
+	engine             *app.EngineService
+	revisions          *app.RevisionService
+	projectDir         string
+	outputDir          string
+	operationMu        sync.Mutex
+	operation          string
+	operationID        uint64
+	operationRequestID string
 }
 
 func (a *App) Startup(ctx context.Context) {
@@ -71,6 +80,9 @@ func (a *App) SelectProjectDirectory() (string, error) {
 func (a *App) OpenProject(path string) (viewmodel.Project, error) {
 	a.projectMu.Lock()
 	defer a.projectMu.Unlock()
+	if operation := a.activeOperation(); operation != "" {
+		return viewmodel.Project{}, fmt.Errorf("当前%s操作仍在进行，请先完成或取消后再切换项目", operation)
+	}
 	preview, err := a.service.PreviewProject(path)
 	if err != nil {
 		return viewmodel.Project{}, err
@@ -523,4 +535,585 @@ func (a *App) revisionStatusService() *app.RevisionService {
 		a.revisions = app.NewRevisionService(&a.service, a.GetRuntimeState)
 	}
 	return a.revisions
+}
+
+func (a *App) activeOperation() string {
+	a.operationMu.Lock()
+	defer a.operationMu.Unlock()
+	return a.operation
+}
+
+func (a *App) beginOperation(operation, requestID string) (uint64, error) {
+	a.operationMu.Lock()
+	defer a.operationMu.Unlock()
+	if a.operation != "" {
+		return 0, fmt.Errorf("当前%s操作仍在进行", a.operation)
+	}
+	a.operationID++
+	a.operation = operation
+	a.operationRequestID = strings.TrimSpace(requestID)
+	return a.operationID, nil
+}
+
+func (a *App) finishOperation(id uint64) {
+	a.operationMu.Lock()
+	if a.operationID == id {
+		a.operation = ""
+		a.operationRequestID = ""
+	}
+	a.operationMu.Unlock()
+}
+
+func createProjectPaths(selected string) (string, string, error) {
+	selected = strings.TrimSpace(selected)
+	if selected == "" {
+		return "", "", fmt.Errorf("项目目录不能为空")
+	}
+	abs, err := filepath.Abs(selected)
+	if err != nil {
+		return "", "", fmt.Errorf("解析项目目录失败：%w", err)
+	}
+	root, output := abs, filepath.Join(abs, "output", "novel")
+	if strings.EqualFold(filepath.Base(abs), "novel") && strings.EqualFold(filepath.Base(filepath.Dir(abs)), "output") {
+		root, output = filepath.Dir(filepath.Dir(abs)), abs
+	}
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return "", "", fmt.Errorf("创建项目目录失败：%w", err)
+	}
+	return root, output, nil
+}
+
+func (a *App) publishProject(outputDir string) (viewmodel.Project, error) {
+	project, err := a.service.OpenProject(outputDir)
+	if err != nil {
+		return viewmodel.Project{}, err
+	}
+	a.mu.Lock()
+	a.projectDir, a.outputDir = project.ProjectRoot, project.OutputDir
+	a.mu.Unlock()
+	return project, nil
+}
+
+func applyCreateProjectRefresh(event *viewmodel.CreateEvent, project viewmodel.Project, refreshErr error) {
+	if refreshErr == nil {
+		event.Project = &project
+		return
+	}
+	if event.State == "completed" {
+		event.Message = fmt.Sprintf("项目已创建，但项目视图刷新失败：%v", refreshErr)
+	}
+}
+
+func (a *App) currentProjectPaths() (string, string, error) {
+	projectDir, outputDir := a.openProjectPaths()
+	if projectDir == "" || outputDir == "" {
+		return "", "", fmt.Errorf("请先打开小说项目")
+	}
+	return projectDir, outputDir, nil
+}
+
+// StartQuickStart 通过现有 Host.PrepareUserRules/StartPrepared 创建项目。
+// mode=outline 时 Prompt 被视为 Core 现有 /start 接受的文本文件路径。
+func (a *App) StartQuickStart(request viewmodel.CreateProjectRequest) (viewmodel.OperationAck, error) {
+	requestID := operationRequestID(request.RequestID, "create")
+	mode := strings.ToLower(strings.TrimSpace(request.Mode))
+	if mode == "" {
+		mode = "quick"
+	}
+	if mode != "quick" && mode != "outline" {
+		return viewmodel.OperationAck{}, fmt.Errorf("不支持的创建模式：%s", mode)
+	}
+	prompt := request.Prompt
+	if mode == "outline" {
+		loaded, err := startup.LoadPromptFile(prompt)
+		if err != nil {
+			return viewmodel.OperationAck{}, fmt.Errorf("读取大纲文件失败：%w", err)
+		}
+		prompt = loaded
+	}
+	prompt, err := startup.PrepareQuick(prompt)
+	if err != nil {
+		return viewmodel.OperationAck{}, err
+	}
+	root, output, err := createProjectPaths(request.ProjectRoot)
+	if err != nil {
+		return viewmodel.OperationAck{}, err
+	}
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	if operation := a.activeOperation(); operation != "" {
+		return viewmodel.OperationAck{}, fmt.Errorf("当前%s操作仍在进行", operation)
+	}
+	if engine := a.engineService(); engine != nil {
+		if current := a.openOutputDir(); current != "" && !sameProjectPath(current, output) {
+			if err := engine.PrepareProjectSwitch(output); err != nil {
+				return viewmodel.OperationAck{}, err
+			}
+		}
+	}
+	id, err := a.beginOperation("创建项目", requestID)
+	if err != nil {
+		return viewmodel.OperationAck{}, err
+	}
+	ack := viewmodel.OperationAck{ProjectID: output, Operation: "create", RequestID: requestID}
+	go func() {
+		defer a.finishOperation(id)
+		runtimeState, runErr := a.ensureEngineService().StartPreparedProject(root, output, prompt)
+		event := viewmodel.CreateEvent{ProjectID: output, Generation: runtimeState.Generation, Operation: "create", RequestID: requestID}
+		if runErr != nil {
+			event.State, event.Error = "error", runErr.Error()
+		} else {
+			event.State, event.Message = "completed", "Core 已接受创建请求并开始创作"
+			event.Runtime = &runtimeState
+		}
+		project, projectErr := a.publishProject(output)
+		applyCreateProjectRefresh(&event, project, projectErr)
+		a.emitCreateEvent(event)
+	}()
+	return ack, nil
+}
+
+// PreviewOutline 只读取并复用 Core 的 prompt 校验，不创建 Host 或写入项目。
+func (a *App) PreviewOutline(path string) (string, error) {
+	loaded, err := startup.LoadPromptFile(path)
+	if err != nil {
+		return "", fmt.Errorf("读取大纲文件失败：%w", err)
+	}
+	return startup.PrepareQuick(loaded)
+}
+
+func (a *App) StartCoCreate(projectRoot, initial string, stage bool, requestID string) (viewmodel.CoCreateStart, error) {
+	requestID = operationRequestID(requestID, "cocreate")
+	var root, output string
+	var err error
+	if stage {
+		root, output, err = a.currentProjectPaths()
+	} else {
+		root, output, err = createProjectPaths(projectRoot)
+	}
+	if err != nil {
+		return viewmodel.CoCreateStart{}, err
+	}
+	initial = strings.TrimSpace(initial)
+	if initial == "" {
+		return viewmodel.CoCreateStart{}, fmt.Errorf("共创开场输入不能为空")
+	}
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	if engine := a.engineService(); engine != nil {
+		if current := a.openOutputDir(); current != "" && !sameProjectPath(current, output) {
+			if err := engine.PrepareProjectSwitch(output); err != nil {
+				return viewmodel.CoCreateStart{}, err
+			}
+		}
+	}
+	if operation := a.activeOperation(); operation != "" {
+		return viewmodel.CoCreateStart{}, fmt.Errorf("当前%s操作仍在进行", operation)
+	}
+	id, err := a.beginOperation("共创", requestID)
+	if err != nil {
+		return viewmodel.CoCreateStart{}, err
+	}
+	ack := viewmodel.CoCreateStart{OperationAck: viewmodel.OperationAck{ProjectID: output, Operation: "cocreate", RequestID: requestID}, Mode: map[bool]string{true: "stage", false: "cold"}[stage]}
+	if !stage {
+		a.mu.Lock()
+		a.projectDir, a.outputDir = root, output
+		a.mu.Unlock()
+	}
+	// 冷启动 Host.New 会初始化 Store；阶段共创沿用当前 Engine Session。
+	go a.runCoCreate(id, requestID, root, output, stage, []host.CoCreateMessage{{Role: "user", Content: initial}}, true)
+	return ack, nil
+}
+
+func (a *App) SendCoCreate(projectRoot, outputDir string, stage bool, history []viewmodel.CoCreateMessage) error {
+	coreHistory := make([]host.CoCreateMessage, 0, len(history))
+	for _, item := range history {
+		coreHistory = append(coreHistory, host.CoCreateMessage{Role: item.Role, Content: item.Content})
+	}
+	id := a.currentOperationID("共创")
+	if id == 0 {
+		return fmt.Errorf("当前没有进行中的共创")
+	}
+	go a.runCoCreateTurn(id, a.currentOperationRequestID("共创"), projectRoot, outputDir, stage, coreHistory, false)
+	return nil
+}
+
+func (a *App) GetCoCreateRecovery() (viewmodel.CoCreateRecovery, error) {
+	_, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return viewmodel.CoCreateRecovery{}, err
+	}
+	recovery, err := app.ReadCoCreateRecovery(outputDir)
+	if err != nil {
+		return viewmodel.CoCreateRecovery{}, err
+	}
+	recovery.ProjectID = outputDir
+	if engine := a.engineService(); engine != nil {
+		recovery.Generation = engine.RuntimeState().Generation
+	}
+	return recovery, nil
+}
+
+// ResumeCoCreate 从 Core 已落盘的最后一轮历史继续共创；不会恢复未落盘的请求。
+func (a *App) ResumeCoCreate(stage bool, history []viewmodel.CoCreateMessage, requestID string) (viewmodel.CoCreateStart, error) {
+	projectDir, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return viewmodel.CoCreateStart{}, err
+	}
+	if len(history) == 0 {
+		return viewmodel.CoCreateStart{}, fmt.Errorf("没有可恢复的共创历史")
+	}
+	requestID = operationRequestID(requestID, "cocreate-recovery")
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	if operation := a.activeOperation(); operation != "" {
+		return viewmodel.CoCreateStart{}, fmt.Errorf("当前%s操作仍在进行", operation)
+	}
+	id, err := a.beginOperation("共创", requestID)
+	if err != nil {
+		return viewmodel.CoCreateStart{}, err
+	}
+	coreHistory := make([]host.CoCreateMessage, 0, len(history))
+	for _, item := range history {
+		coreHistory = append(coreHistory, host.CoCreateMessage{Role: item.Role, Content: item.Content})
+	}
+	go a.runCoCreate(id, requestID, projectDir, outputDir, stage, coreHistory, true)
+	return viewmodel.CoCreateStart{OperationAck: viewmodel.OperationAck{ProjectID: outputDir, Operation: "cocreate", RequestID: requestID}, Mode: map[bool]string{true: "stage", false: "cold"}[stage]}, nil
+}
+
+func (a *App) CompleteCoCreate(stage bool, draft string) (viewmodel.Runtime, error) {
+	projectDir, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return viewmodel.Runtime{}, err
+	}
+	if id := a.currentOperationID("共创"); id == 0 {
+		return viewmodel.Runtime{}, fmt.Errorf("当前没有进行中的共创")
+	}
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	var runtimeState viewmodel.Runtime
+	if stage {
+		runtimeState, err = a.ensureEngineService().ResumeCoCreate(projectDir, outputDir, draft)
+	} else {
+		runtimeState, err = a.ensureEngineService().StartPreparedProject(projectDir, outputDir, draft)
+	}
+	if err != nil {
+		return runtimeState, err
+	}
+	if project, projectErr := a.publishProject(outputDir); projectErr == nil {
+		a.emitCreateEvent(viewmodel.CreateEvent{ProjectID: outputDir, Generation: runtimeState.Generation, Operation: "cocreate", RequestID: a.currentOperationRequestID("共创"), State: "completed", Message: "共创已交给 Core，创作已恢复", Project: &project, Runtime: &runtimeState})
+	} else {
+		a.emitCreateEvent(viewmodel.CreateEvent{ProjectID: outputDir, Generation: runtimeState.Generation, Operation: "cocreate", RequestID: a.currentOperationRequestID("共创"), State: "completed", Message: fmt.Sprintf("共创已交给 Core，但项目视图刷新失败：%v", projectErr), Runtime: &runtimeState})
+	}
+	a.finishOperation(a.currentOperationID("共创"))
+	return runtimeState, nil
+}
+
+func (a *App) CancelCoCreate(stage bool) error {
+	projectDir, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return err
+	}
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	if stage {
+		err = a.ensureEngineService().CancelCoCreate(projectDir, outputDir)
+	} else {
+		_, err = a.ensureEngineService().StopWriting()
+	}
+	if err == nil {
+		a.finishOperation(a.currentOperationID("共创"))
+	}
+	return err
+}
+
+func (a *App) runCoCreate(id uint64, requestID, projectDir, outputDir string, stage bool, history []host.CoCreateMessage, first bool) {
+	a.runCoCreateTurn(id, requestID, projectDir, outputDir, stage, history, first)
+}
+
+func (a *App) runCoCreateTurn(id uint64, requestID, projectDir, outputDir string, stage bool, history []host.CoCreateMessage, first bool) {
+	engine := a.ensureEngineService()
+	run := engine.RunCoCreate
+	if !first {
+		run = engine.ContinueCoCreate
+	}
+	var generation uint64
+	var reply host.CoCreateReply
+	var err error
+	reply, generation, err = run(context.Background(), projectDir, outputDir, stage, history, func(eventGeneration uint64, kind, text string) {
+		a.emitCoCreateEvent(viewmodel.CoCreateEvent{ProjectID: outputDir, Generation: eventGeneration, RequestID: requestID, State: kind, Kind: kind, Text: text})
+	})
+	if err != nil {
+		a.emitCoCreateEvent(viewmodel.CoCreateEvent{ProjectID: outputDir, Generation: generation, RequestID: requestID, State: "error", Error: err.Error()})
+		if first {
+			a.finishOperation(id)
+		}
+		return
+	}
+	a.emitCoCreateEvent(viewmodel.CoCreateEvent{ProjectID: outputDir, Generation: generation, RequestID: requestID, State: "reply", Reply: reply.Message, Draft: reply.Prompt, Ready: reply.Ready, Suggestions: reply.Suggestions, History: convertHistory(history)})
+}
+
+func convertHistory(history []host.CoCreateMessage) []viewmodel.CoCreateMessage {
+	result := make([]viewmodel.CoCreateMessage, 0, len(history))
+	for _, item := range history {
+		result = append(result, viewmodel.CoCreateMessage{Role: item.Role, Content: item.Content})
+	}
+	return result
+}
+
+func (a *App) StartImport(options viewmodel.ImportOptions) (viewmodel.OperationAck, error) {
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	if operation := a.activeOperation(); operation != "" {
+		return viewmodel.OperationAck{}, fmt.Errorf("当前%s操作仍在进行", operation)
+	}
+	var projectDir, outputDir string
+	var err error
+	if strings.TrimSpace(options.ProjectRoot) != "" {
+		projectDir, outputDir, err = createProjectPaths(options.ProjectRoot)
+	} else {
+		projectDir, outputDir, err = a.currentProjectPaths()
+	}
+	if err != nil {
+		return viewmodel.OperationAck{}, err
+	}
+	if engine := a.engineService(); engine != nil {
+		if current := a.openOutputDir(); current != "" && !sameProjectPath(current, outputDir) {
+			if err := engine.PrepareProjectSwitch(outputDir); err != nil {
+				return viewmodel.OperationAck{}, err
+			}
+		}
+	}
+	a.mu.Lock()
+	a.projectDir, a.outputDir = projectDir, outputDir
+	a.mu.Unlock()
+	id, err := a.beginOperation("导入", "")
+	if err != nil {
+		return viewmodel.OperationAck{}, err
+	}
+	coreOptions := imp.Options{SourcePath: strings.TrimSpace(options.SourcePath), AutoConfirm: options.AutoConfirm, AcceptSegmentation: options.AcceptSegmentation, StoryResolution: options.StoryResolution, ContinueAfter: options.ContinueAfter, Guidance: options.Guidance}
+	ctx := a.contextOrBackground()
+	ch, generation, err := a.ensureEngineService().StartImport(ctx, projectDir, outputDir, coreOptions)
+	if err != nil {
+		a.finishOperation(id)
+		return viewmodel.OperationAck{}, err
+	}
+	go a.consumeImport(id, outputDir, generation, ch)
+	return viewmodel.OperationAck{ProjectID: outputDir, Generation: generation, Operation: "import"}, nil
+}
+
+func (a *App) consumeImport(id uint64, outputDir string, generation uint64, events <-chan imp.Event) {
+	for event := range events {
+		status, _ := app.ReadImportStatus(outputDir, outputDir, generation)
+		status.Stage, status.Current, status.Total = string(event.Stage), event.Current, event.Total
+		status.Message, status.Level, status.Key, status.RetryAt, status.Continued = event.Message, event.Level, event.Key, event.RetryAt, event.Continued
+		if event.Err != nil {
+			status.Error = event.Err.Error()
+		}
+		a.emitImportEvent(status)
+	}
+	a.finishOperation(id)
+}
+
+func (a *App) CancelImport() error {
+	projectDir, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return err
+	}
+	if a.activeOperation() != "导入" {
+		return fmt.Errorf("当前没有进行中的导入")
+	}
+	return a.ensureEngineService().CancelExclusive(projectDir, outputDir)
+}
+
+func (a *App) GetImportStatus() (viewmodel.ImportStatus, error) {
+	_, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return viewmodel.ImportStatus{}, err
+	}
+	generation := uint64(0)
+	if engine := a.engineService(); engine != nil {
+		generation = engine.RuntimeState().Generation
+	}
+	return app.ReadImportStatus(outputDir, outputDir, generation)
+}
+
+func (a *App) ExportProject(options viewmodel.ExportOptions) (viewmodel.ExportResult, error) {
+	_, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return viewmodel.ExportResult{}, err
+	}
+	return app.Export(a.contextOrBackground(), outputDir, options)
+}
+
+func (a *App) GetConfig() (viewmodel.ConfigSnapshot, error) {
+	projectDir, _, err := a.currentProjectPaths()
+	if err != nil {
+		return viewmodel.ConfigSnapshot{}, err
+	}
+	return app.ReadConfigSnapshot(projectDir)
+}
+
+func (a *App) SaveBudgetConfig(budget viewmodel.BudgetConfig) (viewmodel.ConfigSnapshot, error) {
+	projectDir, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return viewmodel.ConfigSnapshot{}, err
+	}
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	if engine := a.engineService(); engine != nil {
+		if err := engine.RejectConfigMutation(projectDir, outputDir); err != nil {
+			return viewmodel.ConfigSnapshot{}, err
+		}
+	}
+	cfg, err := bootstrap.LoadConfigFromDir(projectDir)
+	if err != nil {
+		return viewmodel.ConfigSnapshot{}, fmt.Errorf("读取项目配置失败：%w", err)
+	}
+	cfg.FillDefaults()
+	cfg.Budget = bootstrap.BudgetConfig{BookUSD: budget.BookUSD, WarnRatio: budget.WarnRatio, HardStop: budget.HardStop}
+	if err := cfg.ValidateBase(); err != nil {
+		return viewmodel.ConfigSnapshot{}, fmt.Errorf("预算配置无效：%w", err)
+	}
+	if err := bootstrap.SaveBudgetConfig(bootstrap.ProjectConfigPathFromDir(projectDir), cfg.Budget); err != nil {
+		return viewmodel.ConfigSnapshot{}, fmt.Errorf("保存预算配置失败：%w", err)
+	}
+	return app.ReadConfigSnapshot(projectDir)
+}
+
+func (a *App) SaveProviderConfig(draft viewmodel.ProviderDraft) (viewmodel.ConfigSnapshot, error) {
+	projectDir, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return viewmodel.ConfigSnapshot{}, err
+	}
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	if err := a.ensureEngineService().ConfigureModels(projectDir, outputDir, app.BuildModelDraft(draft)); err != nil {
+		return viewmodel.ConfigSnapshot{}, err
+	}
+	return app.ReadConfigSnapshot(projectDir)
+}
+
+func (a *App) TestModelConnection(draft viewmodel.ProviderDraft, model string) error {
+	projectDir, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return err
+	}
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	return a.ensureEngineService().TestModelConnection(a.contextOrBackground(), projectDir, outputDir, app.BuildModelDraft(draft), model)
+}
+
+func (a *App) SwitchModel(selection viewmodel.ModelSelection) (viewmodel.ConfigSnapshot, error) {
+	projectDir, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return viewmodel.ConfigSnapshot{}, err
+	}
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	if err := a.ensureEngineService().SwitchModel(projectDir, outputDir, selection); err != nil {
+		return viewmodel.ConfigSnapshot{}, err
+	}
+	return app.ReadConfigSnapshot(projectDir)
+}
+
+func (a *App) SetRoleThinking(setting viewmodel.RoleThinking) (viewmodel.ConfigSnapshot, error) {
+	projectDir, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return viewmodel.ConfigSnapshot{}, err
+	}
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	if err := a.ensureEngineService().SetRoleThinking(projectDir, outputDir, setting); err != nil {
+		return viewmodel.ConfigSnapshot{}, err
+	}
+	return app.ReadConfigSnapshot(projectDir)
+}
+
+func (a *App) GetUsage() (viewmodel.UsageSnapshot, error) {
+	projectDir, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return viewmodel.UsageSnapshot{}, err
+	}
+	cfg, err := bootstrap.LoadConfigFromDir(projectDir)
+	if err != nil {
+		return viewmodel.UsageSnapshot{}, err
+	}
+	cfg.FillDefaults()
+	var live *host.UISnapshot
+	if engine := a.engineService(); engine != nil {
+		if snapshot, ok := engine.SnapshotForProject(outputDir); ok {
+			live = &snapshot
+		}
+	}
+	return app.ReadUsageSnapshot(outputDir, outputDir, live, cfg.Budget)
+}
+
+func (a *App) emitCreateEvent(event viewmodel.CreateEvent) {
+	a.mu.RLock()
+	ctx := a.ctx
+	a.mu.RUnlock()
+	if ctx != nil {
+		runtime.EventsEmit(ctx, "studio:create-event", event)
+	}
+}
+
+func (a *App) emitCoCreateEvent(event viewmodel.CoCreateEvent) {
+	a.mu.RLock()
+	ctx := a.ctx
+	a.mu.RUnlock()
+	if ctx != nil {
+		runtime.EventsEmit(ctx, "studio:cocreate-event", event)
+	}
+}
+
+func (a *App) emitImportEvent(event viewmodel.ImportStatus) {
+	a.mu.RLock()
+	ctx := a.ctx
+	a.mu.RUnlock()
+	if ctx != nil {
+		runtime.EventsEmit(ctx, "studio:import-event", event)
+	}
+}
+
+func (a *App) contextOrBackground() context.Context {
+	a.mu.RLock()
+	ctx := a.ctx
+	a.mu.RUnlock()
+	if ctx == nil {
+		return context.Background()
+	}
+	return ctx
+}
+
+func (a *App) openOutputDir() string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.outputDir
+}
+
+func (a *App) currentOperationID(expected string) uint64 {
+	a.operationMu.Lock()
+	defer a.operationMu.Unlock()
+	if a.operation != expected {
+		return 0
+	}
+	return a.operationID
+}
+
+func (a *App) currentOperationRequestID(expected string) string {
+	a.operationMu.Lock()
+	defer a.operationMu.Unlock()
+	if a.operation != expected {
+		return ""
+	}
+	return a.operationRequestID
+}
+
+func operationRequestID(requestID, operation string) string {
+	requestID = strings.TrimSpace(requestID)
+	if requestID != "" {
+		return requestID
+	}
+	return fmt.Sprintf("studio-%s-%d", operation, time.Now().UnixNano())
 }

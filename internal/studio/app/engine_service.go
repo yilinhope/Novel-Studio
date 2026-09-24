@@ -634,6 +634,18 @@ func (s *EngineService) PrepareProjectSwitch(nextOutputDir string) error {
 		s.controlMu.Unlock()
 		return fmt.Errorf("当前项目仍在创作中，请先停止当前 Engine Session 后再切换项目")
 	}
+	// Import / revision / simulation 与阶段共创可能在 Engine 非 running 时持有 Core
+	// exclusive；此时关闭 Host 会取消长任务或丢失共创上下文，项目切换必须等待它们收敛。
+	snapshot := engine.Snapshot()
+	if snapshot.Exclusive != "" || snapshot.CoCreating {
+		action := snapshot.Exclusive
+		if action == "" {
+			action = "阶段共创"
+		}
+		s.mu.Unlock()
+		s.controlMu.Unlock()
+		return fmt.Errorf("当前项目仍在%s，请先完成后再切换项目", action)
+	}
 	s.switching = true
 	s.switchDone = make(chan struct{})
 	s.engine = nil
@@ -920,7 +932,9 @@ func newHostForProject(projectDir, outputDir string) (EngineSession, error) {
 	cfg.FillDefaults()
 	rules.EnsureHomeRulesDir()
 	bundle := assets.Load(cfg.Style, assets.DefaultLoadOptions(outputDir))
-	engine, err := host.New(cfg, bundle, host.WithFileLog("studio.log", false))
+	engine, err := host.New(cfg, bundle,
+		host.WithFileLog("studio.log", false),
+		host.WithConfigPath(bootstrap.EffectiveConfigPathFromDir(projectDir)))
 	if err != nil {
 		return nil, err
 	}
