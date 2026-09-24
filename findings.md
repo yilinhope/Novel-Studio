@@ -29,6 +29,15 @@
 - Studio 当前没有 M6 创建、共创、导入、导出、配置、Usage 领域 API；需先在不改 Core 语义的前提下完成 Facade/Host 管理和只读配置服务设计。
 - GitNexus 对动态 Go/TypeScript 边界存在 UNKNOWN/未链接 property refs；所有空 caller 结果仍须用源码搜索和测试补证。
 
+### M6 实施结果
+
+- `Host.New` impact 为 HIGH（4 个直接调用方、主流程受影响）；修改仅增加可选 `WithConfigPath`，默认调用路径未改变，CLI/TUI/headless/eval 继续使用 `EffectiveConfigPath()`，Studio 显式传入 canonical ProjectRoot 配置路径；Go 全量测试与 Wails 构建通过。
+- `PrepareProjectSwitch` impact 为 LOW；新增 exclusive/CoCreating 拒绝，避免长 Import/阶段共创在项目切换时被 Studio 关闭。
+- Core 没有独立 outline synthesis API；现有 `/start <file>` 只是读取 prompt 文件后进入同一 `PrepareQuick`/`StartPrepared` 链，因此 Studio 的“从大纲开始”只做文件预览/校验并复用 Quick Start。
+- Co-create 现有日志没有 unfinished 标记或 reader；Studio 只读最后完整 JSONL 记录并把已解析回复接回输入历史。阶段模式依赖现有 TUI opener 字符串识别，未新增日志格式。
+- Budget 配置保存使用现有 `bootstrap.SaveConfig` effective path；由于 `BudgetSentinel` 在 Host.New 创建且 Core 没有热更新语义，Studio 在已有 Engine Session 时拒绝 Budget mutation，UI 明示“下一次 Host 生效”。
+- 最终 GitNexus `detect-changes --scope all` 覆盖 15 个变更文件、261 个变更符号、39 个受影响符号，整体标为 `critical`。其中可定位的高风险点是 `Host.New`（HIGH）：已通过可选 `WithConfigPath` 保持 CLI/TUI/headless/eval 默认路径不变，并用 Go 全量测试与 Wails 生产构建验证；Bridge 的 `StartImport`、`StartCoCreate` 和跨 Wails 的 `SaveBudgetConfig` 为 `UNKNOWN`，原因是动态 Wails/TypeScript 属性调用无法完整解析，已用前端调用点搜索、领域 Store 测试、Go 全量测试和生产构建补证，不能将 UNKNOWN 解释为无影响。
+
 ## Decisions
 
 | Decision | Rationale |

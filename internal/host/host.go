@@ -223,6 +223,9 @@ func New(cfg bootstrap.Config, bundle assets.Bundle, options ...NewOption) (*Hos
 		done:            make(chan struct{}, 4),
 		lifecycle:       lifecycleIdle,
 	}
+	if opts.configPath != "" {
+		h.configPath = opts.configPath
+	}
 	h.runCtx, h.runCancel = context.WithCancel(context.Background())
 	h.observer = newObserver(store, h.emitEvent, h.emitDelta, h.emitClear)
 	workers.SetEventObserver(func(meta subagent.RunMeta, ev agentcore.Event) {

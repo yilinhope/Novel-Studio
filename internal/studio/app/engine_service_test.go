@@ -451,3 +451,27 @@ func TestSubmitSteerArbiterErrorKeepsPendingSteerInRuntime(t *testing.T) {
 		t.Fatalf("错误后 Runtime 必须投影 Core PendingSteer，got %q", got)
 	}
 }
+
+func TestPrepareProjectSwitchRejectsCoreExclusiveOrCoCreate(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mutate func(*host.UISnapshot)
+	}{
+		{name: "独占任务", mutate: func(s *host.UISnapshot) { s.Exclusive = "导入" }},
+		{name: "阶段共创", mutate: func(s *host.UISnapshot) { s.CoCreating = true }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			current, next := t.TempDir(), t.TempDir()
+			fake := newFakeEngineSession()
+			tc.mutate(&fake.snapshot)
+			service := NewEngineService(nil)
+			service.engine, service.outputDir = fake, current
+			if err := service.PrepareProjectSwitch(next); err == nil {
+				t.Fatal("Core exclusive/co-create 期间不得切换项目")
+			}
+			if fake.closed {
+				t.Fatal("被拒绝的项目切换不得关闭当前 Host")
+			}
+		})
+	}
+}

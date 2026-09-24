@@ -6,6 +6,7 @@ type newOptions struct {
 	logFile       string
 	logAlsoStderr bool
 	logAttrs      []slog.Attr
+	configPath    string
 }
 
 // NewOption 配置 Host 构造过程，运行时资源仍由 Host 持有。
@@ -19,5 +20,13 @@ func WithFileLog(filename string, alsoStderr bool, attrs ...slog.Attr) NewOption
 		opts.logFile = filename
 		opts.logAlsoStderr = alsoStderr
 		opts.logAttrs = append([]slog.Attr(nil), attrs...)
+	}
+}
+
+// WithConfigPath 指定 Host 对当前有效配置层的写入路径。
+// Studio 使用它把 ProjectRoot 语义传入 Host；不传时保持 CLI 既有 cwd 行为。
+func WithConfigPath(path string) NewOption {
+	return func(opts *newOptions) {
+		opts.configPath = path
 	}
 }

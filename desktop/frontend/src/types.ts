@@ -48,6 +48,30 @@ export interface StudioEngineEvent {
   projectId: string; generation: number; runId: number; sequence: number; timestamp: string
   type: 'runtime' | 'log'; log?: RuntimeLog; runtime?: Runtime
 }
+export interface OperationAck { projectId: string; generation: number; operation: string }
+export interface CreateProjectRequest { projectRoot: string; prompt: string; mode: 'quick' | 'outline' }
+export interface CreateEvent { projectId: string; generation: number; operation: string; state: string; message?: string; error?: string; project?: Project; runtime?: Runtime }
+export interface CoCreateMessage { role: 'user' | 'assistant'; content: string }
+export interface CoCreateStart extends OperationAck { mode: 'cold' | 'stage' }
+export interface CoCreateEvent { projectId: string; generation: number; state: string; kind?: string; text?: string; reply?: string; draft?: string; ready: boolean; suggestions?: string[]; history?: CoCreateMessage[]; error?: string }
+export interface CoCreateRecovery { projectId: string; exists: boolean; interrupted: boolean; mode: string; history?: CoCreateMessage[]; draft?: string; ready: boolean; suggestions?: string[]; error?: string }
+export interface ImportOptions { projectRoot: string; sourcePath: string; autoConfirm: boolean; acceptSegmentation: boolean; storyResolution: string; continueAfter: boolean; guidance: string }
+export interface ImportChapter { number: number; title: string; startByte: number; endByte: number; uncertain: boolean }
+export interface ImportStatus { projectId: string; generation: number; active: boolean; stage: string; current: number; total: number; message: string; level?: string; key?: string; retryAt?: string; error?: string; continued: boolean; recoveryHint?: string; chapters?: ImportChapter[]; uncertain?: number[]; notes?: string[] }
+export interface ExportOptions { format: 'txt' | 'epub'; outPath: string; from: number; to: number; overwrite: boolean }
+export interface ExportResult { path: string; chapters: number; bytes: number; skipped?: number[] }
+export interface ConfigModel { name: string; contextWindow?: number; jsonSchema?: boolean }
+export interface ConfigProvider { name: string; type: string; api: string; baseUrl: string; streamIdleTimeout?: string; models: ConfigModel[]; hasApiKey: boolean; apiKeyHint?: string; requiresApiKey: boolean }
+export interface ConfigModelRef { provider: string; model: string }
+export interface ConfigRole { provider: string; model: string; reasoningEffort?: string; fallbacks?: ConfigModelRef[] }
+export interface BudgetConfig { bookUsd: number; warnRatio: number; hardStop: boolean }
+export interface ConfigSnapshot { projectRoot: string; configPath: string; provider: string; model: string; reasoningEffort?: string; style?: string; contextWindow?: number; providers: ConfigProvider[]; roles: Record<string, ConfigRole>; budget: BudgetConfig; notify: { enabled?: boolean; command?: string; events?: string[] } }
+export interface ProviderDraft { provider: string; type: string; api: string; baseUrl: string; models: ConfigModel[]; renames?: { from: string; to: string }[]; apiKeyAction: 'keep' | 'replace' | 'clear'; apiKey?: string }
+export interface ModelSelection { role: string; provider: string; model: string }
+export interface RoleThinking { role: string; level: string }
+export interface UsageTotals { input: number; output: number; cacheRead: number; cacheWrite: number; costUsd: number; savedUsd: number; cacheCapable: boolean; cacheBreaks: number }
+export interface AgentUsage { role?: string; model?: string; input: number; output: number; cacheRead: number; cacheWrite: number; costUsd: number; savedUsd: number; cacheCapable: boolean }
+export interface UsageSnapshot { projectId: string; updatedAt: string; overall: UsageTotals; perAgent: AgentUsage[]; perModel: AgentUsage[]; missingUsage: number; budget: BudgetConfig }
 export interface StudioBridge {
   SelectProjectDirectory(): Promise<string>
   OpenProject(path: string): Promise<Project>
@@ -67,10 +91,28 @@ export interface StudioBridge {
   AdvanceOneChapter?(): Promise<ControlResult>
   SubmitSteer?(text: string): Promise<ControlResult>
   ConfirmChapterCommit?(chapter: number, startedAt: string): Promise<ChapterCommitConfirmation>
+  StartQuickStart?(request: CreateProjectRequest): Promise<OperationAck>
+  PreviewOutline?(path: string): Promise<string>
+  StartCoCreate?(projectRoot: string, initial: string, stage: boolean): Promise<CoCreateStart>
+  SendCoCreate?(projectRoot: string, outputDir: string, stage: boolean, history: CoCreateMessage[]): Promise<void>
+  CompleteCoCreate?(stage: boolean, draft: string): Promise<Runtime>
+  CancelCoCreate?(stage: boolean): Promise<void>
+  GetCoCreateRecovery?(): Promise<CoCreateRecovery>
+  StartImport?(options: ImportOptions): Promise<OperationAck>
+  CancelImport?(): Promise<void>
+  GetImportStatus?(): Promise<ImportStatus>
+  ExportProject?(options: ExportOptions): Promise<ExportResult>
+  GetConfig?(): Promise<ConfigSnapshot>
+  SaveProviderConfig?(draft: ProviderDraft): Promise<ConfigSnapshot>
+  TestModelConnection?(draft: ProviderDraft, model: string): Promise<void>
+  SwitchModel?(selection: ModelSelection): Promise<ConfigSnapshot>
+  SetRoleThinking?(setting: RoleThinking): Promise<ConfigSnapshot>
+  SaveBudgetConfig?(budget: BudgetConfig): Promise<ConfigSnapshot>
+  GetUsage?(): Promise<UsageSnapshot>
 }
 declare global {
   interface Window {
     go?: { bridge: { App: StudioBridge } }
-    runtime?: { EventsOn(eventName: string, callback: (payload: StudioEngineEvent) => void): () => void }
+    runtime?: { EventsOn(eventName: string, callback: (payload: unknown) => void): () => void }
   }
 }

@@ -56,12 +56,24 @@ func projectConfigPath() string {
 // 保证"改当前生效的那份"、改完立刻生效；否则写全局 ~/.ainovel/config.json。
 // 仅编辑已存在的项目配置，不会凭空创建（创建项目覆盖是用户主动放文件的动作）。
 func EffectiveConfigPath() string {
-	rel := projectConfigPath()
-	if _, err := os.Stat(rel); err == nil {
-		if abs, err := filepath.Abs(rel); err == nil {
-			return abs
-		}
-		return rel
+	return EffectiveConfigPathFromDir(".")
+}
+
+// EffectiveConfigPathFromDir 返回指定项目根目录对应的有效写入层。
+// 与 LoadConfigFromDir 使用同一 ProjectRoot 语义，避免调用方当前 cwd
+// 与目标小说项目不一致时把配置保存到错误目录。
+func EffectiveConfigPathFromDir(projectDir string) string {
+	projectDir = strings.TrimSpace(projectDir)
+	if projectDir == "" {
+		return DefaultConfigPath()
+	}
+	abs, err := filepath.Abs(projectDir)
+	if err != nil {
+		return DefaultConfigPath()
+	}
+	projectPath := filepath.Join(abs, projectConfigPath())
+	if _, err := os.Stat(projectPath); err == nil {
+		return projectPath
 	}
 	return DefaultConfigPath()
 }

@@ -25,49 +25,49 @@
 
 ### Phase 2: M6 后端基础与 Studio 领域服务
 
-- [ ] 建立共享 operation/project/generation 隔离和错误分类基础
-- [ ] 增加只读 Config/Usage/Export Preview 能力，不隐式创建 Host
-- [ ] 按 Core 真实入口实现 Create、Co-create、Outline、Import、Export、Config、Budget 服务
-- [ ] 对需要 Host 的显式操作接入现有 lifecycle、exclusive、projectwrite、book lease 和 Core gate
-- [ ] 先写失败测试，再实现 Go service/bridge API
-- **Status:** in_progress
+- [x] 建立共享 operation/project/generation 隔离和错误分类基础
+- [x] 增加只读 Config/Usage/Export Preview 能力，不隐式创建 Host
+- [x] 按 Core 真实入口实现 Create、Co-create、Outline、Import、Export、Config、Budget 服务
+- [x] 对需要 Host 的显式操作接入现有 lifecycle、exclusive、projectwrite、book lease 和 Core gate
+- [x] 先写失败测试，再实现 Go service/bridge API
+- **Status:** complete
 
 ### Phase 3: Wails Bridge 与前端领域 Store
 
-- [ ] 暴露真实 Wails API 和事件/快照投影
-- [ ] 新增 `createProjectStore`、`importStore`、`configStore`、`exportStore`
-- [ ] 保持既有 `engineStore`、`revisionStore`、`reviewStore`、`chapterEditorStore` 边界
-- [ ] 所有异步请求带 projectId、generation、request sequence，旧项目响应不得污染当前项目
-- [ ] API Key 默认遮罩，日志、console、event summary、error 和 snapshot 不出现 secret
-- **Status:** pending
+- [x] 暴露真实 Wails API 和事件/快照投影
+- [x] 新增 `createProjectStore`、`importStore`、`configStore`、`exportStore`
+- [x] 保持既有 `engineStore`、`revisionStore`、`reviewStore`、`chapterEditorStore` 边界
+- [x] 所有异步请求带 projectId、generation、request sequence，旧项目响应不得污染当前项目
+- [x] API Key 默认遮罩，日志、console、event summary、error 和 snapshot 不出现 secret
+- **Status:** complete
 
 ### Phase 4: 创建与导入工作流 UI
 
-- [ ] Welcome 真实入口：快速开始、共创创建、从大纲开始、导入已有小说、打开已有项目
-- [ ] Quick Start Wizard 映射 Core 必填输入、真实 Agent/Step/Usage 和失败恢复
-- [ ] Co-create 映射阶段协议、消息、Agent 输出、动作、完成状态和 unfinished recovery
-- [ ] Outline Preview/Validate/Create 使用 Core parser/validation/synthesis
-- [ ] Import 8 阶段 UI：选择、Ingest、章节识别、确认、Analyze、Synthesize、Publish、完成
-- [ ] Import 长任务不阻塞 UI，显示真实 lifecycle/checkpoint/recovery，遵守互斥
-- **Status:** pending
+- [x] Welcome 真实入口：快速开始、共创创建、从大纲开始、导入已有小说、打开已有项目
+- [x] Quick Start Wizard 映射 Core 必填输入、真实 Agent/Step/Usage 和失败恢复
+- [x] Co-create 映射阶段协议、消息、Agent 输出、动作、完成状态和 unfinished recovery
+- [x] Outline Preview/Validate/Create 使用 Core parser/validation/synthesis
+- [x] Import 8 阶段 UI：选择、Ingest、章节识别、确认、Analyze、Synthesize、Publish、完成
+- [x] Import 长任务不阻塞 UI，显示真实 lifecycle/checkpoint/recovery，遵守互斥
+- **Status:** complete
 
 ### Phase 5: Export、Config、Model、Budget UI
 
-- [ ] Export Dialog：TXT/EPUB、Core 支持的 range、destination、overwrite、真实输出路径
-- [ ] Provider/Model 页面只映射 Core 字段和读写能力
-- [ ] 明确 ProjectRoot 与 OutputDir，配置始终从 canonical ProjectRoot 读取，Store 使用 Core 规定 OutputDir
-- [ ] Model 切换遵守 Core 的运行中限制和下一次调用语义，不偷偷重启 Engine
-- [ ] Budget 页面显示 Spent、Book Budget、Warn Ratio、Hard Stop、Tokens、Cost 及真实 Agent Usage
-- **Status:** pending
+- [x] Export Dialog：TXT/EPUB、Core 支持的 range、destination、overwrite、真实输出路径
+- [x] Provider/Model 页面只映射 Core 字段和读写能力
+- [x] 明确 ProjectRoot 与 OutputDir，配置始终从 canonical ProjectRoot 读取，Store 使用 Core 规定 OutputDir
+- [x] Model 切换遵守 Core 的运行中限制和下一次调用语义，不偷偷重启 Engine
+- [x] Budget 页面显示 Spent、Book Budget、Warn Ratio、Hard Stop、Tokens、Cost 及真实 Agent Usage
+- **Status:** complete
 
 ### Phase 6: 测试、CLI/GUI 对照与交付
 
-- [ ] 补齐 M6 Go/Frontend 定向测试和 stale operation 测试
-- [ ] 完成 Go tests、vet、Frontend tests/build、Windows Wails production build
-- [ ] 完成 CLI/GUI 最终 Store/Config 语义对照
-- [ ] GitNexus `detect-changes --scope all`、diff review、提交中文说明
+- [x] 补齐 M6 Go/Frontend 定向测试和 stale operation 测试
+- [x] 完成 Go tests、vet、Frontend tests/build、Windows Wails production build
+- [x] 完成 CLI/GUI 最终 Store/Config 语义对照
+- [x] GitNexus `detect-changes --scope all`、diff review、提交中文说明
 - [ ] 创建/更新统一 M6 PR，附审计摘要和验证证据
-- **Status:** pending
+- **Status:** in_progress
 
 ## Global Constraints
 

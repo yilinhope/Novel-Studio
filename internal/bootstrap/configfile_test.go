@@ -99,6 +99,21 @@ func TestEffectiveConfigPathPrefersProject(t *testing.T) {
 	}
 }
 
+func TestEffectiveConfigPathFromDirUsesProjectRoot(t *testing.T) {
+	root := t.TempDir()
+	projectConfig := filepath.Join(root, configDirName, "config.json")
+	if err := os.MkdirAll(filepath.Dir(projectConfig), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(projectConfig, []byte(`{"provider":"local","model":"demo"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got := EffectiveConfigPathFromDir(root)
+	if got != projectConfig {
+		t.Fatalf("project config path = %q, want %q", got, projectConfig)
+	}
+}
+
 // 文件不存在是正常情况（便携/首次），不能报错。
 func TestLoadConfig_MissingFilesNoError(t *testing.T) {
 	home := t.TempDir()
