@@ -68,6 +68,7 @@ type CoCreateRecovery struct {
 }
 
 type ImportOptions struct {
+	RequestID          string `json:"requestId,omitempty"`
 	ProjectRoot        string `json:"projectRoot"`
 	SourcePath         string `json:"sourcePath"`
 	AutoConfirm        bool   `json:"autoConfirm"`
@@ -88,6 +89,7 @@ type ImportChapter struct {
 type ImportStatus struct {
 	ProjectID    string          `json:"projectId"`
 	Generation   uint64          `json:"generation"`
+	RequestID    string          `json:"requestId,omitempty"`
 	Active       bool            `json:"active"`
 	Stage        string          `json:"stage"`
 	Current      int             `json:"current"`

@@ -175,7 +175,12 @@ func (a *App) SaveChapter(chapter int, content string) (viewmodel.ChapterSaveRes
 			}
 		}
 	}
-	saved, err := a.service.SaveChapter(chapter, content)
+	var saved viewmodel.Chapter
+	err := a.withProjectBookLease(outputDir, func() error {
+		var saveErr error
+		saved, saveErr = a.service.SaveChapter(chapter, content)
+		return saveErr
+	})
 	if err != nil {
 		return viewmodel.ChapterSaveResult{}, err
 	}
@@ -528,6 +533,18 @@ func (a *App) engineService() *app.EngineService {
 	return a.engine
 }
 
+func (a *App) withProjectBookLease(outputDir string, action func() error) error {
+	if engine := a.engineService(); engine != nil {
+		return engine.WithProjectBookLease(outputDir, action)
+	}
+	release, err := host.AcquireBookLease(outputDir)
+	if err != nil {
+		return fmt.Errorf("取得小说目录写入权失败: %w", err)
+	}
+	defer release()
+	return action()
+}
+
 func (a *App) revisionStatusService() *app.RevisionService {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -862,6 +879,7 @@ func convertHistory(history []host.CoCreateMessage) []viewmodel.CoCreateMessage 
 }
 
 func (a *App) StartImport(options viewmodel.ImportOptions) (viewmodel.OperationAck, error) {
+	requestID := operationRequestID(options.RequestID, "import")
 	a.projectMu.Lock()
 	defer a.projectMu.Unlock()
 	if operation := a.activeOperation(); operation != "" {
@@ -887,7 +905,7 @@ func (a *App) StartImport(options viewmodel.ImportOptions) (viewmodel.OperationA
 	a.mu.Lock()
 	a.projectDir, a.outputDir = projectDir, outputDir
 	a.mu.Unlock()
-	id, err := a.beginOperation("导入", "")
+	id, err := a.beginOperation("导入", requestID)
 	if err != nil {
 		return viewmodel.OperationAck{}, err
 	}
@@ -898,13 +916,14 @@ func (a *App) StartImport(options viewmodel.ImportOptions) (viewmodel.OperationA
 		a.finishOperation(id)
 		return viewmodel.OperationAck{}, err
 	}
-	go a.consumeImport(id, outputDir, generation, ch)
-	return viewmodel.OperationAck{ProjectID: outputDir, Generation: generation, Operation: "import"}, nil
+	go a.consumeImport(id, outputDir, generation, requestID, ch)
+	return viewmodel.OperationAck{ProjectID: outputDir, Generation: generation, Operation: "import", RequestID: requestID}, nil
 }
 
-func (a *App) consumeImport(id uint64, outputDir string, generation uint64, events <-chan imp.Event) {
+func (a *App) consumeImport(id uint64, outputDir string, generation uint64, requestID string, events <-chan imp.Event) {
 	for event := range events {
 		status, _ := app.ReadImportStatus(outputDir, outputDir, generation)
+		status.RequestID = requestID
 		status.Stage, status.Current, status.Total = string(event.Stage), event.Current, event.Total
 		status.Message, status.Level, status.Key, status.RetryAt, status.Continued = event.Message, event.Level, event.Key, event.RetryAt, event.Continued
 		if event.Err != nil {
@@ -935,7 +954,12 @@ func (a *App) GetImportStatus() (viewmodel.ImportStatus, error) {
 	if engine := a.engineService(); engine != nil {
 		generation = engine.RuntimeState().Generation
 	}
-	return app.ReadImportStatus(outputDir, outputDir, generation)
+	status, err := app.ReadImportStatus(outputDir, outputDir, generation)
+	if err != nil {
+		return status, err
+	}
+	status.RequestID = a.currentOperationRequestID("导入")
+	return status, nil
 }
 
 func (a *App) ExportProject(options viewmodel.ExportOptions) (viewmodel.ExportResult, error) {
@@ -975,7 +999,9 @@ func (a *App) SaveBudgetConfig(budget viewmodel.BudgetConfig) (viewmodel.ConfigS
 	if err := cfg.ValidateBase(); err != nil {
 		return viewmodel.ConfigSnapshot{}, fmt.Errorf("预算配置无效：%w", err)
 	}
-	if err := bootstrap.SaveBudgetConfig(bootstrap.ProjectConfigPathFromDir(projectDir), cfg.Budget); err != nil {
+	if err := a.withProjectBookLease(outputDir, func() error {
+		return bootstrap.SaveBudgetConfig(bootstrap.ProjectConfigPathFromDir(projectDir), cfg.Budget)
+	}); err != nil {
 		return viewmodel.ConfigSnapshot{}, fmt.Errorf("保存预算配置失败：%w", err)
 	}
 	return app.ReadConfigSnapshot(projectDir)
