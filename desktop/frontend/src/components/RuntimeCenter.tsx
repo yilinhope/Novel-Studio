@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Activity, Bot, CircleAlert, Clock3, Coins, Cpu, Play, Sparkles, SquareTerminal } from 'lucide-react'
 import { runtimeLabel, useEngineStore } from '../engineStore'
 import { revisionRecoveryStageLabel, revisionsAllowWriting, useRevisionStore } from '../revisionStore'
@@ -11,6 +11,32 @@ const labels: Record<string, string> = {
   draft_chapter: '撰写正文', edit_chapter: '修订正文', check_consistency: '检查一致性', commit_chapter: '提交章节',
 }
 const finished = (log: RuntimeLog) => Date.parse(log.FinishedAt) > 0
+
+export function runtimeElapsedSeconds(runtime: {state: string; elapsedSeconds: number; updatedAt: string}, now = new Date()) {
+  const base = Math.max(0, runtime.elapsedSeconds)
+  if (!['running', 'pausing', 'stopping'].includes(runtime.state)) return base
+  const updatedAt = Date.parse(runtime.updatedAt)
+  if (!Number.isFinite(updatedAt)) return base
+  return base + Math.max(0, Math.floor((now.getTime() - updatedAt) / 1000))
+}
+
+export function formatRuntimeActivity(log: RuntimeLog) {
+  const summary = log.Summary || log.Detail || log.Tool || log.Category || '运行状态更新'
+  const detail = log.Detail && log.Detail !== summary ? ` · ${log.Detail}` : ''
+  return `${summary}${detail}`
+}
+
+function isOngoing(log: RuntimeLog) {
+  return Boolean(log.ID) && !finished(log)
+}
+
+function ageLabel(seconds: number) {
+  if (seconds < 5) return '刚刚'
+  if (seconds < 60) return `${seconds} 秒前`
+  const minutes = Math.floor(seconds / 60)
+  const rest = seconds % 60
+  return rest ? `${minutes} 分 ${rest} 秒前` : `${minutes} 分钟前`
+}
 
 function duration(seconds: number) {
   const hours = Math.floor(seconds / 3600)
@@ -40,6 +66,33 @@ export function RuntimeCenter() {
   const revisions = useRevisionStore()
   const {dirty, saveBusy, syncing, syncError, syncNotice, refreshWarning, syncChapterRevisions} = useStudio()
   const [steerText, setSteerText] = useState('')
+  const [, setClock] = useState(0)
+  useEffect(() => {
+    if (!['running', 'pausing', 'stopping'].includes(runtime.state)) return
+    const timer = window.setInterval(() => setClock(value => value + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [runtime.state])
+  const now = new Date()
+  const activeLog = [...logs].reverse().find(isOngoing)
+  const latestLog = logs.at(-1)
+  const visibleLog = activeLog ?? latestLog
+  const visibleLogAge = visibleLog ? Math.max(0, Math.floor((now.getTime() - Date.parse(visibleLog.Time)) / 1000)) : 0
+  const elapsedSeconds = runtimeElapsedSeconds(runtime, now)
+  const activityTitle = activeLog
+    ? formatRuntimeActivity(activeLog)
+    : runtime.error
+      ? 'Core 已停止并报告错误'
+      : runtime.state === 'running'
+        ? 'Core 正在运行，等待下一条事件'
+        : '当前没有正在执行的 Core 任务'
+  const activityMeta = activeLog
+    ? `${activeLog.Agent || activeLog.Category}${activeLog.Tool ? ` · ${labels[activeLog.Tool] ?? activeLog.Tool}` : ''} · ${ageLabel(visibleLogAge)}`
+    : visibleLog
+      ? `最近事件：${formatRuntimeActivity(visibleLog)} · ${ageLabel(visibleLogAge)}`
+      : '尚未收到 Core 事件'
+  const staleNotice = runtime.state === 'running' && visibleLog && visibleLogAge >= 45
+    ? `已经 ${duration(visibleLogAge)} 没有新事件；这不代表 Core 已失败，可查看运行记录或停止任务。`
+    : ''
   const canResume = !dirty && !syncing && revisionsAllowWriting(runtime.projectId, revisions.status, revisions.checking, revisions.error)
   const canResumeState = ['idle', 'paused', 'stopped', 'error', 'waiting_sync'].includes(runtime.state)
   const canSyncState = !['running', 'pausing', 'stopping'].includes(runtime.state)
@@ -80,8 +133,14 @@ export function RuntimeCenter() {
       </div>
       <div className="runtime-now">
         <div className="runtime-now-icon"><Clock3 size={18}/></div>
-        <div><span>本次运行时长</span><strong className="runtime-mono">{duration(runtime.elapsedSeconds)}</strong><small>{runtime.flow || '等待创作任务'}</small></div>
+        <div><span>本次运行时长</span><strong className="runtime-mono">{duration(elapsedSeconds)}</strong><small>{runtime.flow || '等待创作任务'}</small></div>
       </div>
+    </section>
+
+    <section className={`runtime-focus ${activeLog ? 'is-active' : ''} ${runtime.error ? 'is-error' : ''}`} aria-label="Core 当前活动">
+      <div className="runtime-focus-icon"><Activity size={18}/></div>
+      <div className="runtime-focus-copy"><span>Core 当前在做什么</span><strong>{activityTitle}</strong><small>{activityMeta}</small>{staleNotice && <em>{staleNotice}</em>}</div>
+      <div className="runtime-focus-state"><span>状态</span><strong>{runtimeLabel(runtime.state)}</strong></div>
     </section>
 
     {(syncError || runtime.error || controlError) && <div className="runtime-error" role="status"><CircleAlert size={16}/><span>{syncError || controlError || runtime.error}</span></div>}

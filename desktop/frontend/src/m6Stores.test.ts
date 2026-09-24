@@ -32,6 +32,34 @@ test('Config 迟到响应不会覆盖更新后的请求', async () => {
   expect(useConfigStore.getState().config?.projectRoot).toBe('D:/new-project')
 })
 
+test('Config 读取桥接失败时离开加载态并显示可见错误', async () => {
+  vi.stubGlobal('window', {})
+
+  await useConfigStore.getState().load()
+
+  expect(useConfigStore.getState().busy).toBe(false)
+  expect(useConfigStore.getState().error).toContain('桌面程序')
+})
+
+test('Config 与 Usage 并行读取时不会互相取消配置响应', async () => {
+  let resolveConfig!: (value: ConfigSnapshot) => void
+  let resolveUsage!: (value: never) => void
+  const api: StudioBridge = {
+    GetConfig: vi.fn().mockReturnValue(new Promise(resolve => { resolveConfig = resolve })),
+    GetUsage: vi.fn().mockReturnValue(new Promise(resolve => { resolveUsage = resolve })),
+  } as unknown as StudioBridge
+  vi.stubGlobal('window', {go: {bridge: {App: api}}})
+
+  const configRequest = useConfigStore.getState().load()
+  const usageRequest = useConfigStore.getState().loadUsage()
+  resolveConfig(config('D:/parallel-project'))
+  resolveUsage(undefined as never)
+  await Promise.all([configRequest, usageRequest])
+
+  expect(useConfigStore.getState().config?.projectRoot).toBe('D:/parallel-project')
+  expect(useConfigStore.getState().busy).toBe(false)
+})
+
 test('Export 错误保留 Core 错误语义', async () => {
   const exportProject = vi.fn().mockRejectedValue(new Error('EPUB 输出路径已存在'))
   vi.stubGlobal('window', {go: {bridge: {App: {ExportProject: exportProject} as unknown as StudioBridge}}})
