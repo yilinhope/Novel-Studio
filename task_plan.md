@@ -1,4 +1,4 @@
-# Task Plan: Novel Studio V1 — M6
+# Task Plan: Novel Studio V1 — M6 / M7
 
 ## Goal
 
@@ -76,6 +76,56 @@
 - 只有用户明确触发、且 Core 需要 Host 的 Run/Sync/Import/Co-create/Next/Steer 等操作按需创建 Host。
 - 不增加第二套 Provider 配置格式、项目模板、章节识别算法或 TXT/EPUB renderer。
 - 不扩展 Fact Engine、Proposal、Knowledge、Impact Analysis、Repair/Replan、云同步、多人协作等功能。
+
+## M7 Goal
+
+在 M6 冻结基线上完成 Novel Studio V1 的回归、生命周期/并发/恢复加固和发布准备。GUI 继续复用 Core/Host/Store，不能建立第二套小说事实、配置语义或 Engine 状态；发现真实回归直接修复，不等待新的 milestone 确认。
+
+## M7 Phases
+
+### Phase 7: M7 源码审计与事实源核对
+
+- [x] 逐项核对 M2-M6 Studio API 到 Core/Host/Store 的真实调用链
+- [x] 扫描 React 是否直接读写小说文件或 config JSON，扫描 GUI 自行推导的 Core 事实
+- [x] 核对 Host.New 只读页面边界、ProjectRoot/OutputDir、projectId/generation/sequence/requestId
+- [x] 核对 terminal-before-ack、Core success/view refresh failure、stale project/event、secret 泄漏
+- [x] 用 GitNexus impact/query/context 和源码搜索补证 UNKNOWN/动态边界
+- **Status:** complete（动态 Wails/跨语言边界以源码、测试和构建补证；GitNexus 仍保留 UNKNOWN 下界）
+
+### Phase 8: CLI/GUI 回归与生命周期加固
+
+- [ ] 对照 Quick Start、Co-create、Outline、连续生成、Pause/Resume、Stop、Review/Next/Steer、编辑/Sync
+- [ ] 对照 Import、TXT/EPUB Export、Provider/Model/Budget 的 Store/Config 最终状态
+- [ ] 覆盖 crash recovery、pending gates、项目切换 stale response/event 和前端操作竞态
+- [ ] 发现真实回归后以最小范围补测试并修复
+- **Status:** in_progress（已完成静态回归与定向修复；真实模型/GUI 全矩阵仍需现场运行）
+
+### Phase 9: 跨进程写入与项目切换 Hardening
+
+- [ ] 验证并修正 GUI 与 CLI 同时写同一项目时的 Core/book lease 互斥
+- [ ] 覆盖 Save、Sync、Run、Import、Next、Steer/Continue、Create/Publish mutation
+- [ ] 覆盖 Idle/Paused/Running/Pausing/Stopping/WaitingSync/Syncing/WaitingReview/Importing/Co-create/Steering 项目切换
+- **Status:** in_progress（已复用 Core book lease 覆盖 Save/Budget 与项目切换保护；完整 CLI/GUI 跨进程矩阵需现场运行）
+
+### Phase 10: 长篇、Windows 文件系统与发布验证
+
+- [ ] 对 100/300/500/1000 章项目检查树、切章、Review、Revision、Runtime logs、Usage
+- [ ] 验证中文/空格/长路径、不同盘符、只读/权限/临时 rename 失败和 secret 脱敏
+- [x] 运行 Go、Frontend、Wails Windows production CI 等价验证
+- [x] 生成 `docs/V1_RELEASE_CHECKLIST.md` 与 `docs/V1_KNOWN_LIMITATIONS.md`
+- **Status:** in_progress（Wails/CI 等价验证及发布文档已完成；100/300/500/1000 章现场压力矩阵待运行）
+
+## M7 Definition of Done
+
+- [ ] CLI/GUI 使用同一 Core 且主要日常工作流最终 Store/Config 状态一致
+- [ ] 生命周期、Save/Sync、Review/Next/Steer、Import/Export、Config/Model/Budget 可恢复且不绕过 Core gates
+- [ ] 跨进程写入不破坏项目，项目切换不受 stale event/response 污染
+- [x] 无完整 API Key 泄漏路径，Windows production build 已通过，仓库 CI 已覆盖 Go/Frontend/Wails
+- [x] V1 release checklist 与 known limitations 已创建；新能力进入 V2
+
+### M7 当前边界
+
+- 本轮已完成源码审计、可复现的 Go/Frontend/Wails 验证和最小范围 hardening；真实模型调用、完整 GUI 手工矩阵以及 100/300/500/1000 章 Windows 现场压力仍属于发布前人工验收，不以静态测试替代。
 
 ## Errors Encountered
 

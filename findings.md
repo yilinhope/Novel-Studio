@@ -60,3 +60,33 @@
 - 当前仓库存在跨 Go/TypeScript/Wails 的动态调用，GitNexus UNKNOWN 必须以文本和测试补充确认。
 - Import/Co-create 可能已有 checkpoint 或恢复语义，GUI 必须复用而不能自行猜测。
 - Wails 生产构建依赖 Windows 本机工具链；验证时需区分静态构建与运行时证明。
+
+## M7 Audit Kickoff
+
+- M6 冻结提交为 `5de0506`，PR #6 当前已同步且 CI 4/4 通过；本次 M7 从该基线开始，不新增产品能力。
+- 当前 M7 首要审计范围：Studio API → Core/Host/Store 调用链、React 直接文件/config 访问、GUI 自行推导事实、Host.New 只读边界、ProjectRoot/OutputDir、异步 identity、Core success/view refresh failure、stale project/event、secret 泄漏。
+- M6 已修正的创建完成态语义必须纳入回归：Core create 成功后即为 `completed`，视图刷新失败只能作为 message/warning。
+- M7 回归必须把 GUI 状态（WaitingSync/WaitingReview/Pausing/Stopping/Syncing）视为展示投影，不能替代 Core Store/Host 事实。
+- 跨进程写入 backlog 优先复用既有 Core/book lease；不新增第二套 lock file 协议。
+
+### 初步源码审计（2026-09-24）
+
+- GitNexus 已按当前代码重建，图规模为 60,069 nodes / 159,894 edges / 1,120 clusters / 802 flows；查询仍受动态分派、Wails 绑定和大文件裁剪影响，缺失调用不能当作不存在。
+- `OpenProject` 当前只调用 `PreviewProject` / `service.OpenProject`、`PrepareProjectSwitch` 与 revision check，不直接创建 Host；`SetAdvanceMode`、`AdvanceOneChapter`、`SubmitSteer` 通过 `EngineService.lockedProjectHost` 才按用户写操作创建或复用 Host，符合 M4/M5 边界。
+- `StartQuickStart` / `StartCoCreate` 已带 frontend requestId，并在 ack 前缓存事件；创建成功与视图刷新失败已分离为 completed + warning，M6 语义不能回退。
+- 前端 Import 曾存在 ack 前事件风险：`importStore` 在 `StartImport` 返回 ack 前收到的事件因 `projectId` 仍为空而被直接丢弃；本轮已为 ImportOptions/ImportStatus/OperationAck 补 requestId 和 pending reconciliation，并以 event-before-ack 回归测试覆盖。
+- `engineStore` 对同一项目的新 generation 会保留旧的 advance/review 投影字段，随后异步刷新虽通常会覆盖，但在刷新失败或快速切换时可能短暂显示旧 gate；需核对并以新 generation 的 Runtime/Store 事实重新投影，不能把旧 generation projection 当事实。
+- `PauseWriting` / `StopWriting` 目前未经过 bridge 的 `projectMu`，而 Save/Sync/Next/Steer/ProjectSwitch 使用该锁；需要评估是否会让生命周期控制与项目写入/切换交错，修复时保持 Core Done 才确认终态。
+- `StartImport` 在 ack 前已启动 `StartImport` 并可能同步发出 channel 事件；这与 M7 的 terminal-before-ack 要求相同，不能只依赖 UI disabled。
+- 未发现 React 直接使用 Node `fs` 读写项目文件；前端项目/章节/配置读写均走 Wails bridge。API Key 对外为 `hasApiKey`/遮罩提示，但需继续核对日志和错误路径是否会把原始配置带出。
+- 之前一次批量 PowerShell 取行脚本因把多维数组传给 `[Math]::Min` 触发参数类型错误，只影响审计输出，不影响工作树；后续改用单文件定向读取。
+- SaveChapter/Budget 的短时 Studio 写操作现通过 Core book lease 保护：已有 Host 时复用其持有的 lease，没有 Host 时临时取得同一 `.ainovel.lock` lease；不会创建 Engine Session，也没有新增锁文件协议。
+- `ProjectTree` 原先对所有 Volume/Arc 使用 `open`，已改为仅默认展开当前卷/弧，其余折叠并保留手动展开；Runtime 日志已有 500 条状态上限，展示层进一步只渲染末 120 条。
+
+### M7 最终验证证据（2026-09-24）
+
+- GitNexus 已在当前工作树重建：60,136 nodes / 159,936 edges / 1,137 clusters / 794 flows。索引报告了大文件跳过、动态 property site 和 process truncation；因此图结果是下界，UNKNOWN 仍按未解析边界处理。
+- `detect-changes --scope all` 已在重建索引后完成，结果为 77 changed symbols / 14 affected symbols / 12 changed files，`partial=false`、`truncated=false`、整体 risk 为 `high`。高风险集中在 Bridge/App、配置写入和 Core book lease 共享轴，已逐项用源码搜索、定向测试、全量测试和生产构建补证；不能把 high 解读为无风险。
+- Go 全量 `go test ./... -count=1` 通过 1019 tests，`go vet ./...` 通过；Frontend `npm test -- --run` 通过 7 files / 40 tests，`npm run build` 通过。
+- Windows Wails production build 通过，产物为 `cmd/novel-studio/build/bin/Novel-Studio.exe`；构建仍有已知 `Not found: time.Time` 警告，不影响本次退出码，但需在运行时验收中继续观察。
+- `.github/workflows/ci.yml` 已覆盖 Go test/vet、Linux race、Frontend test/build 和 Windows Wails production build，本轮无需重复添加 CI 工作流。

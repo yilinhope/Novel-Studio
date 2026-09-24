@@ -514,6 +514,44 @@ func (s *EngineService) RuntimeState() viewmodel.Runtime {
 	return runtime
 }
 
+// WithProjectBookLease 在明确的短时项目写操作期间复用当前 Host 的 book lease；
+// 没有 Host 时临时取得 Core 相同的跨进程 lease，不创建 Engine Session。
+func (s *EngineService) WithProjectBookLease(outputDir string, action func() error) error {
+	if action == nil {
+		return fmt.Errorf("项目写操作不能为空")
+	}
+	outputDir = strings.TrimSpace(outputDir)
+	if outputDir == "" {
+		return fmt.Errorf("小说目录不能为空")
+	}
+	absolute, err := filepath.Abs(outputDir)
+	if err != nil {
+		return fmt.Errorf("解析小说目录: %w", err)
+	}
+	s.controlMu.Lock()
+	defer s.controlMu.Unlock()
+	s.mu.Lock()
+	if s.closing || s.switching || s.starting {
+		s.mu.Unlock()
+		return fmt.Errorf("Engine Session 当前不可执行项目写操作")
+	}
+	engine := s.engine
+	if engine != nil && !samePath(s.outputDir, absolute) {
+		s.mu.Unlock()
+		return fmt.Errorf("另一个项目仍由当前 Engine Session 持有")
+	}
+	s.mu.Unlock()
+	if engine != nil {
+		return action()
+	}
+	release, err := host.AcquireBookLease(absolute)
+	if err != nil {
+		return fmt.Errorf("取得小说目录写入权失败: %w", err)
+	}
+	defer release()
+	return action()
+}
+
 // PauseWriting 请求 Core 安全暂停；paused 终态只由 monitor 收到 Done 后发布。
 func (s *EngineService) PauseWriting() (viewmodel.Runtime, error) {
 	s.controlMu.Lock()

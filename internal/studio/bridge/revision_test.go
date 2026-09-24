@@ -423,6 +423,36 @@ func TestSaveChapterLeavesAcceptedRecordUnchangedAndMarksWaitingSync(t *testing.
 	}
 }
 
+func TestSaveChapterRespectsExistingCoreBookLeaseWithoutCreatingHost(t *testing.T) {
+	path := t.TempDir()
+	st := store.NewStore(path)
+	if err := st.Progress.Save(&domain.Progress{Phase: domain.PhaseWriting, CurrentChapter: 2, CompletedChapters: []int{1}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Drafts.SaveFinalChapter(1, "已接纳正文"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.ChapterRecords.Accept(1, domain.ChapterOriginGenerated, "已接纳正文", domain.ChapterFacts{Title: "第一章"}, domain.StyleDelta{}); err != nil {
+		t.Fatal(err)
+	}
+	a := &App{}
+	project, err := a.OpenProject(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	release, err := host.AcquireBookLease(project.OutputDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	if _, err := a.SaveChapter(1, "另一进程正在写入"); err == nil {
+		t.Fatal("已有 Core book lease 时 SaveChapter 不得写入")
+	}
+	if got, err := st.Drafts.LoadChapterText(1); err != nil || got != "已接纳正文" {
+		t.Fatalf("被拒绝的 Save 不得修改正文：got=%q err=%v", got, err)
+	}
+}
+
 func TestSyncChapterRevisionsCreatesHostOnDemandAndRefreshesProjectChapterAndRevision(t *testing.T) {
 	path := t.TempDir()
 	st := store.NewStore(path)

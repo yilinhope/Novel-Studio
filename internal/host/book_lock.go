@@ -43,6 +43,16 @@ func acquireBookLease(dir string) (*bookLease, error) {
 	return &bookLease{lock: fileLock}, nil
 }
 
+// AcquireBookLease 临时取得 Core 使用的小说目录跨进程独占权。
+// 仅供明确的短时 Store/配置写操作在没有常驻 Host 时复用同一 lease。
+func AcquireBookLease(dir string) (func() error, error) {
+	lease, err := acquireBookLease(dir)
+	if err != nil {
+		return nil, err
+	}
+	return lease.Close, nil
+}
+
 func closeBookLockAfterFailure(fileLock *flock.Flock, cause error) error {
 	if err := fileLock.Close(); err != nil {
 		return errors.Join(cause, fmt.Errorf("关闭小说目录锁: %w", err))

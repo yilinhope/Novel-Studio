@@ -55,9 +55,9 @@ export interface CoCreateMessage { role: 'user' | 'assistant'; content: string }
 export interface CoCreateStart extends OperationAck { mode: 'cold' | 'stage' }
 export interface CoCreateEvent { projectId: string; generation: number; requestId?: string; state: string; kind?: string; text?: string; reply?: string; draft?: string; ready: boolean; suggestions?: string[]; history?: CoCreateMessage[]; error?: string }
 export interface CoCreateRecovery { projectId: string; generation?: number; exists: boolean; interrupted: boolean; mode: string; history?: CoCreateMessage[]; draft?: string; ready: boolean; suggestions?: string[]; error?: string }
-export interface ImportOptions { projectRoot: string; sourcePath: string; autoConfirm: boolean; acceptSegmentation: boolean; storyResolution: string; continueAfter: boolean; guidance: string }
+export interface ImportOptions { projectRoot: string; sourcePath: string; autoConfirm: boolean; acceptSegmentation: boolean; storyResolution: string; continueAfter: boolean; guidance: string; requestId?: string }
 export interface ImportChapter { number: number; title: string; startByte: number; endByte: number; uncertain: boolean }
-export interface ImportStatus { projectId: string; generation: number; active: boolean; stage: string; current: number; total: number; message: string; level?: string; key?: string; retryAt?: string; error?: string; continued: boolean; recoveryHint?: string; chapters?: ImportChapter[]; uncertain?: number[]; notes?: string[] }
+export interface ImportStatus { projectId: string; generation: number; requestId?: string; active: boolean; stage: string; current: number; total: number; message: string; level?: string; key?: string; retryAt?: string; error?: string; continued: boolean; recoveryHint?: string; chapters?: ImportChapter[]; uncertain?: number[]; notes?: string[] }
 export interface ExportOptions { format: 'txt' | 'epub'; outPath: string; from: number; to: number; overwrite: boolean }
 export interface ExportResult { path: string; chapters: number; bytes: number; skipped?: number[] }
 export interface ConfigModel { name: string; contextWindow?: number; jsonSchema?: boolean }

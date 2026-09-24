@@ -29,3 +29,24 @@
 | `npm test -- --run` | passed: 37 tests |
 | `npm run build` | passed |
 | `go run github.com/wailsapp/wails/v2/cmd/wails@v2.15.0 build` | passed: Windows production `cmd/novel-studio/build/bin/Novel-Studio.exe` |
+
+## Session: 2026-09-24 — M7 kickoff
+
+- 读取用户提供的 M7 Regression / Hardening / Release Readiness 要求；确认 M7 不新增产品功能、不扩展 V2、不重写 Core。
+- 确认当前 M6 冻结基线为 `5de0506`，工作区在 M7 审计开始前干净，PR #6 CI 4/4 通过。
+- 已创建 M7 计划阶段：源码审计 → CLI/GUI 回归与生命周期 → 跨进程写入/项目切换 → 长篇/Windows/发布验证。
+- 首轮源码审计进行中；下一步先输出 Studio API、路径、Host 创建、异步 identity、事实源和 secret 扫描结果，再对真实回归直接实施最小修复。
+
+## Session: 2026-09-24 — M7 hardening
+
+- Import ack 前事件丢失已修复：ImportOptions/ImportStatus/OperationAck 共享 requestId，前端在 ack 前缓存同 requestId 的事件，ack 后回放；新增前端回归测试。
+- SaveChapter/Budget 写入复用 Core book lease；无 Host 时临时取得同一 `.ainovel.lock`，不创建 Engine Session；新增已有 lease 拒绝 Save 的 Go 回归测试。
+- ProjectTree 不再默认展开所有 Volume/Arc，仅默认展开当前卷/弧；新增长篇树 SSR 回归测试。Runtime 日志既有 500 条 Store 上限，UI 只渲染末 120 条。
+- 当前定向/全量验证：Go `go test ./... -count=1` 1019 passed，`go vet ./...` passed；Frontend 40 tests passed，`npm run build` passed。
+
+## Session: 2026-09-24 — M7 final verification
+
+- 补回 `desktop/frontend/dist/.gitkeep`，避免前端/Wails 生成目录的构建副作用进入提交。
+- M7 源码审计结论、跨进程 Core book lease、Import event-before-ack、长篇 ProjectTree 默认折叠和发布文档已记录；没有新增 Core 语义或第二套锁协议。
+- 最终证据：Go 1019 tests、Go vet、Frontend 40 tests、Frontend build、Windows Wails production build 均通过；GitNexus 已重建并完成非 partial/non-truncated `detect-changes`，结果为 high risk，已按动态边界保守记录。
+- 发布前仍需人工/现场完成真实模型与 GUI 全流程、跨进程 CLI/GUI 同时写入、中文/空格/长路径/权限异常，以及 100/300/500/1000 章实际项目压力检查；这些未被静态测试冒充为已完成。
