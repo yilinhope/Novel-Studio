@@ -90,3 +90,34 @@
 - Go 全量 `go test ./... -count=1` 通过 1019 tests，`go vet ./...` 通过；Frontend `npm test -- --run` 通过 7 files / 40 tests，`npm run build` 通过。
 - Windows Wails production build 通过，产物为 `cmd/novel-studio/build/bin/Novel-Studio.exe`；构建仍有已知 `Not found: time.Time` 警告，不影响本次退出码，但需在运行时验收中继续观察。
 - `.github/workflows/ci.yml` 已覆盖 Go test/vet、Linux race、Frontend test/build 和 Windows Wails production build，本轮无需重复添加 CI 工作流。
+
+## V2-M1 Kickoff（2026-09-25）
+
+- V2 蓝图位于 `C:\Users\linn\Downloads\Novel_Studio_V2_Product_Architecture_Blueprint.md`；用户已同意开始 M1 审计与实施。
+- 第一闭环限定为 ReviewIssue → Proposal → Diff/Evidence → Accept → Apply → SavedUnsynced → Sync → Synced；Fact Engine UI 留待 M2。
+- 当前审计已确认 V1 有 ReviewEntry、章节工作区、ChapterRecord SHA-256、原子章节保存、Store 项目写锁、Host book lease、Host Sync exclusive 和可恢复 `pending_revision.json`。
+- 当前 V2 Proposal/Version/Evidence/Diff 持久化/API/UI 不存在；`ReviewIssue` 无稳定 ID；M1 的候选正文先由用户手工输入，避免擅自创建模型调用路径。
+- 已知重点风险：Core Sync 是项目级扫描，Apply 多章节失败需要 V2 journal 恢复；V2 metadata 与 Core Store 的目录格式版本职责要分开，不能用全项目 format version 破坏 V1 migration。
+
+### V2-M1 审计结论（2026-09-25）
+
+- 13 项审计已完成，详见 `docs/studio-v2-m1-audit.md`。ReviewIssue 当前没有稳定 ID，M1 使用 `scope/chapter/issueIndex/issue 字段哈希` 生成确定性 source key；候选正文先由人工提供。
+- Proposal Apply 与 Version Restore 只写 Core Drafts 工作正文，严格复用既有 `Service.SaveChapter`、Bridge project mutex 与 book lease；Core `ChapterRecord`、`SaveFinalChapter`、Host Sync 均不修改。
+- `ChapterRecord` 与 `SaveFinalChapter` 的 GitNexus impact 为 HIGH，Studio `SaveChapter` 与 React `App` 为 UNKNOWN 下界；这些风险已确认不能当作无调用，本轮采用新增 V2 包和薄适配层规避。
+- V2 metadata 采用 `<OutputDir>/meta/studio-v2/` 独立 schema_version=1、proposal/version/operation journal 文件，不修改 Core `meta/format.json`，也不参与 V1 migration。
+- Apply 前必须为全部 change 做 BaseHash precondition；任何一个章节发生手工编辑都整体拒绝，状态为 Stale/Failed，不允许部分覆盖。Apply 后最高只到 AppliedWorkingCopy/SyncPending，Sync 成功并以 Core accepted hash 对账后才是 Synced。
+- 现有 Core checkpoint 不能提供 Studio 版本历史；M1 新增可重建的正文快照，ContentHash 去重，Restore 仍回到 SavedUnsynced，不直接写 accepted revision。
+
+### V2-M1 实施发现（2026-09-25）
+
+- Proposal Manager 放在 `internal/studio/v2`，通过 `SaveChapterFunc` 注入 Core Save；因此 service 本身不能绕过 Bridge 的 project mutex/book lease，也不会直接取得或修改 ChapterRecord。
+- ReviewIssue 入口按 `issue.Chapters` 处理单章目标；多章 issue 拒绝使用同一候选正文，提示在 Inbox 分别建立多 change，避免把一份正文盲写到多章。
+- Apply journal 每次写章后立即记录已写章节；恢复扫描正文 hash。完整命中候选只恢复到 `AppliedWorkingCopy`，部分命中进入 `Failed`，全量未写入保留 `Accepted` 可重试。
+- Sync reconciliation 不信任 UI 的 Applied 状态，只读取 Core ChapterRecord accepted hash；Bridge 只有在现有 Core Sync 返回成功、RevisionStatus 无未同步且 accepted hash 全部命中时才写 `Synced`。
+- V2 schema 损坏或未知版本会在 metadata 写入前报错，不会修改 Core `meta/format.json`；版本快照按 resource + ContentHash 去重。
+- Wails 生产构建在 `cmd/novel-studio` 目录通过并重新生成了被 gitignore 的 binding；从仓库根目录直接运行会因缺少 `wails.json` 失败，已记录为命令目录要求，不是代码失败。最新证据为 Go 1026 tests、Frontend 45 tests；Sync 失败路径会把 AppliedWorkingCopy 保守降为 SyncPending。
+
+## V2-M1 review 修复（2026-09-25）
+- 外部只读审查发现 Apply journal=applied 崩溃窗口、重复章节 change、Restore 陈旧覆盖、前端切项目响应污染、metadata 跨进程租约和路径/证据/Diff 边界问题。
+- 已修复：applied journal 可恢复、同一资源重复 change 拒绝、Version BaseHash 与 restore journal、Bridge metadata/book lease、ReviewCenter 与 ProposalStore generation guard、Store 切换 busy gate、ID/QuotePreview 校验和超大 Diff 摘要降级。
+- 定向回归：Go V2/Bridge 37 tests；全量 Go 1034 tests；Frontend 45 tests；go vet、Vite、Wails build 均通过。

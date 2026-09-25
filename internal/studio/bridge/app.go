@@ -222,19 +222,31 @@ func (a *App) SyncChapterRevisions(chapter int) (viewmodel.ChapterSyncResult, er
 	if err := engine.SyncChapterRevisions(ctx, projectDir, outputDir); err != nil {
 		// 失败时重新检查 Store，让 Host 保留的 pending 恢复阶段继续阻止写作并允许重试。
 		_, _ = a.revisionStatusService().CheckChapterRevisions()
+		a.markV2SyncPending()
 		return viewmodel.ChapterSyncResult{}, err
 	}
 	status, err := a.revisionStatusService().CheckChapterRevisions()
 	if err != nil {
+		a.markV2SyncPending()
 		return viewmodel.ChapterSyncResult{}, fmt.Errorf("Core Sync 已返回成功，但无法复核 Store 修订状态：%w", err)
 	}
 	if status.State != viewmodel.RevisionSynced || status.HasUnsynced {
+		a.markV2SyncPending()
 		return viewmodel.ChapterSyncResult{}, fmt.Errorf("Core Sync 已返回成功，但 Store 仍报告未同步章节修订")
 	}
+	// Core Sync 已确认 accepted hash 后，才允许 V2 Proposal 进入 Synced；失败或刷新
+	// warning 不会伪造 Proposal 完成态。
 	result := viewmodel.ChapterSyncResult{Revision: status}
+	if err := a.reconcileV2Sync(status); err != nil {
+		result.RefreshWarning = fmt.Sprintf("V2 Proposal 状态复核失败：%v", err)
+	}
 	project, err := a.service.OpenProject(outputDir)
 	if err != nil {
-		result.RefreshWarning = fmt.Sprintf("重新读取项目视图失败：%v", err)
+		warning := fmt.Sprintf("重新读取项目视图失败：%v", err)
+		if result.RefreshWarning != "" {
+			result.RefreshWarning += "；"
+		}
+		result.RefreshWarning += warning
 	} else {
 		result.Project = &project
 		a.mu.Lock()

@@ -127,6 +127,32 @@ func TestRevisionReadAPIsDoNotCreateHost(t *testing.T) {
 	}
 }
 
+func TestCreateProposalRejectsStaleProjectRequestBeforeMetadataWrite(t *testing.T) {
+	path := t.TempDir()
+	st := store.NewStore(path)
+	if err := st.Progress.Save(&domain.Progress{Phase: domain.PhaseWriting, CurrentChapter: 2, CompletedChapters: []int{1}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Drafts.SaveFinalChapter(1, "第一章正文"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.ChapterRecords.Accept(1, domain.ChapterOriginGenerated, "第一章正文", domain.ChapterFacts{}, domain.StyleDelta{}); err != nil {
+		t.Fatal(err)
+	}
+	a := &App{outputDir: path}
+	_, err := a.CreateProposal(viewmodel.CreateProposalRequest{
+		ProjectID: filepath.Join(t.TempDir(), "stale-project"),
+		Title:     "跨项目建议",
+		Changes:   []viewmodel.ProposalChangeInput{{Chapter: 1, After: "不应写入。"}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "projectId") {
+		t.Fatalf("Bridge 必须拒绝 stale project request，得到 %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(path, "meta", "studio-v2")); !os.IsNotExist(statErr) {
+		t.Fatalf("stale project request 不得创建任何 V2 metadata：%v", statErr)
+	}
+}
+
 func newAdvanceRuntimeFixture(t *testing.T) (*App, *store.Store, string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "novel")
@@ -545,6 +571,53 @@ func TestSyncChapterRevisionsKeepsSyncedWhenProjectAndChapterRefreshFail(t *test
 	}
 	if result.Project != nil || result.Chapter != nil || !strings.Contains(result.RefreshWarning, "项目视图") || !strings.Contains(result.RefreshWarning, "第 1 章") {
 		t.Fatalf("项目与章节刷新失败应单独作为 warning 返回：%+v", result)
+	}
+}
+
+func TestSyncChapterRevisionsReturnsV2ReconcileWarningAfterCoreSuccess(t *testing.T) {
+	path := t.TempDir()
+	st := store.NewStore(path)
+	original, edited := "第一章接纳正文", "第一章人工修订正文"
+	if err := st.Progress.Save(&domain.Progress{Phase: domain.PhaseWriting, CurrentChapter: 2, CompletedChapters: []int{1}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Drafts.SaveFinalChapter(1, original); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.ChapterRecords.Accept(1, domain.ChapterOriginGenerated, original, domain.ChapterFacts{}, domain.StyleDelta{}); err != nil {
+		t.Fatal(err)
+	}
+	metadata := filepath.Join(path, "meta", "studio-v2", "proposals")
+	if err := os.MkdirAll(metadata, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(metadata, "broken.json"), []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a := &App{}
+	project, err := a.OpenProject(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake := newBridgeTestEngine()
+	fake.syncFn = func(context.Context) (*revision.Result, error) {
+		_, err := st.ChapterRecords.Accept(1, domain.ChapterOriginUser, edited, domain.ChapterFacts{}, domain.StyleDelta{})
+		return &revision.Result{}, err
+	}
+	a.engine = studioapp.NewEngineService(func(_, _ string) (studioapp.EngineSession, error) { return fake, nil })
+	a.projectDir, a.outputDir = project.ProjectRoot, project.OutputDir
+	if _, err := a.SaveChapter(1, edited); err != nil {
+		t.Fatal(err)
+	}
+	result, err := a.SyncChapterRevisions(1)
+	if err != nil {
+		t.Fatalf("V2 reconcile 失败不得覆盖 Core Sync 成功：%v", err)
+	}
+	if result.Revision.State != viewmodel.RevisionSynced || result.Revision.HasUnsynced {
+		t.Fatalf("Core Sync 状态必须保持 Synced：%+v", result.Revision)
+	}
+	if !strings.Contains(result.RefreshWarning, "V2 Proposal 状态复核失败") {
+		t.Fatalf("V2 reconcile failure 必须作为 warning 返回：%q", result.RefreshWarning)
 	}
 }
 
