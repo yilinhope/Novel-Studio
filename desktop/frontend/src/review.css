@@ -36,4 +36,10 @@
 .review-empty{padding:42px 20px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--border);border-radius:6px}
 .review-error{display:flex;gap:9px;align-items:center;margin:14px 0;padding:12px;color:var(--danger);border:1px solid rgba(255,180,171,.4);border-radius:5px}
 .review-error svg{flex:none}
+.review-proposal-button{margin-top:10px;color:var(--accent);font-size:11px}
+.review-proposal-draft{margin:16px 0;padding:16px;background:var(--surface);border:1px solid var(--accent);border-radius:6px}
+.review-proposal-draft h2{margin:0 0 4px;font-size:15px}
+.review-proposal-draft p{margin:0 0 12px;color:var(--muted);font-size:12px}
+.review-proposal-draft textarea{display:block;width:100%;min-height:130px;box-sizing:border-box;margin-bottom:10px;padding:10px;background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--text);font:12px/1.7 var(--font-sans);resize:vertical}
+.review-proposal-draft>div:last-child{display:flex;justify-content:flex-end;gap:8px}
 @media(max-width:700px){.review-center{padding:22px 14px 30px}.review-heading{flex-wrap:wrap}.review-card{padding:14px}.advance-gate{padding:13px}}

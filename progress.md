@@ -50,3 +50,29 @@
 - M7 源码审计结论、跨进程 Core book lease、Import event-before-ack、长篇 ProjectTree 默认折叠和发布文档已记录；没有新增 Core 语义或第二套锁协议。
 - 最终证据：Go 1019 tests、Go vet、Frontend 40 tests、Frontend build、Windows Wails production build 均通过；GitNexus 已重建并完成非 partial/non-truncated `detect-changes`，结果为 high risk，已按动态边界保守记录。
 - 发布前仍需人工/现场完成真实模型与 GUI 全流程、跨进程 CLI/GUI 同时写入、中文/空格/长路径/权限异常，以及 100/300/500/1000 章实际项目压力检查；这些未被静态测试冒充为已完成。
+
+## Session: 2026-09-25 — V2-M1 kickoff
+
+- 用户确认按 V2 产品架构蓝图开始 M1：先审计并记录实施计划，再连续实现首条 Proposal → Core Sync 闭环。
+- 已读取既有计划、findings、progress、本地 `AGENTS.md` 与 RTK 规则；当前分支 `codex/m7-hardening`、提交 `0f0fe4b`、工作树干净。
+- V2 M1 约束已写入本轮计划；下一步创建 `codex/v2-m1-proposals`，然后完成 13 项源码审计和代码符号 impact。
+- 错误记录：首次使用 GitNexus positional query 含空格时被 CLI 拆分参数；已确认应使用 `-q` 单参数形式。历史 V2 审计已完成 Review/Chapter Save/Sync 基础梳理，本轮将补足 13 项并重新验证当前 HEAD。
+
+## Session: 2026-09-25 — V2-M1 audit complete
+
+- 已在 `codex/v2-m1-proposals` 完成 13 项源码审计，并新增 `docs/studio-v2-m1-audit.md`。
+- 已冻结实施边界：Proposal/Version 是治理 metadata；正文 Apply/Restore 只能经 V1 Save；Core Sync 是唯一 accepted 入口；手工候选正文先行；Fact/Impact/Repair 留在后续 milestone。
+- 已记录 GitNexus HIGH/UNKNOWN 风险与保守决策：不改 `ChapterRecord`、`SaveFinalChapter`、Host Sync 语义；新增 V2 service/store/viewmodel，再由 Bridge 薄适配。
+- 下一步按 TDD 先建立 V2 proposal store/service 的失败测试，再实现 schema_version、atomic metadata、BaseHash stale、防部分 Apply 与 operation journal。
+
+## Session: 2026-09-25 — V2-M1 implementation
+
+- 按 TDD 先让 `internal/studio/v2/proposal_test.go` 因缺少 Manager/API 编译失败，再实现 Proposal/Version/Diff service；当前 V2 定向测试 30 个通过。
+- Proposal metadata 使用独立 `meta/studio-v2`、schema_version=1、原子 JSON；Apply journal 可在重启后根据正文 hash 区分未写入、完整写入和部分写入。
+- Apply 前对全部 change 做 BaseHash precondition；任一手工编辑都会 Stale 且不写任何章节。Apply 前/后保存去重 Version Snapshot，Restore 通过 Core Save 回到 SavedUnsynced。
+- Bridge 已提供 List/Get/Create/ReviewIssue/Accept/Reject/Apply/Diff/Version History/Restore；Sync 成功后只用 Core ChapterRecord accepted hash 对账为 Synced，Sync 失败保留 SyncPending。
+- 前端新增建议收件箱、Proposal Detail、Diff/Evidence、版本历史/恢复和人工候选正文；Review Center 的 ReviewIssue 可直接进入 Proposal 创建表单。候选正文第一版不触发模型生成。
+- 当前验证：Go 全量 1026 tests、`go vet ./...`、Frontend 45 tests、Vite production build、Wails Windows production build 已通过；Wails 仍打印既有 `Not found: time.Time` 绑定警告，未阻断构建。
+
+- 提交前自审：按 Core 单一事实源、V2 metadata 独立目录、Apply 全量前置校验、Sync 对账和项目切换响应保护逐项复核；未发现新的 Critical/Important 问题。
+- 最终 GitNexus：analyze --index-only 完成；detect-changes --scope all 为 20 files / 373 symbols / 11 flows / high risk，未见 partial 或 truncated 结果。

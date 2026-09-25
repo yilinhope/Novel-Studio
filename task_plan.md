@@ -132,3 +132,41 @@
 | Error | Attempt | Resolution |
 |---|---:|---|
 | `rtk proxy Get-Content` 无法解析 PowerShell cmdlet | 1 | 改用 `rtk pwsh -NoProfile -Command` 读取技能文件 |
+| 从仓库根目录运行 Wails 找不到 `wails.json` | 1 | 按现有工程结构改在 `cmd/novel-studio` 目录运行，Windows production build 通过 |
+
+## V2-M1 — Proposal + Revision Workspace
+
+### Goal
+
+按 V2 产品架构蓝图实施第一闭环：ReviewIssue → Proposal → Diff/Evidence → Accept → Apply → SavedUnsynced → Core Sync → Synced。Core/Store 是唯一小说事实源；Proposal 和 Version metadata 不能直接更新 ChapterRecord 或 accepted revision。
+
+### Baseline
+
+- 起始分支：`codex/m7-hardening`，起始提交：`0f0fe4b`，起始工作树干净。
+- 用户已同意先落审计计划并连续实施 V2-M1。
+- 本轮不开始 Fact Engine UI；候选正文先由用户手工提供，不新增模型生成调用链。
+- 复用 Core projectwrite、book lease、Engine lifecycle/exclusive、原子文件写入和既有 Save/Sync 语义。
+
+### Phases
+
+1. [x] 建立 V2-M1 分支与计划基线，刷新 GitNexus。
+2. [x] 完成蓝图列出的 13 项源码审计，记录调用链、风险、缺口和实施选择到 `docs/studio-v2-m1-audit.md`。
+3. [x] 完成 Proposal 持久化模型/存储/服务：ReviewIssue 来源键、Evidence hash 绑定、状态迁移、原子操作记录和 schema_version。
+4. [x] 实现 Diff、Stale 检查、Accept/Reject/Apply/Restore 边界；Apply 只走现有章节 Save，绝不触碰 ChapterRecord。
+5. [x] 接入 Bridge 和前端 Proposal Inbox/Detail，异步结果按 projectId/generation/requestId 隔离。
+6. [ ] 对照 M1 DoD 覆盖 stale、手工编辑、多变更前置条件失败、Sync 失败、Apply 后崩溃恢复和项目切换；执行 Go/Frontend/vet/build 验证。
+7. [ ] GitNexus `detect-changes --scope all`，复核 diff、验证工作树；不提交/推送/建 PR，除非后续明确要求。
+
+### Constraints
+
+- Proposal Accepted != Working Copy Applied != Core Synced。
+- Proposal Apply 和 Version Restore 都通过 V1 Save 写工作正文并显示 SavedUnsynced；只有 Core Sync 与 ChapterRecord hash 复核后标记 Synced。
+- BaseHash 不匹配时标记 Stale 并拒绝覆盖；不做自动三方合并。
+- Evidence 必须绑定资源、章节、revision/hash 与正文区间；ReviewIssue 当前无稳定 ID，M1 为其生成确定性来源键。
+- 暂不扩展 Outline/Character/World/Arc/Volume mutation、Fact Engine、AI semantic diff 或自动 Repair/Replan。
+- 所有用户可见文案、注释和提交说明使用中文。
+
+### Errors Encountered
+
+| Error | Attempt | Resolution |
+|---|---:|---|

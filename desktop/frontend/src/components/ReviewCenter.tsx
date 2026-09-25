@@ -3,12 +3,13 @@ import { AlertTriangle, ClipboardCheck, RefreshCw } from 'lucide-react'
 import { bridge } from '../services'
 import { useEngineStore } from '../engineStore'
 import { useStudio } from '../store'
+import { useProposalStore } from '../proposalStore'
 import type { ReviewCenter as ReviewCenterData, ReviewEntry } from '../types'
 
 const verdictLabel: Record<string, string> = {accept: '通过', polish: '打磨', rewrite: '返工'}
 const scopeLabel: Record<string, string> = {chapter: '章节', arc: '弧', global: '全局'}
 
-function ReviewCard({review}: {review: ReviewEntry}) {
+function ReviewCard({review, onCreateProposal}: {review: ReviewEntry; onCreateProposal: (index: number) => void}) {
   const issues = review.issues ?? []
   return <article className="review-card">
     <header><div><span className="review-scope">{scopeLabel[review.scope] ?? review.scope}审阅 · 截止第 {review.chapter} 章</span><h2>{verdictLabel[review.verdict] ?? review.verdict}</h2></div><span className="review-issue-count">{issues.length} 项问题</span></header>
@@ -22,6 +23,7 @@ function ReviewCard({review}: {review: ReviewEntry}) {
       {issue.evidence && <blockquote>{issue.evidence}</blockquote>}
       {issue.suggestion && <p className="review-meta">建议：{issue.suggestion}</p>}
       {!!issue.chapters?.length && <small>关联章节：{issue.chapters.join('、')}</small>}
+      <button className="text-button review-proposal-button" onClick={() => onCreateProposal(index)}>创建修改建议</button>
     </li>)}</ul>}
     {!!review.affected_chapters?.length && <p className="review-meta">Core 标记的关联章节：{review.affected_chapters.join('、')}</p>}
   </article>
@@ -34,6 +36,9 @@ export function ReviewCenter() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [controlBusy, setControlBusy] = useState(false)
+  const [proposalTarget, setProposalTarget] = useState<{review: ReviewEntry; index: number} | null>(null)
+  const [proposalDraft, setProposalDraft] = useState('')
+  const [proposalBusy, setProposalBusy] = useState(false)
   const load = async () => {
     const getter = bridge().GetReviewCenter
     if (!getter) { setError('桌面桥接尚未提供 Review Center 数据。'); return }
@@ -67,6 +72,15 @@ export function ReviewCenter() {
   }
   useEffect(() => { void load() }, [])
 
+  const createProposal = async () => {
+    if (!proposalTarget || !proposalDraft.trim()) return
+    setProposalBusy(true)
+    try {
+      const created = await useProposalStore.getState().createFromReview(proposalTarget.review.chapter, proposalTarget.review.scope, proposalTarget.index, proposalDraft)
+      if (created) { setProposalTarget(null); setProposalDraft(''); useStudio.getState().proposals() }
+    } finally { setProposalBusy(false) }
+  }
+
   return <section className="review-center">
     <div className="review-heading"><div><p className="eyebrow">CORE REVIEW RECORDS</p><h1>审阅中心</h1><p className="review-subtitle">这里只展示 Core 已写入 Store 的 Editor Review；推进许可单独读取，不会生成审阅结果。</p></div><button onClick={() => void load()} disabled={loading}><RefreshCw size={14}/>{loading ? '读取中…' : '重新读取'}</button></div>
     {error && <div className="review-error" role="alert"><AlertTriangle size={15}/>{error}</div>}
@@ -87,7 +101,8 @@ export function ReviewCenter() {
         </div>
       </section>
       <div className="review-list-heading"><h2>真实审阅记录</h2><span>{data.reviews.length} 条</span></div>
-      {data.reviews.length ? <div className="review-list">{[...data.reviews].reverse().map((entry, index) => <ReviewCard key={`${entry.scope}-${entry.chapter}-${index}`} review={entry}/>)}</div> : <div className="review-empty">Core 尚未保存 Editor Review。章节推进许可状态不会被当作审阅结果显示。</div>}
+      {proposalTarget && <section className="review-proposal-draft"><div><h2>从 ReviewIssue 创建建议</h2><p>第 {proposalTarget.review.chapter} 章 · {proposalTarget.review.issues?.[proposalTarget.index]?.type || '问题'}</p></div><textarea value={proposalDraft} onChange={event => setProposalDraft(event.target.value)} placeholder="输入候选正文；创建后可在建议收件箱查看 Diff 与证据。"/><div><button onClick={() => {setProposalTarget(null); setProposalDraft('')}} disabled={proposalBusy}>取消</button><button className="primary" onClick={() => void createProposal()} disabled={proposalBusy || !proposalDraft.trim()}>{proposalBusy ? '正在创建…' : '创建建议'}</button></div></section>}
+      {data.reviews.length ? <div className="review-list">{[...data.reviews].reverse().map((entry, index) => <ReviewCard key={`${entry.scope}-${entry.chapter}-${index}`} review={entry} onCreateProposal={issueIndex => {setProposalTarget({review: entry, index: issueIndex}); setProposalDraft('')}}/>)}</div> : <div className="review-empty">Core 尚未保存 Editor Review。章节推进许可状态不会被当作审阅结果显示。</div>}
     </>}
   </section>
 }

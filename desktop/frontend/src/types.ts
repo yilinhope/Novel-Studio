@@ -20,6 +20,32 @@ export interface ReviewCenter {
   nextChapter: number; hasCurrentReview: boolean; advanceMode: string
   advancePermitChapter: number; advanceHoldReason?: string; advanceBlockedReason?: string
 }
+export type ProposalStatus = 'Draft' | 'Ready' | 'Accepted' | 'Rejected' | 'Stale' | 'AppliedWorkingCopy' | 'SyncPending' | 'Synced' | 'Failed'
+export interface ProposalChange {
+  resourceType: string; resourceId: string; chapter: number; baseHash: string; before: string; after: string; afterHash: string; changeType: string
+}
+export interface EvidenceRef {
+  resourceType: string; resourceId: string; chapter: number; revision: string; contentHash: string
+  startOffset: number; endOffset: number; quotePreview: string
+}
+export interface Proposal {
+  id: string; projectId: string; title: string; summary?: string; rationale?: string; source: string; sourceKey?: string
+  status: ProposalStatus; changes: ProposalChange[]; evidence: EvidenceRef[]; baseRevision?: string
+  operationId?: string; error?: string; createdAt: string; updatedAt: string
+}
+export interface ProposalChangeInput {
+  resourceType?: string; resourceId?: string; chapter: number; baseHash?: string; before?: string; after: string; changeType?: string
+}
+export interface CreateProposalRequest {
+  projectId?: string; title: string; summary?: string; rationale?: string; source?: string; sourceKey?: string
+  changes: ProposalChangeInput[]; evidence?: Partial<EvidenceRef>[]
+}
+export interface DiffLine { kind: 'context' | 'removed' | 'added'; text: string }
+export interface VersionSnapshot {
+  id: string; projectId: string; resourceType: string; resourceId: string; chapter: number; contentHash: string
+  content: string; source: string; parentId?: string; createdAt: string
+}
+export interface ApplyResult { proposalId: string; status: ProposalStatus; chapters: number[]; message?: string }
 export type RevisionState = 'unknown' | 'synced' | 'saved_unsynced' | 'recovery_pending' | 'error'
 export interface UnsyncedChapter { chapter: number; acceptedHash: string; currentHash: string }
 export interface RevisionStatus {
@@ -79,6 +105,17 @@ export interface StudioBridge {
   GetProjectTree(): Promise<TreeNode[]>
   GetChapter(number: number): Promise<Chapter>
   GetReviewCenter?(): Promise<ReviewCenter>
+  ListProposals?(): Promise<Proposal[]>
+  GetProposal?(id: string): Promise<Proposal>
+  CreateProposal?(request: CreateProposalRequest): Promise<Proposal>
+  CreateProposalFromReviewIssue?(chapter: number, scope: string, issueIndex: number, after: string): Promise<Proposal>
+  AcceptProposal?(id: string): Promise<Proposal>
+  RejectProposal?(id: string): Promise<Proposal>
+  ApplyProposal?(id: string): Promise<ApplyResult>
+  GetProposalDiff?(id: string, changeIndex: number): Promise<DiffLine[]>
+  GetVersionHistory?(chapter: number): Promise<VersionSnapshot[]>
+  GetVersion?(id: string): Promise<VersionSnapshot>
+  RestoreVersion?(id: string): Promise<VersionSnapshot>
   SaveChapter(number: number, content: string): Promise<ChapterSaveResult>
   SyncChapterRevisions?(chapter: number): Promise<ChapterSyncResult>
   GetRevisionStatus(): Promise<RevisionStatus>
