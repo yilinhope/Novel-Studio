@@ -1042,6 +1042,15 @@ func (a *App) TestModelConnection(draft viewmodel.ProviderDraft, model string) e
 	return a.ensureEngineService().TestModelConnection(a.contextOrBackground(), projectDir, outputDir, app.BuildModelDraft(draft), model)
 }
 
+// DiscoverProviderModels 只读取服务商模型目录，不创建 Host，也不写入配置。
+// 返回结果必须由用户显式保存后才进入 Core 配置。
+func (a *App) DiscoverProviderModels(draft viewmodel.ProviderDraft) ([]viewmodel.ModelConfig, error) {
+	if _, _, err := a.currentProjectPaths(); err != nil {
+		return nil, err
+	}
+	return app.DiscoverProviderModels(a.contextOrBackground(), draft)
+}
+
 func (a *App) SwitchModel(selection viewmodel.ModelSelection) (viewmodel.ConfigSnapshot, error) {
 	projectDir, outputDir, err := a.currentProjectPaths()
 	if err != nil {

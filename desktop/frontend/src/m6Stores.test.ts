@@ -2,7 +2,7 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import { useConfigStore } from './configStore'
 import { useCreateProjectStore } from './createProjectStore'
 import { useExportStore } from './exportStore'
-import type { ConfigSnapshot, CreateEvent, CoCreateEvent, StudioBridge } from './types'
+import type { ConfigSnapshot, CreateEvent, CoCreateEvent, ProviderDraft, StudioBridge } from './types'
 
 const config = (projectRoot: string): ConfigSnapshot => ({
   projectRoot, configPath: `${projectRoot}/.ainovel/config.json`, provider: 'openai', model: 'model-a',
@@ -57,6 +57,28 @@ test('Config 与 Usage 并行读取时不会互相取消配置响应', async () 
   await Promise.all([configRequest, usageRequest])
 
   expect(useConfigStore.getState().config?.projectRoot).toBe('D:/parallel-project')
+  expect(useConfigStore.getState().busy).toBe(false)
+})
+
+test('模型配置页面把发现与连接测试委托给 Core Bridge', async () => {
+  const draft: ProviderDraft = {provider: 'proxy', type: 'openai', api: 'chat', baseUrl: 'https://example.invalid/v1', models: [{name: 'model-a'}], apiKeyAction: 'keep'}
+  const discover = vi.fn().mockResolvedValue([{name: 'model-a'}, {name: 'model-b'}])
+  const testConnection = vi.fn().mockResolvedValue(undefined)
+  const api: StudioBridge = {DiscoverProviderModels: discover, TestModelConnection: testConnection} as unknown as StudioBridge
+  vi.stubGlobal('window', {go: {bridge: {App: api}}})
+
+  await expect(useConfigStore.getState().discoverModels(draft)).resolves.toEqual([{name: 'model-a'}, {name: 'model-b'}])
+  await useConfigStore.getState().testModelConnection(draft, 'model-a')
+  expect(discover).toHaveBeenCalledWith(draft)
+  expect(testConnection).toHaveBeenCalledWith(draft, 'model-a')
+})
+
+test('模型配置保存失败时向编辑器传播 Core 错误', async () => {
+  const saveProvider = vi.fn().mockRejectedValue(new Error('Provider 配置保存失败'))
+  vi.stubGlobal('window', {go: {bridge: {App: {SaveProviderConfig: saveProvider} as unknown as StudioBridge}}})
+
+  await expect(useConfigStore.getState().saveProvider({provider: 'proxy', type: 'openai', api: 'chat', baseUrl: 'https://example.invalid/v1', models: [{name: 'model-a'}], apiKeyAction: 'keep'})).rejects.toThrow('Provider 配置保存失败')
+  expect(useConfigStore.getState().error).toContain('Provider 配置保存失败')
   expect(useConfigStore.getState().busy).toBe(false)
 })
 

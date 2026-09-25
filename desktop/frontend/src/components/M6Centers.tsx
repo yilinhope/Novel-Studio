@@ -6,6 +6,7 @@ import { useImportStore } from '../importStore'
 import { useConfigStore } from '../configStore'
 import { useExportStore } from '../exportStore'
 import type { ConfigSnapshot, CreateEvent, ExportOptions } from '../types'
+import { ModelSettingsEditor } from './ModelSettingsEditor'
 
 const cardStyle = {maxWidth: 900, margin: '0 auto', padding: '30px'}
 
@@ -76,21 +77,16 @@ export function ImportCenter() {
 export function SettingsCenter() {
   const state = useConfigStore()
   const [budget, setBudget] = useState({bookUsd: 0, warnRatio: .8, hardStop: false})
-  const [providerName, setProviderName] = useState('')
-  const [baseUrl, setBaseUrl] = useState('')
-  const [apiKey, setApiKey] = useState('')
-  const [models, setModels] = useState('')
   useEffect(() => { void state.load(); void state.loadUsage() }, [])
-  useEffect(() => { if (state.config) { setBudget(state.config.budget); const provider = state.config.providers[0]; if (provider) { setProviderName(provider.name); setBaseUrl(provider.baseUrl); setModels(provider.models.map(model => model.name).join('\n')) } } }, [state.config])
+  useEffect(() => { if (state.config) setBudget(state.config.budget) }, [state.config])
   const config = state.config
-  const provider = config?.providers.find(item => item.name === providerName)
   return <section style={cardStyle}>
     <p className="eyebrow">MODEL & BUDGET</p><h1>模型与 Provider</h1>
     {state.error && <div className="editor-error">{state.error}</div>}
     {config ? <>
       <div className="panel"><h3>默认模型</h3><p>{config.provider} / {config.model}</p><p className="muted">Reasoning：{config.reasoningEffort || '继承 Core 默认'}</p><select value={`${config.provider}\0${config.model}`} onChange={e => {const [providerName, model] = e.target.value.split('\0'); void state.switchModel({role: 'default', provider: providerName, model})}}>{config.providers.flatMap(item => item.models.map(model => <option key={`${item.name}/${model.name}`} value={`${item.name}\0${model.name}`}>{item.name} / {model.name}</option>))}</select></div>
       <AgentModelControls config={config} onSwitch={(role, provider, model) => void state.switchModel({role, provider, model})} onThinking={(role, level) => void state.setThinking({role, level})}/>
-      <div className="panel"><h3>Provider 管理（API Key 默认遮罩）</h3><select value={providerName} onChange={e => {const value = e.target.value; const selected = config.providers.find(item => item.name === value); setProviderName(value); setBaseUrl(selected?.baseUrl ?? ''); setModels(selected?.models.map(model => model.name).join('\n') ?? '')}}>{config.providers.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select>{provider && <p className="muted">{provider.type || provider.api || 'Core 默认协议'} · {provider.hasApiKey ? provider.apiKeyHint || '已配置' : '未配置'}</p>}<label>Base URL<input value={baseUrl} onChange={e => setBaseUrl(e.target.value)}/></label><label>模型列表（每行一个）<textarea className="chapter-editor" style={{minHeight: 90, font: '12px var(--font-mono)'}} value={models} onChange={e => setModels(e.target.value)}/></label><label>新 API Key（留空保持现有值）<input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} autoComplete="new-password"/></label><button disabled={state.busy || !providerName} onClick={() => void state.saveProvider({provider: providerName, type: provider?.type ?? '', api: provider?.api ?? '', baseUrl, models: models.split('\n').map(name => ({name: name.trim()})).filter(model => model.name), apiKeyAction: apiKey ? 'replace' : 'keep', apiKey})}><Save size={15}/>保存 Provider</button></div>
+      <ModelSettingsEditor config={config} busy={state.busy} onSave={state.saveProvider} onDiscover={state.discoverModels} onTest={state.testModelConnection}/>
       <div className="panel"><h3>Budget / Usage</h3><p>${state.usage?.overall.costUsd.toFixed(4) ?? '0.0000'} / ${budget.bookUsd.toFixed(2)} · 输入 {(state.usage?.overall.input ?? 0).toLocaleString()} · 输出 {(state.usage?.overall.output ?? 0).toLocaleString()}</p><label>Book Budget (USD)<input type="number" min="0" step="0.01" value={budget.bookUsd} onChange={e => setBudget({...budget, bookUsd: Number(e.target.value)})}/></label><label>Warn Ratio<input type="number" min="0.01" max="0.99" step="0.01" value={budget.warnRatio} onChange={e => setBudget({...budget, warnRatio: Number(e.target.value)})}/></label><label><input type="checkbox" checked={budget.hardStop} onChange={e => setBudget({...budget, hardStop: e.target.checked})}/> Hard Stop</label><button disabled={state.busy} onClick={() => void state.saveBudget(budget)}><Save size={15}/>保存预算（下一次 Host 生效）</button></div>
     </> : state.busy ? <p className="muted" role="status">正在读取 Core effective config…</p> : <div className="config-load-failed" role="alert"><strong>Core 配置读取失败</strong><p>{state.error || '没有收到配置结果。'}</p><button onClick={() => void state.load()}>重新读取 Core 配置</button></div>}
   </section>

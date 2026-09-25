@@ -176,3 +176,31 @@
 - [x] 处理 Important：重复资源、Restore 陈旧与日志、前端项目 generation、切换 busy gate、Bridge metadata lease。
 - [x] 处理边界：metadata ID、Evidence 引文、超大 Diff、Review SourceKey 重复。
 - [ ] 提交、推送并创建 PR；等待 CI。
+
+## V2-M1 后置、M2 前置：模型配置增强
+
+### Goal
+
+在进入 M2 前补齐可实际使用的多服务商模型配置入口。图片仅作为交互参考；事实源仍为 ainovel Core 配置与 Host ModelSet，不新增前端配置格式。
+
+### Scope
+
+- [x] 允许 Studio 新建 Provider 配置，并编辑协议、API endpoint、Base URL、API Key 和模型列表。
+- [x] 暴露每个模型的上下文窗口与 JSON Schema 能力提示，保存继续复用 `Host.ConfigureModels`。
+- [x] 增加只读模型列表发现入口，支持 OpenAI-compatible 与 Gemini；发现结果只有用户保存后才进入 Core 配置。
+- [x] 增加连接测试入口，复用现有 Core `TestModelConnection`，不保存草稿。
+- [x] API Key 只进受信任 Bridge/Host，快照和错误继续脱敏。
+- [x] 补 Core/Bridge/Frontend 回归测试；不扩展 M2 的 Proposal、Fact、Knowledge 或 Repair 语义。
+
+### Fact source and boundaries
+
+- Provider/Model 持久化：现有项目配置文件与 `Host.ConfigureModels`。
+- 当前角色模型：现有 `SwitchModel` / `SetRoleThinking`。
+- 模型发现：只读网络请求；返回值是待保存草稿，不成为第二套配置事实。
+- 保存/测试服从当前项目、`projectMu`、book lease 与 Engine 配置互斥边界；发现只校验当前项目已打开，保持只读且不创建 Host。
+
+### Session 2026-09-26
+
+- 实现 `ModelSettingsEditor`、OpenAI-compatible/Gemini 模型发现和 Bridge 委托。
+- 保存失败继续向编辑器传播，避免前端显示伪成功；补 Go 与前端回归测试。
+- 本地验证：Go 1044、前端 47；`go vet`、前端 production build、Wails Windows production build 均通过。
