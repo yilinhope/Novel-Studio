@@ -20,6 +20,7 @@ type VersionSnapshot struct {
 	ResourceID   string    `json:"resourceId"`
 	Chapter      int       `json:"chapter"`
 	ContentHash  string    `json:"contentHash"`
+	BaseHash     string    `json:"baseHash,omitempty"`
 	Content      string    `json:"content"`
 	Source       string    `json:"source"`
 	ParentID     string    `json:"parentId,omitempty"`
@@ -87,6 +88,10 @@ func (m *Manager) createVersionUnlocked(req CreateVersionRequest) (VersionSnapsh
 	if err := m.ensureMetadata(); err != nil {
 		return VersionSnapshot{}, false, err
 	}
+	current, err := m.currentContent(req.Chapter)
+	if err != nil {
+		return VersionSnapshot{}, false, err
+	}
 	snapshot := VersionSnapshot{
 		ID:           newID(),
 		ProjectID:    req.ProjectID,
@@ -94,6 +99,7 @@ func (m *Manager) createVersionUnlocked(req CreateVersionRequest) (VersionSnapsh
 		ResourceID:   req.ResourceID,
 		Chapter:      req.Chapter,
 		ContentHash:  hash,
+		BaseHash:     domain.ChapterContentSHA256(current),
 		Content:      req.Content,
 		Source:       req.Source,
 		ParentID:     req.ParentID,
@@ -126,7 +132,11 @@ func (m *Manager) ListVersions(chapter int) ([]VersionSnapshot, error) {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
 			continue
 		}
-		snapshot, err := m.readVersion(strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())))
+		id := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
+		if !safeMetadataID(id) {
+			continue
+		}
+		snapshot, err := m.readVersion(id)
 		if err != nil {
 			return nil, err
 		}
@@ -152,6 +162,18 @@ func (m *Manager) RestoreVersion(id string) (VersionSnapshot, error) {
 	if err != nil {
 		return VersionSnapshot{}, err
 	}
+	currentHash := domain.ChapterContentSHA256(current)
+	if snapshot.BaseHash != "" && currentHash != snapshot.BaseHash && currentHash != snapshot.ContentHash {
+		return VersionSnapshot{}, fmt.Errorf("%w：当前正文已变化，不能直接恢复版本", ErrVersionStale)
+	}
+	journal := operationJournal{
+		ID: newID(), Kind: "version", VersionID: snapshot.ID, Stage: "planned",
+		Planned:   []journalItem{{Chapter: snapshot.Chapter, BaseHash: currentHash, AfterHash: snapshot.ContentHash}},
+		UpdatedAt: time.Now().UTC(),
+	}
+	if err := m.writeJournal(journal); err != nil {
+		return VersionSnapshot{}, err
+	}
 	if _, _, err := m.createVersionUnlocked(CreateVersionRequest{
 		ProjectID:    snapshot.ProjectID,
 		ResourceType: snapshot.ResourceType,
@@ -160,13 +182,27 @@ func (m *Manager) RestoreVersion(id string) (VersionSnapshot, error) {
 		Content:      current,
 		Source:       "restore-before",
 		ParentID:     snapshot.ID,
-	}); err != nil && !errors.Is(err, os.ErrNotExist) {
+	}); err != nil {
+		return VersionSnapshot{}, err
+	}
+	journal.Stage = "applying"
+	journal.UpdatedAt = time.Now().UTC()
+	if err := m.writeJournal(journal); err != nil {
 		return VersionSnapshot{}, err
 	}
 	if err := m.saveChapter(snapshot.Chapter, snapshot.Content); err != nil {
+		journal.Stage = "failed"
+		journal.Error = err.Error()
+		journal.UpdatedAt = time.Now().UTC()
+		_ = m.writeJournal(journal)
 		return VersionSnapshot{}, err
 	}
-	_, _, _ = m.createVersionUnlocked(CreateVersionRequest{
+	journal.Stage = "applied"
+	journal.UpdatedAt = time.Now().UTC()
+	if err := m.writeJournal(journal); err != nil {
+		return VersionSnapshot{}, err
+	}
+	if _, _, err := m.createVersionUnlocked(CreateVersionRequest{
 		ProjectID:    snapshot.ProjectID,
 		ResourceType: snapshot.ResourceType,
 		ResourceID:   snapshot.ResourceID,
@@ -174,11 +210,21 @@ func (m *Manager) RestoreVersion(id string) (VersionSnapshot, error) {
 		Content:      snapshot.Content,
 		Source:       "restore-after",
 		ParentID:     snapshot.ID,
-	})
+	}); err != nil {
+		return VersionSnapshot{}, err
+	}
+	journal.Stage = "committed"
+	journal.UpdatedAt = time.Now().UTC()
+	if err := m.writeJournal(journal); err != nil {
+		return VersionSnapshot{}, err
+	}
 	return snapshot, nil
 }
 
 func (m *Manager) readVersion(id string) (VersionSnapshot, error) {
+	if !safeMetadataID(id) {
+		return VersionSnapshot{}, ErrVersionNotFound
+	}
 	data, err := os.ReadFile(filepath.Join(m.versionsDir(), id+".json"))
 	if os.IsNotExist(err) {
 		return VersionSnapshot{}, fmt.Errorf("%w: %s", ErrVersionNotFound, id)

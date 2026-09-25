@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { bridge } from './services'
 import { setChapterCommitHandler, useEngineStore } from './engineStore'
 import { useRevisionStore } from './revisionStore'
+import { useProposalStore } from './proposalStore'
 import type { Chapter, Project, StudioEngineEvent } from './types'
 
 interface StudioState {
@@ -19,7 +20,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   project: null, chapter: null, busy: false, error: '', view: 'overview', chapterLoading: false,
   draftContent: '', savedContent: '', dirty: false, saveBusy: false, saveError: '', syncing: false, syncError: '', syncNotice: '', refreshWarning: '',
   async open(path) {
-    if (get().busy || get().syncing) return
+    if (get().busy || get().syncing || useProposalStore.getState().busy) return
     const ticket = ++request
     set({busy: true, error: '', chapterLoading: false})
     try {
@@ -27,7 +28,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       const selected = path ?? await api.SelectProjectDirectory()
       if (!selected) return
       const active = get()
-      if (active.saveBusy) return
+      if (active.saveBusy || useProposalStore.getState().busy) return
       const sameProject = [active.project?.outputDir, active.project?.projectRoot].some(value => value && normalizePath(value) === normalizePath(selected))
       if (active.dirty && !window.confirm('当前章节有未保存修改。继续打开项目将放弃这些修改，是否继续？')) return
       if (!sameProject && useRevisionStore.getState().status.hasUnsynced) {

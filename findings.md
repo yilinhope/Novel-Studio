@@ -116,3 +116,8 @@
 - Sync reconciliation 不信任 UI 的 Applied 状态，只读取 Core ChapterRecord accepted hash；Bridge 只有在现有 Core Sync 返回成功、RevisionStatus 无未同步且 accepted hash 全部命中时才写 `Synced`。
 - V2 schema 损坏或未知版本会在 metadata 写入前报错，不会修改 Core `meta/format.json`；版本快照按 resource + ContentHash 去重。
 - Wails 生产构建在 `cmd/novel-studio` 目录通过并重新生成了被 gitignore 的 binding；从仓库根目录直接运行会因缺少 `wails.json` 失败，已记录为命令目录要求，不是代码失败。最新证据为 Go 1026 tests、Frontend 45 tests；Sync 失败路径会把 AppliedWorkingCopy 保守降为 SyncPending。
+
+## V2-M1 review 修复（2026-09-25）
+- 外部只读审查发现 Apply journal=applied 崩溃窗口、重复章节 change、Restore 陈旧覆盖、前端切项目响应污染、metadata 跨进程租约和路径/证据/Diff 边界问题。
+- 已修复：applied journal 可恢复、同一资源重复 change 拒绝、Version BaseHash 与 restore journal、Bridge metadata/book lease、ReviewCenter 与 ProposalStore generation guard、Store 切换 busy gate、ID/QuotePreview 校验和超大 Diff 摘要降级。
+- 定向回归：Go V2/Bridge 37 tests；全量 Go 1034 tests；Frontend 45 tests；go vet、Vite、Wails build 均通过。

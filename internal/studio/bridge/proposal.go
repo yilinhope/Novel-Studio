@@ -23,39 +23,63 @@ func (a *App) v2Manager() (*v2.Manager, string, error) {
 }
 
 func (a *App) ListProposals() ([]viewmodel.Proposal, error) {
-	a.projectMu.RLock()
-	defer a.projectMu.RUnlock()
-	manager, _, err := a.v2Manager()
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	manager, outputDir, err := a.v2Manager()
 	if err != nil {
 		return nil, err
 	}
-	if err := manager.RecoverOperations(); err != nil {
+	var proposals []viewmodel.Proposal
+	err = a.withProjectBookLease(outputDir, func() error {
+		if err := manager.RecoverOperations(); err != nil {
+			return err
+		}
+		var listErr error
+		proposals, listErr = manager.List()
+		return listErr
+	})
+	if err != nil {
 		return nil, err
 	}
-	return manager.List()
+	return proposals, nil
 }
 
 func (a *App) GetProposal(id string) (viewmodel.Proposal, error) {
-	a.projectMu.RLock()
-	defer a.projectMu.RUnlock()
-	manager, _, err := a.v2Manager()
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	manager, outputDir, err := a.v2Manager()
 	if err != nil {
 		return viewmodel.Proposal{}, err
 	}
-	if err := manager.RecoverOperations(); err != nil {
+	var proposal viewmodel.Proposal
+	err = a.withProjectBookLease(outputDir, func() error {
+		if err := manager.RecoverOperations(); err != nil {
+			return err
+		}
+		var getErr error
+		proposal, getErr = manager.Get(id)
+		return getErr
+	})
+	if err != nil {
 		return viewmodel.Proposal{}, err
 	}
-	return manager.Get(id)
+	return proposal, nil
 }
 
 func (a *App) CreateProposal(request viewmodel.CreateProposalRequest) (viewmodel.Proposal, error) {
 	a.projectMu.Lock()
 	defer a.projectMu.Unlock()
-	manager, _, err := a.v2Manager()
+	manager, outputDir, err := a.v2Manager()
 	if err != nil {
 		return viewmodel.Proposal{}, err
 	}
-	return manager.Create(request)
+	var proposal viewmodel.Proposal
+	err = a.withProjectBookLease(outputDir, func() error {
+		var createErr error
+		proposal, createErr = manager.Create(request)
+		return createErr
+	})
+	return proposal, err
 }
 
 // CreateProposalFromReviewIssue 将 Core ReviewEntry 中的一个 issue 转为人工审核候选。
@@ -63,7 +87,7 @@ func (a *App) CreateProposal(request viewmodel.CreateProposalRequest) (viewmodel
 func (a *App) CreateProposalFromReviewIssue(chapter int, scope string, issueIndex int, after string) (viewmodel.Proposal, error) {
 	a.projectMu.Lock()
 	defer a.projectMu.Unlock()
-	manager, _, err := a.v2Manager()
+	manager, outputDir, err := a.v2Manager()
 	if err != nil {
 		return viewmodel.Proposal{}, err
 	}
@@ -100,7 +124,7 @@ func (a *App) CreateProposalFromReviewIssue(chapter int, scope string, issueInde
 	if strings.TrimSpace(after) == "" {
 		return viewmodel.Proposal{}, fmt.Errorf("候选正文不能为空")
 	}
-	return manager.Create(viewmodel.CreateProposalRequest{
+	request := viewmodel.CreateProposalRequest{
 		Title:     fmt.Sprintf("修正第 %d 章：%s", targetChapter, issue.Type),
 		Summary:   issue.Description,
 		Rationale: issue.Suggestion,
@@ -113,27 +137,46 @@ func (a *App) CreateProposalFromReviewIssue(chapter int, scope string, issueInde
 			After:        after,
 			ChangeType:   v2.ChangeTypeReplace,
 		}},
+	}
+	var proposal viewmodel.Proposal
+	err = a.withProjectBookLease(outputDir, func() error {
+		var createErr error
+		proposal, createErr = manager.Create(request)
+		return createErr
 	})
+	return proposal, err
 }
 
 func (a *App) AcceptProposal(id string) (viewmodel.Proposal, error) {
 	a.projectMu.Lock()
 	defer a.projectMu.Unlock()
-	manager, _, err := a.v2Manager()
+	manager, outputDir, err := a.v2Manager()
 	if err != nil {
 		return viewmodel.Proposal{}, err
 	}
-	return manager.Accept(id)
+	var proposal viewmodel.Proposal
+	err = a.withProjectBookLease(outputDir, func() error {
+		var acceptErr error
+		proposal, acceptErr = manager.Accept(id)
+		return acceptErr
+	})
+	return proposal, err
 }
 
 func (a *App) RejectProposal(id string) (viewmodel.Proposal, error) {
 	a.projectMu.Lock()
 	defer a.projectMu.Unlock()
-	manager, _, err := a.v2Manager()
+	manager, outputDir, err := a.v2Manager()
 	if err != nil {
 		return viewmodel.Proposal{}, err
 	}
-	return manager.Reject(id)
+	var proposal viewmodel.Proposal
+	err = a.withProjectBookLease(outputDir, func() error {
+		var rejectErr error
+		proposal, rejectErr = manager.Reject(id)
+		return rejectErr
+	})
+	return proposal, err
 }
 
 func (a *App) ApplyProposal(id string) (viewmodel.ApplyResult, error) {
@@ -167,7 +210,10 @@ func (a *App) ApplyProposal(id string) (viewmodel.ApplyResult, error) {
 	}
 	status, statusErr := a.revisionStatusService().CheckChapterRevisions()
 	if statusErr == nil && status.HasUnsynced {
-		_, _ = manager.MarkSyncPending(id)
+		_ = a.withProjectBookLease(outputDir, func() error {
+			_, err := manager.MarkSyncPending(id)
+			return err
+		})
 	}
 	return result, nil
 }
@@ -217,6 +263,15 @@ func (a *App) RestoreVersion(id string) (viewmodel.VersionSnapshot, error) {
 	if err != nil {
 		return viewmodel.VersionSnapshot{}, err
 	}
+	if engine := a.engineService(); engine != nil {
+		runtime := engine.RuntimeState()
+		if runtime.ProjectID == outputDir {
+			switch runtime.State {
+			case viewmodel.RuntimeRunning, viewmodel.RuntimePausing, viewmodel.RuntimeStopping:
+				return viewmodel.VersionSnapshot{}, fmt.Errorf("创作会话处于%s状态，请等待暂停或停止完成后再恢复版本", runtime.State)
+			}
+		}
+	}
 	manager.SetSaveChapter(func(chapter int, content string) error {
 		_, err := a.service.SaveChapter(chapter, content)
 		return err
@@ -231,17 +286,23 @@ func (a *App) RestoreVersion(id string) (viewmodel.VersionSnapshot, error) {
 }
 
 func (a *App) reconcileV2Sync(status viewmodel.RevisionStatus) {
-	manager, _, err := a.v2Manager()
+	manager, outputDir, err := a.v2Manager()
 	if err != nil {
 		return
 	}
-	_, _ = manager.ReconcileSync(status.State == viewmodel.RevisionSynced && !status.HasUnsynced)
+	_ = a.withProjectBookLease(outputDir, func() error {
+		_, err := manager.ReconcileSync(status.State == viewmodel.RevisionSynced && !status.HasUnsynced)
+		return err
+	})
 }
 
 func (a *App) markV2SyncPending() {
-	manager, _, err := a.v2Manager()
+	manager, outputDir, err := a.v2Manager()
 	if err != nil {
 		return
 	}
-	_, _ = manager.ReconcileSync(false)
+	_ = a.withProjectBookLease(outputDir, func() error {
+		_, err := manager.ReconcileSync(false)
+		return err
+	})
 }

@@ -76,3 +76,8 @@
 
 - 提交前自审：按 Core 单一事实源、V2 metadata 独立目录、Apply 全量前置校验、Sync 对账和项目切换响应保护逐项复核；未发现新的 Critical/Important 问题。
 - 最终 GitNexus：analyze --index-only 完成；detect-changes --scope all 为 20 files / 373 symbols / 11 flows / high risk，未见 partial 或 truncated 结果。
+
+## Session: 2026-09-25 — V2-M1 review fixes
+- 只读代码审查最初结论为 Not Ready：修复 Apply applied journal 崩溃恢复、同章重复 change、Restore BaseHash/operation journal、前端 Review/Proposal 项目 generation guard、切换 busy gate、Bridge metadata book lease。
+- 增加 ID 路径校验、Evidence QuotePreview 绑定、超大正文 Diff 摘要保护、Review SourceKey 重复拒绝，以及对应 Go 回归测试。
+- 当前验证：Go 1034 tests、go vet、Frontend 45 tests、Vite build、Wails Windows build 通过；真实桌面和模型运行仍需现场验收。

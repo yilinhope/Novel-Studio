@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ClipboardCheck, RefreshCw } from 'lucide-react'
 import { bridge } from '../services'
 import { useEngineStore } from '../engineStore'
@@ -39,46 +39,63 @@ export function ReviewCenter() {
   const [proposalTarget, setProposalTarget] = useState<{review: ReviewEntry; index: number} | null>(null)
   const [proposalDraft, setProposalDraft] = useState('')
   const [proposalBusy, setProposalBusy] = useState(false)
+  const requestRef = useRef(0)
+  const normalizeProject = (value: string) => value.replaceAll('\\', '/').toLocaleLowerCase()
+  const isCurrent = (projectAtStart: string, ticket: number) => requestRef.current === ticket && normalizeProject(useStudio.getState().project?.outputDir ?? '') === normalizeProject(projectAtStart)
   const load = async () => {
+    const projectAtStart = projectId
+    const ticket = ++requestRef.current
     const getter = bridge().GetReviewCenter
-    if (!getter) { setError('桌面桥接尚未提供 Review Center 数据。'); return }
+    if (!getter) { if (isCurrent(projectAtStart, ticket)) setError('桌面桥接尚未提供 Review Center 数据。'); return }
     setLoading(true); setError('')
     try {
       const result = await getter()
-      if (result.projectId.replaceAll('\\', '/').toLocaleLowerCase() !== projectId.replaceAll('\\', '/').toLocaleLowerCase()) return
+      if (!isCurrent(projectAtStart, ticket) || result.projectId.replaceAll('\\', '/').toLocaleLowerCase() !== projectAtStart.replaceAll('\\', '/').toLocaleLowerCase()) return
       setData(result)
       await useEngineStore.getState().refreshRuntime()
-    } catch (cause) { setError(String(cause)) }
-    finally { setLoading(false) }
+    } catch (cause) { if (isCurrent(projectAtStart, ticket)) setError(String(cause)) }
+    finally { if (isCurrent(projectAtStart, ticket)) setLoading(false) }
   }
   const switchMode = async (mode: 'auto' | 'review') => {
+    const projectAtStart = projectId
+    const ticket = requestRef.current
     const action = useEngineStore.getState().setAdvanceMode
     setControlBusy(true)
     try {
       const result = await action(mode)
       if (!result) return
-      if (result.project && result.project.outputDir.replaceAll('\\', '/').toLocaleLowerCase() === projectId.replaceAll('\\', '/').toLocaleLowerCase()) useStudio.setState({project: result.project, refreshWarning: result.refreshWarning ?? ''})
-      if (result.review && result.review.projectId.replaceAll('\\', '/').toLocaleLowerCase() === projectId.replaceAll('\\', '/').toLocaleLowerCase()) setData(result.review)
-    } finally { setControlBusy(false) }
+      if (!isCurrent(projectAtStart, ticket)) return
+      if (result.project && result.project.outputDir.replaceAll('\\', '/').toLocaleLowerCase() === projectAtStart.replaceAll('\\', '/').toLocaleLowerCase()) useStudio.setState({project: result.project, refreshWarning: result.refreshWarning ?? ''})
+      if (result.review && result.review.projectId.replaceAll('\\', '/').toLocaleLowerCase() === projectAtStart.replaceAll('\\', '/').toLocaleLowerCase()) setData(result.review)
+    } finally { if (isCurrent(projectAtStart, ticket)) setControlBusy(false) }
   }
   const nextChapter = async () => {
+    const projectAtStart = projectId
+    const ticket = requestRef.current
     setControlBusy(true)
     try {
       const result = await useEngineStore.getState().advanceOneChapter()
       if (!result) return
-      if (result.project && result.project.outputDir.replaceAll('\\', '/').toLocaleLowerCase() === projectId.replaceAll('\\', '/').toLocaleLowerCase()) useStudio.setState({project: result.project, refreshWarning: result.refreshWarning ?? ''})
-      if (result.review && result.review.projectId.replaceAll('\\', '/').toLocaleLowerCase() === projectId.replaceAll('\\', '/').toLocaleLowerCase()) setData(result.review)
-    } finally { setControlBusy(false) }
+      if (!isCurrent(projectAtStart, ticket)) return
+      if (result.project && result.project.outputDir.replaceAll('\\', '/').toLocaleLowerCase() === projectAtStart.replaceAll('\\', '/').toLocaleLowerCase()) useStudio.setState({project: result.project, refreshWarning: result.refreshWarning ?? ''})
+      if (result.review && result.review.projectId.replaceAll('\\', '/').toLocaleLowerCase() === projectAtStart.replaceAll('\\', '/').toLocaleLowerCase()) setData(result.review)
+    } finally { if (isCurrent(projectAtStart, ticket)) setControlBusy(false) }
   }
-  useEffect(() => { void load() }, [])
+  useEffect(() => {
+    requestRef.current += 1
+    setData(null); setError(''); setLoading(false); setControlBusy(false); setProposalBusy(false); setProposalTarget(null); setProposalDraft('')
+    if (projectId) void load()
+  }, [projectId])
 
   const createProposal = async () => {
     if (!proposalTarget || !proposalDraft.trim()) return
+    const projectAtStart = projectId
+    const ticket = requestRef.current
     setProposalBusy(true)
     try {
       const created = await useProposalStore.getState().createFromReview(proposalTarget.review.chapter, proposalTarget.review.scope, proposalTarget.index, proposalDraft)
-      if (created) { setProposalTarget(null); setProposalDraft(''); useStudio.getState().proposals() }
-    } finally { setProposalBusy(false) }
+      if (created && isCurrent(projectAtStart, ticket)) { setProposalTarget(null); setProposalDraft(''); useStudio.getState().proposals() }
+    } finally { if (isCurrent(projectAtStart, ticket)) setProposalBusy(false) }
   }
 
   return <section className="review-center">

@@ -1,11 +1,16 @@
 package v2
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 type DiffLine struct {
 	Kind string `json:"kind"`
 	Text string `json:"text"`
 }
+
+const maxDiffCells = 4_000_000
 
 // TextDiff 返回确定性的行级 unified 视图；它不调用模型，也不改变正文。
 func TextDiff(before, after string) []DiffLine {
@@ -13,6 +18,9 @@ func TextDiff(before, after string) []DiffLine {
 	right := strings.Split(strings.ReplaceAll(after, "\r\n", "\n"), "\n")
 	m := len(left)
 	n := len(right)
+	if m > 0 && n > 0 && m > maxDiffCells/n {
+		return []DiffLine{{Kind: "summary", Text: fmt.Sprintf("正文过长，已省略逐行 Diff（修改前 %d 行，修改后 %d 行）", m, n)}}
+	}
 	lcs := make([][]int, m+1)
 	for i := range lcs {
 		lcs[i] = make([]int, n+1)

@@ -170,3 +170,9 @@
 
 | Error | Attempt | Resolution |
 |---|---:|---|
+
+## V2-M1 review 修复收束
+- [x] 处理只读审查 Critical：Apply pplied journal 崩溃恢复。
+- [x] 处理 Important：重复资源、Restore 陈旧与日志、前端项目 generation、切换 busy gate、Bridge metadata lease。
+- [x] 处理边界：metadata ID、Evidence 引文、超大 Diff、Review SourceKey 重复。
+- [ ] 提交、推送并创建 PR；等待 CI。

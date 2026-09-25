@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -56,8 +57,10 @@ const (
 var (
 	ErrProposalNotFound = errors.New("proposal 不存在")
 	ErrProposalStale    = errors.New("proposal 基于旧正文，已过期")
+	ErrDuplicateSource  = errors.New("proposal 来源已存在")
 	ErrInvalidStatus    = errors.New("proposal 状态不允许当前操作")
 	ErrVersionNotFound  = errors.New("版本快照不存在")
+	ErrVersionStale     = errors.New("版本基于旧工作正文，已过期")
 )
 
 // Proposal 是 V2 治理层对象，不代表 Core 已接纳正文。
@@ -174,7 +177,9 @@ type Manager struct {
 
 type operationJournal struct {
 	ID         string        `json:"id"`
+	Kind       string        `json:"kind,omitempty"`
 	ProposalID string        `json:"proposalId"`
+	VersionID  string        `json:"versionId,omitempty"`
 	Stage      string        `json:"stage"`
 	Planned    []journalItem `json:"planned"`
 	Applied    []int         `json:"applied"`
@@ -215,6 +220,17 @@ func (m *Manager) Create(req CreateProposalRequest) (Proposal, error) {
 	if err := m.ensureMetadata(); err != nil {
 		return Proposal{}, err
 	}
+	if req.SourceKey != "" {
+		existing, err := m.listUnlocked()
+		if err != nil {
+			return Proposal{}, err
+		}
+		for _, item := range existing {
+			if item.ProjectID == m.projectID && item.SourceKey == req.SourceKey {
+				return Proposal{}, fmt.Errorf("%w: %s", ErrDuplicateSource, req.SourceKey)
+			}
+		}
+	}
 
 	proposal := Proposal{
 		ID:        newID(),
@@ -228,7 +244,21 @@ func (m *Manager) Create(req CreateProposalRequest) (Proposal, error) {
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
 	}
+	seenChanges := make(map[string]struct{}, len(req.Changes))
 	for _, input := range req.Changes {
+		resourceType := input.ResourceType
+		if resourceType == "" {
+			resourceType = ResourceTypeChapter
+		}
+		resourceID := input.ResourceID
+		if resourceID == "" {
+			resourceID = fmt.Sprintf("chapter:%d", input.Chapter)
+		}
+		changeKey := fmt.Sprintf("%s:%s:%d", resourceType, resourceID, input.Chapter)
+		if _, exists := seenChanges[changeKey]; exists {
+			return Proposal{}, fmt.Errorf("同一资源不能包含多个 change：%s", changeKey)
+		}
+		seenChanges[changeKey] = struct{}{}
 		change, record, err := m.prepareChange(input)
 		if err != nil {
 			return Proposal{}, err
@@ -346,10 +376,12 @@ func (m *Manager) prepareEvidence(input EvidenceInput, changes []ProposalChange)
 	}
 	var baseHash string
 	var sourceLength int
+	var sourceText string
 	for _, change := range changes {
 		if change.Chapter == input.Chapter && change.ResourceID == input.ResourceID && change.ResourceType == input.ResourceType {
 			baseHash = change.BaseHash
-			sourceLength = len([]rune(change.Before))
+			sourceText = change.Before
+			sourceLength = len([]rune(sourceText))
 			break
 		}
 	}
@@ -364,6 +396,12 @@ func (m *Manager) prepareEvidence(input EvidenceInput, changes []ProposalChange)
 	}
 	if input.StartOffset < 0 || input.EndOffset < input.StartOffset || input.EndOffset > sourceLength {
 		return EvidenceRef{}, errors.New("evidence 正文区间无效")
+	}
+	expectedQuote := string([]rune(sourceText)[input.StartOffset:input.EndOffset])
+	if input.QuotePreview == "" {
+		input.QuotePreview = expectedQuote
+	} else if input.QuotePreview != expectedQuote {
+		return EvidenceRef{}, errors.New("evidence QuotePreview 与正文区间不一致")
 	}
 	record, err := store.NewStore(m.outputDir).ChapterRecords.Load(input.Chapter)
 	if err != nil {
@@ -427,7 +465,7 @@ func (m *Manager) Apply(id string) (ApplyResult, error) {
 	if m.saveChapter == nil {
 		return ApplyResult{}, errors.New("proposal Apply 未配置 Core SaveChapter 适配器")
 	}
-	journal := operationJournal{ID: newID(), ProposalID: id, Stage: "planned", UpdatedAt: time.Now().UTC()}
+	journal := operationJournal{ID: newID(), Kind: "proposal", ProposalID: id, Stage: "planned", UpdatedAt: time.Now().UTC()}
 	proposal.OperationID = journal.ID
 	proposal.Error = ""
 	for _, change := range proposal.Changes {
@@ -523,7 +561,11 @@ func (m *Manager) List() ([]Proposal, error) {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
 			continue
 		}
-		proposal, err := m.readProposal(entry.Name()[:len(entry.Name())-len(filepath.Ext(entry.Name()))])
+		id := entry.Name()[:len(entry.Name())-len(filepath.Ext(entry.Name()))]
+		if !safeMetadataID(id) {
+			continue
+		}
+		proposal, err := m.readProposal(id)
 		if err != nil {
 			return nil, err
 		}
@@ -620,7 +662,16 @@ func (m *Manager) RecoverOperations() error {
 		if err := json.Unmarshal(data, &journal); err != nil {
 			return fmt.Errorf("读取 Apply journal %s: %w", entry.Name(), err)
 		}
-		if journal.Stage != "planned" && journal.Stage != "applying" {
+		if journal.Kind == "version" || journal.VersionID != "" {
+			if journal.Stage != "planned" && journal.Stage != "applying" && journal.Stage != "applied" {
+				continue
+			}
+			if err := m.recoverVersionOperation(journal, path); err != nil {
+				return err
+			}
+			continue
+		}
+		if journal.Stage != "planned" && journal.Stage != "applying" && journal.Stage != "applied" {
 			continue
 		}
 		proposal, err := m.readProposal(journal.ProposalID)
@@ -674,6 +725,41 @@ func (m *Manager) RecoverOperations() error {
 		}
 	}
 	return nil
+}
+
+func (m *Manager) recoverVersionOperation(journal operationJournal, path string) error {
+	if journal.VersionID == "" || len(journal.Planned) != 1 {
+		return fmt.Errorf("恢复版本操作日志无效：%s", filepath.Base(path))
+	}
+	snapshot, err := m.readVersion(journal.VersionID)
+	if err != nil {
+		return err
+	}
+	current, err := m.currentContent(snapshot.Chapter)
+	if err != nil {
+		return err
+	}
+	hash := domain.ChapterContentSHA256(current)
+	item := journal.Planned[0]
+	switch hash {
+	case item.AfterHash:
+		if _, _, err := m.createVersionUnlocked(CreateVersionRequest{
+			ProjectID: snapshot.ProjectID, ResourceType: snapshot.ResourceType, ResourceID: snapshot.ResourceID,
+			Chapter: snapshot.Chapter, Content: snapshot.Content, Source: "restore-after-recovered", ParentID: snapshot.ID,
+		}); err != nil {
+			return err
+		}
+		journal.Stage = "committed"
+		journal.Error = ""
+	case item.BaseHash:
+		journal.Stage = "failed"
+		journal.Error = "恢复操作尚未写入正文"
+	default:
+		journal.Stage = "failed"
+		journal.Error = "恢复期间正文发生变化，未自动覆盖"
+	}
+	journal.UpdatedAt = time.Now().UTC()
+	return atomicWriteJSON(path, journal)
 }
 
 func (m *Manager) currentContent(chapter int) (string, error) {
@@ -732,11 +818,14 @@ func (m *Manager) writeProposal(proposal Proposal) error {
 	if err := m.ensureMetadata(); err != nil {
 		return err
 	}
+	if !safeMetadataID(proposal.ID) {
+		return fmt.Errorf("proposal ID 无效")
+	}
 	return atomicWriteJSON(filepath.Join(m.proposalsDir(), proposal.ID+".json"), proposal)
 }
 
 func (m *Manager) readProposal(id string) (Proposal, error) {
-	if strings.TrimSpace(id) == "" {
+	if !safeMetadataID(id) {
 		return Proposal{}, ErrProposalNotFound
 	}
 	data, err := os.ReadFile(filepath.Join(m.proposalsDir(), id+".json"))
@@ -766,7 +855,11 @@ func (m *Manager) listUnlocked() ([]Proposal, error) {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
 			continue
 		}
-		proposal, err := m.readProposal(strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())))
+		id := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
+		if !safeMetadataID(id) {
+			continue
+		}
+		proposal, err := m.readProposal(id)
 		if err != nil {
 			return nil, err
 		}
@@ -779,7 +872,14 @@ func (m *Manager) writeJournal(journal operationJournal) error {
 	if err := m.ensureMetadata(); err != nil {
 		return err
 	}
-	return atomicWriteJSON(filepath.Join(m.operationsDir(), journal.ProposalID+".json"), journal)
+	name := journal.ProposalID
+	if journal.VersionID != "" {
+		name = "restore-" + journal.VersionID
+	}
+	if !safeMetadataID(name) {
+		return fmt.Errorf("操作日志 ID 无效")
+	}
+	return atomicWriteJSON(filepath.Join(m.operationsDir(), name+".json"), journal)
 }
 
 func (m *Manager) baseDir() string       { return filepath.Join(m.outputDir, "meta", "studio-v2") }
@@ -817,6 +917,12 @@ func atomicWriteJSON(path string, value any) error {
 		return err
 	}
 	return os.Rename(tmpName, path)
+}
+
+var safeMetadataIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+
+func safeMetadataID(id string) bool {
+	return safeMetadataIDPattern.MatchString(id)
 }
 
 func newID() string {

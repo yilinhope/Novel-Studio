@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -67,7 +68,7 @@ func TestCreateProposalCapturesBaseHashAndEvidence(t *testing.T) {
 			ResourceID:   "chapter:1",
 			Chapter:      1,
 			StartOffset:  0,
-			EndOffset:    len([]rune(content)),
+			EndOffset:    len([]rune("第一章")),
 			QuotePreview: "第一章",
 		}},
 	})
@@ -83,8 +84,40 @@ func TestCreateProposalCapturesBaseHashAndEvidence(t *testing.T) {
 	if proposal.Changes[0].AfterHash != domain.ChapterContentSHA256("第一章\n\n新正文。") {
 		t.Fatalf("AfterHash 不正确：%s", proposal.Changes[0].AfterHash)
 	}
-	if len(proposal.Evidence) != 1 || proposal.Evidence[0].ContentHash != proposal.Changes[0].BaseHash {
+	if len(proposal.Evidence) != 1 || proposal.Evidence[0].ContentHash != proposal.Changes[0].BaseHash || proposal.Evidence[0].QuotePreview != "第一章" {
 		t.Fatalf("Evidence 未绑定 BaseHash：%+v", proposal.Evidence)
+	}
+}
+
+func TestCreateProposalRejectsDuplicateResourceChanges(t *testing.T) {
+	manager, _, _ := newProposalFixture(t)
+	_, err := manager.Create(CreateProposalRequest{Title: "重复章节", Changes: []ProposalChangeInput{
+		{Chapter: 1, After: "候选 A。"},
+		{Chapter: 1, After: "候选 B。"},
+	}})
+	if err == nil || !strings.Contains(err.Error(), "多个 change") {
+		t.Fatalf("重复资源 change 应拒绝，得到 %v", err)
+	}
+}
+
+func TestCreateProposalRejectsDuplicateSourceKey(t *testing.T) {
+	manager, _, _ := newProposalFixture(t)
+	request := CreateProposalRequest{Title: "同一 ReviewIssue", Source: ProposalSourceReviewIssue, SourceKey: "review:key", Changes: []ProposalChangeInput{{Chapter: 1, After: "候选。"}}}
+	if _, err := manager.Create(request); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Create(request); !errors.Is(err, ErrDuplicateSource) {
+		t.Fatalf("重复 SourceKey 应拒绝，得到 %v", err)
+	}
+}
+
+func TestCreateProposalRejectsMismatchedEvidenceQuote(t *testing.T) {
+	manager, _, _ := newProposalFixture(t)
+	_, err := manager.Create(CreateProposalRequest{Title: "证据区间", Changes: []ProposalChangeInput{{Chapter: 1, After: "候选。"}}, Evidence: []EvidenceInput{{
+		Chapter: 1, StartOffset: 0, EndOffset: 3, QuotePreview: "错误引文",
+	}}})
+	if err == nil || !strings.Contains(err.Error(), "QuotePreview") {
+		t.Fatalf("不匹配的 evidence 引文应拒绝，得到 %v", err)
 	}
 }
 
@@ -209,6 +242,37 @@ func TestRecoverApplyCrashKeepsProposalAwaitingSync(t *testing.T) {
 	}
 }
 
+func TestRecoverApplyCrashAfterJournalApplied(t *testing.T) {
+	manager, core, _ := newProposalFixture(t)
+	proposal, err := manager.Create(CreateProposalRequest{Title: "Stage applied 恢复", Changes: []ProposalChangeInput{{Chapter: 1, After: "候选正文。"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal, err = manager.Accept(proposal.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	change := proposal.Changes[0]
+	if err := core.Drafts.SaveFinalChapter(change.Chapter, change.After); err != nil {
+		t.Fatal(err)
+	}
+	manager.mu.Lock()
+	if err := manager.writeJournal(operationJournal{ID: "operation-2", Kind: "proposal", ProposalID: proposal.ID, Stage: "applied", Planned: []journalItem{{Chapter: 1, BaseHash: change.BaseHash, AfterHash: change.AfterHash}}}); err != nil {
+		t.Fatal(err)
+	}
+	manager.mu.Unlock()
+	if err := manager.RecoverOperations(); err != nil {
+		t.Fatal(err)
+	}
+	recovered, err := manager.Get(proposal.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recovered.Status != ProposalStatusAppliedWorking {
+		t.Fatalf("applied journal 应恢复工作副本状态，得到 %s", recovered.Status)
+	}
+}
+
 func TestReconcileSyncFailureAndAcceptedHash(t *testing.T) {
 	manager, core, _ := newProposalFixture(t)
 	proposal, err := manager.Create(CreateProposalRequest{
@@ -286,9 +350,6 @@ func TestRestoreVersionWritesWorkingCopyWithoutChangingAcceptedRecord(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := core.Drafts.SaveFinalChapter(1, "当前工作正文。\n"); err != nil {
-		t.Fatal(err)
-	}
 	manager.SetSaveChapter(func(chapter int, content string) error { return core.Drafts.SaveFinalChapter(chapter, content) })
 	if _, err := manager.RestoreVersion(snapshot.ID); err != nil {
 		t.Fatal(err)
@@ -303,5 +364,82 @@ func TestRestoreVersionWritesWorkingCopyWithoutChangingAcceptedRecord(t *testing
 	}
 	if recordAfter.ContentSHA256 != recordBefore.ContentSHA256 || recordAfter.Revision != recordBefore.Revision {
 		t.Fatalf("Restore 不得改变 accepted ChapterRecord：before=%+v after=%+v", recordBefore, recordAfter)
+	}
+}
+
+func TestRestoreVersionRejectsStaleWorkingCopy(t *testing.T) {
+	manager, core, _ := newProposalFixture(t)
+	snapshot, _, err := manager.CreateVersion(CreateVersionRequest{Chapter: 1, Content: "历史候选正文。", Source: "manual-save"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := core.Drafts.SaveFinalChapter(1, "创建快照后的人工改动。\n"); err != nil {
+		t.Fatal(err)
+	}
+	manager.SetSaveChapter(func(chapter int, content string) error { return core.Drafts.SaveFinalChapter(chapter, content) })
+	_, err = manager.RestoreVersion(snapshot.ID)
+	if !errors.Is(err, ErrVersionStale) {
+		t.Fatalf("陈旧版本恢复应拒绝，得到 %v", err)
+	}
+	got, err := core.Drafts.LoadChapterText(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "创建快照后的人工改动。\n" {
+		t.Fatalf("陈旧版本恢复覆盖了人工正文：%q", got)
+	}
+}
+
+func TestRecoverRestoreAfterJournalApplied(t *testing.T) {
+	manager, core, _ := newProposalFixture(t)
+	snapshot, _, err := manager.CreateVersion(CreateVersionRequest{Chapter: 1, Content: "历史恢复正文。", Source: "manual-save"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := core.Drafts.SaveFinalChapter(1, snapshot.Content); err != nil {
+		t.Fatal(err)
+	}
+	manager.mu.Lock()
+	if err := manager.writeJournal(operationJournal{
+		ID: "restore-op", Kind: "version", VersionID: snapshot.ID, Stage: "applied",
+		Planned: []journalItem{{Chapter: 1, BaseHash: snapshot.BaseHash, AfterHash: snapshot.ContentHash}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	manager.mu.Unlock()
+	if err := manager.RecoverOperations(); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(manager.operationsDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundCommitted := false
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), "restore-") {
+			continue
+		}
+		data, readErr := os.ReadFile(filepath.Join(manager.operationsDir(), entry.Name()))
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		var recovered operationJournal
+		if err := json.Unmarshal(data, &recovered); err != nil {
+			t.Fatal(err)
+		}
+		foundCommitted = recovered.Stage == "committed"
+	}
+	if !foundCommitted {
+		t.Fatal("恢复版本的 applied journal 应标记为 committed")
+	}
+}
+
+func TestProposalAndVersionIDsRejectPathTraversal(t *testing.T) {
+	manager, _, _ := newProposalFixture(t)
+	if _, err := manager.Get("..\\schema_version"); !errors.Is(err, ErrProposalNotFound) {
+		t.Fatalf("非法 proposal ID 应拒绝，得到 %v", err)
+	}
+	if _, err := manager.GetVersion("..\\schema_version"); !errors.Is(err, ErrVersionNotFound) {
+		t.Fatalf("非法 version ID 应拒绝，得到 %v", err)
 	}
 }
