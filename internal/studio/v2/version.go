@@ -25,6 +25,8 @@ type VersionSnapshot struct {
 	Source       string    `json:"source"`
 	ParentID     string    `json:"parentId,omitempty"`
 	CreatedAt    time.Time `json:"createdAt"`
+	// CurrentHash 是读取历史版本时观察到的当前工作正文 hash，不写回快照文件。
+	CurrentHash string `json:"currentHash,omitempty"`
 }
 
 type CreateVersionRequest struct {
@@ -114,7 +116,15 @@ func (m *Manager) createVersionUnlocked(req CreateVersionRequest) (VersionSnapsh
 func (m *Manager) GetVersion(id string) (VersionSnapshot, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.readVersion(id)
+	snapshot, err := m.readVersion(id)
+	if err != nil {
+		return VersionSnapshot{}, err
+	}
+	snapshot.CurrentHash, err = m.observeCurrentHash(snapshot.Chapter)
+	if err != nil {
+		return VersionSnapshot{}, err
+	}
+	return snapshot, nil
 }
 
 func (m *Manager) ListVersions(chapter int) ([]VersionSnapshot, error) {
@@ -128,6 +138,7 @@ func (m *Manager) ListVersions(chapter int) ([]VersionSnapshot, error) {
 		return nil, err
 	}
 	result := make([]VersionSnapshot, 0, len(entries))
+	currentHashes := make(map[int]string)
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
 			continue
@@ -141,6 +152,15 @@ func (m *Manager) ListVersions(chapter int) ([]VersionSnapshot, error) {
 			return nil, err
 		}
 		if chapter <= 0 || snapshot.Chapter == chapter {
+			currentHash, ok := currentHashes[snapshot.Chapter]
+			if !ok {
+				currentHash, err = m.observeCurrentHash(snapshot.Chapter)
+				if err != nil {
+					return nil, err
+				}
+				currentHashes[snapshot.Chapter] = currentHash
+			}
+			snapshot.CurrentHash = currentHash
 			result = append(result, snapshot)
 		}
 	}
@@ -148,9 +168,12 @@ func (m *Manager) ListVersions(chapter int) ([]VersionSnapshot, error) {
 	return result, nil
 }
 
-func (m *Manager) RestoreVersion(id string) (VersionSnapshot, error) {
+func (m *Manager) RestoreVersion(id string, expectedCurrentHash string) (VersionSnapshot, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if strings.TrimSpace(expectedCurrentHash) == "" {
+		return VersionSnapshot{}, fmt.Errorf("Restore 必须提供发起操作时看到的当前正文 hash")
+	}
 	snapshot, err := m.readVersion(id)
 	if err != nil {
 		return VersionSnapshot{}, err
@@ -163,7 +186,7 @@ func (m *Manager) RestoreVersion(id string) (VersionSnapshot, error) {
 		return VersionSnapshot{}, err
 	}
 	currentHash := domain.ChapterContentSHA256(current)
-	if snapshot.BaseHash != "" && currentHash != snapshot.BaseHash && currentHash != snapshot.ContentHash {
+	if currentHash != expectedCurrentHash {
 		return VersionSnapshot{}, fmt.Errorf("%w：当前正文已变化，不能直接恢复版本", ErrVersionStale)
 	}
 	journal := operationJournal{
@@ -219,6 +242,14 @@ func (m *Manager) RestoreVersion(id string) (VersionSnapshot, error) {
 		return VersionSnapshot{}, err
 	}
 	return snapshot, nil
+}
+
+func (m *Manager) observeCurrentHash(chapter int) (string, error) {
+	content, err := m.currentContent(chapter)
+	if err != nil {
+		return "", err
+	}
+	return domain.ChapterContentSHA256(content), nil
 }
 
 func (m *Manager) readVersion(id string) (VersionSnapshot, error) {

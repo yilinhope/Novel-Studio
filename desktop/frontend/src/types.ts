@@ -43,7 +43,7 @@ export interface CreateProposalRequest {
 export interface DiffLine { kind: 'context' | 'removed' | 'added'; text: string }
 export interface VersionSnapshot {
   id: string; projectId: string; resourceType: string; resourceId: string; chapter: number; contentHash: string
-  content: string; source: string; parentId?: string; createdAt: string
+  content: string; source: string; parentId?: string; currentHash?: string; createdAt: string
 }
 export interface ApplyResult { proposalId: string; status: ProposalStatus; chapters: number[]; message?: string }
 export type RevisionState = 'unknown' | 'synced' | 'saved_unsynced' | 'recovery_pending' | 'error'
@@ -115,7 +115,7 @@ export interface StudioBridge {
   GetProposalDiff?(id: string, changeIndex: number): Promise<DiffLine[]>
   GetVersionHistory?(chapter: number): Promise<VersionSnapshot[]>
   GetVersion?(id: string): Promise<VersionSnapshot>
-  RestoreVersion?(id: string): Promise<VersionSnapshot>
+  RestoreVersion?(id: string, expectedCurrentHash: string): Promise<VersionSnapshot>
   SaveChapter(number: number, content: string): Promise<ChapterSaveResult>
   SyncChapterRevisions?(chapter: number): Promise<ChapterSyncResult>
   GetRevisionStatus(): Promise<RevisionStatus>

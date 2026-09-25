@@ -121,6 +121,47 @@ func TestCreateProposalRejectsMismatchedEvidenceQuote(t *testing.T) {
 	}
 }
 
+func TestCreateProposalRejectsStaleProjectWithoutWritingMetadata(t *testing.T) {
+	manager, _, outputDir := newProposalFixture(t)
+	staleProject := filepath.Join(t.TempDir(), "另一个项目", "output", "novel")
+	_, err := manager.Create(CreateProposalRequest{
+		ProjectID: staleProject,
+		Title:     "竞态项目建议",
+		Changes:   []ProposalChangeInput{{Chapter: 1, After: "不应写入。"}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "projectId") {
+		t.Fatalf("跨项目 projectId 应拒绝，得到 %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(outputDir, "meta", "studio-v2")); !os.IsNotExist(statErr) {
+		t.Fatalf("拒绝 stale project request 后不得创建 metadata：%v", statErr)
+	}
+}
+
+func TestCreateProposalFallbackEvidenceKeepsRangeInvariantForLongText(t *testing.T) {
+	manager, core, _ := newProposalFixture(t)
+	longText := strings.Repeat("长正文。", 80)
+	if err := core.Drafts.SaveFinalChapter(1, longText); err != nil {
+		t.Fatal(err)
+	}
+	proposal, err := manager.Create(CreateProposalRequest{Title: "长正文证据", Changes: []ProposalChangeInput{{Chapter: 1, After: "候选正文。"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(proposal.Evidence) != 1 {
+		t.Fatalf("自动 Evidence 数量错误：%+v", proposal.Evidence)
+	}
+	evidence := proposal.Evidence[0]
+	if evidence.StartOffset != 0 || evidence.EndOffset != 160 {
+		t.Fatalf("长正文 fallback 必须截断 EndOffset：%+v", evidence)
+	}
+	if evidence.QuotePreview != string([]rune(longText)[:160]) {
+		t.Fatalf("QuotePreview 未按 rune 截断：len=%d", len([]rune(evidence.QuotePreview)))
+	}
+	if got := string([]rune(proposal.Changes[0].Before)[evidence.StartOffset:evidence.EndOffset]); got != evidence.QuotePreview {
+		t.Fatalf("自动 Evidence 未保持 quote/range invariant：got=%q want=%q", got, evidence.QuotePreview)
+	}
+}
+
 func TestApplyProposalRejectsStaleWithoutWriting(t *testing.T) {
 	manager, core, _ := newProposalFixture(t)
 	proposal, err := manager.Create(CreateProposalRequest{
@@ -351,7 +392,7 @@ func TestRestoreVersionWritesWorkingCopyWithoutChangingAcceptedRecord(t *testing
 		t.Fatal(err)
 	}
 	manager.SetSaveChapter(func(chapter int, content string) error { return core.Drafts.SaveFinalChapter(chapter, content) })
-	if _, err := manager.RestoreVersion(snapshot.ID); err != nil {
+	if _, err := manager.RestoreVersion(snapshot.ID, snapshot.BaseHash); err != nil {
 		t.Fatal(err)
 	}
 	working, err := core.Drafts.LoadChapterText(1)
@@ -377,7 +418,7 @@ func TestRestoreVersionRejectsStaleWorkingCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 	manager.SetSaveChapter(func(chapter int, content string) error { return core.Drafts.SaveFinalChapter(chapter, content) })
-	_, err = manager.RestoreVersion(snapshot.ID)
+	_, err = manager.RestoreVersion(snapshot.ID, snapshot.BaseHash)
 	if !errors.Is(err, ErrVersionStale) {
 		t.Fatalf("陈旧版本恢复应拒绝，得到 %v", err)
 	}
@@ -387,6 +428,59 @@ func TestRestoreVersionRejectsStaleWorkingCopy(t *testing.T) {
 	}
 	if got != "创建快照后的人工改动。\n" {
 		t.Fatalf("陈旧版本恢复覆盖了人工正文：%q", got)
+	}
+}
+
+func TestRestoreVersionSupportsHistoricalAAfterB(t *testing.T) {
+	manager, core, _ := newProposalFixture(t)
+	contentA := "历史版本 A。"
+	contentB := "当前版本 B。"
+	snapshotA, _, err := manager.CreateVersion(CreateVersionRequest{Chapter: 1, Content: contentA, Source: "manual-save"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := core.Drafts.SaveFinalChapter(1, contentB); err != nil {
+		t.Fatal(err)
+	}
+	manager.SetSaveChapter(func(chapter int, content string) error { return core.Drafts.SaveFinalChapter(chapter, content) })
+	if _, err := manager.RestoreVersion(snapshotA.ID, domain.ChapterContentSHA256(contentB)); err != nil {
+		t.Fatalf("A→B 后恢复 A 应成功：%v", err)
+	}
+	got, err := core.Drafts.LoadChapterText(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != contentA {
+		t.Fatalf("历史 A 未写入工作正文：%q", got)
+	}
+}
+
+func TestRestoreVersionRejectsExternalChangeAfterExpectedHash(t *testing.T) {
+	manager, core, _ := newProposalFixture(t)
+	contentA := "历史版本 A。"
+	contentB := "当前版本 B。"
+	contentC := "外部版本 C。"
+	snapshotA, _, err := manager.CreateVersion(CreateVersionRequest{Chapter: 1, Content: contentA, Source: "manual-save"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := core.Drafts.SaveFinalChapter(1, contentB); err != nil {
+		t.Fatal(err)
+	}
+	expectedB := domain.ChapterContentSHA256(contentB)
+	if err := core.Drafts.SaveFinalChapter(1, contentC); err != nil {
+		t.Fatal(err)
+	}
+	manager.SetSaveChapter(func(chapter int, content string) error { return core.Drafts.SaveFinalChapter(chapter, content) })
+	if _, err := manager.RestoreVersion(snapshotA.ID, expectedB); !errors.Is(err, ErrVersionStale) {
+		t.Fatalf("B→外部 C 后应拒绝 stale restore，得到 %v", err)
+	}
+	got, err := core.Drafts.LoadChapterText(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != contentC {
+		t.Fatalf("stale restore 覆盖了外部正文：%q", got)
 	}
 }
 

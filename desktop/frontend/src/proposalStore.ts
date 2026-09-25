@@ -13,7 +13,7 @@ interface ProposalState {
   load(projectId: string): Promise<void>; select(id: string): Promise<void>; refreshSelected(): Promise<void>
   createManual(chapter: number, title: string, after: string): Promise<Proposal | null>
   createFromReview(chapter: number, scope: string, issueIndex: number, after: string): Promise<Proposal | null>
-  accept(): Promise<void>; reject(): Promise<void>; apply(): Promise<ApplyResult | null>; restoreVersion(id: string): Promise<void>
+  accept(): Promise<void>; reject(): Promise<void>; apply(): Promise<ApplyResult | null>; restoreVersion(id: string, expectedCurrentHash: string): Promise<void>
 }
 
 export const useProposalStore = create<ProposalState>((set, get) => ({
@@ -137,7 +137,7 @@ export const useProposalStore = create<ProposalState>((set, get) => ({
     } catch (cause) { if (current()) set({error: String(cause)}); return null }
     finally { if (current()) set({busy: false}) }
   },
-  async restoreVersion(id) {
+  async restoreVersion(id, expectedCurrentHash) {
     const action = bridge().RestoreVersion
     if (!action) { set({error: '桌面桥接尚未提供版本恢复。'}); return }
     const projectIdAtStart = get().projectId
@@ -146,7 +146,7 @@ export const useProposalStore = create<ProposalState>((set, get) => ({
     if (get().busy) return
     set({busy: true, error: '', notice: ''})
     try {
-      await action(id)
+      await action(id, expectedCurrentHash)
       if (!current()) return
       set({notice: '版本已恢复到工作正文，等待 Core Sync。'})
       const statusGetter = bridge().CheckChapterRevisions

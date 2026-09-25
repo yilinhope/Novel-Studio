@@ -73,6 +73,11 @@ func (a *App) CreateProposal(request viewmodel.CreateProposalRequest) (viewmodel
 	if err != nil {
 		return viewmodel.Proposal{}, err
 	}
+	if err := manager.ValidateProjectID(request.ProjectID); err != nil {
+		return viewmodel.Proposal{}, err
+	}
+	// 写入作用域由当前打开项目决定，客户端 projectId 只用于竞态校验。
+	request.ProjectID = outputDir
 	var proposal viewmodel.Proposal
 	err = a.withProjectBookLease(outputDir, func() error {
 		var createErr error
@@ -256,7 +261,7 @@ func (a *App) GetVersion(id string) (viewmodel.VersionSnapshot, error) {
 	return manager.GetVersion(id)
 }
 
-func (a *App) RestoreVersion(id string) (viewmodel.VersionSnapshot, error) {
+func (a *App) RestoreVersion(id string, expectedCurrentHash string) (viewmodel.VersionSnapshot, error) {
 	a.projectMu.Lock()
 	defer a.projectMu.Unlock()
 	manager, outputDir, err := a.v2Manager()
@@ -279,18 +284,18 @@ func (a *App) RestoreVersion(id string) (viewmodel.VersionSnapshot, error) {
 	var snapshot viewmodel.VersionSnapshot
 	err = a.withProjectBookLease(outputDir, func() error {
 		var restoreErr error
-		snapshot, restoreErr = manager.RestoreVersion(id)
+		snapshot, restoreErr = manager.RestoreVersion(id, expectedCurrentHash)
 		return restoreErr
 	})
 	return snapshot, err
 }
 
-func (a *App) reconcileV2Sync(status viewmodel.RevisionStatus) {
+func (a *App) reconcileV2Sync(status viewmodel.RevisionStatus) error {
 	manager, outputDir, err := a.v2Manager()
 	if err != nil {
-		return
+		return err
 	}
-	_ = a.withProjectBookLease(outputDir, func() error {
+	return a.withProjectBookLease(outputDir, func() error {
 		_, err := manager.ReconcileSync(status.State == viewmodel.RevisionSynced && !status.HasUnsynced)
 		return err
 	})

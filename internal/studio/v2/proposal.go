@@ -198,13 +198,35 @@ func NewManager(outputDir string) *Manager {
 	return &Manager{outputDir: filepath.Clean(outputDir), projectID: filepath.Clean(outputDir)}
 }
 
+func sameProjectID(left, right string) bool {
+	a, errA := filepath.Abs(left)
+	b, errB := filepath.Abs(right)
+	if errA == nil {
+		left = filepath.Clean(a)
+	}
+	if errB == nil {
+		right = filepath.Clean(b)
+	}
+	return strings.EqualFold(left, right)
+}
+
 func (m *Manager) SetProjectID(projectID string) { m.projectID = strings.TrimSpace(projectID) }
 
 func (m *Manager) SetSaveChapter(save SaveChapterFunc) { m.saveChapter = save }
 
+func (m *Manager) ValidateProjectID(projectID string) error {
+	if strings.TrimSpace(projectID) == "" || sameProjectID(projectID, m.projectID) {
+		return nil
+	}
+	return fmt.Errorf("proposal projectId 与当前项目不一致")
+}
+
 func (m *Manager) Create(req CreateProposalRequest) (Proposal, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if err := m.ValidateProjectID(req.ProjectID); err != nil {
+		return Proposal{}, err
+	}
 	if strings.TrimSpace(req.Title) == "" {
 		return Proposal{}, errors.New("proposal 标题不能为空")
 	}
@@ -213,9 +235,6 @@ func (m *Manager) Create(req CreateProposalRequest) (Proposal, error) {
 	}
 	if req.Source == "" {
 		req.Source = ProposalSourceManual
-	}
-	if req.ProjectID != "" {
-		m.projectID = req.ProjectID
 	}
 	if err := m.ensureMetadata(); err != nil {
 		return Proposal{}, err
@@ -294,10 +313,12 @@ func (m *Manager) Create(req CreateProposalRequest) (Proposal, error) {
 				revision = fmt.Sprintf("%d", record.Revision)
 			}
 			text := change.Before
-			preview := string([]rune(text))
-			if len([]rune(preview)) > 160 {
-				preview = string([]rune(preview)[:160])
+			runes := []rune(text)
+			endOffset := len(runes)
+			if endOffset > 160 {
+				endOffset = 160
 			}
+			preview := string(runes[:endOffset])
 			proposal.Evidence = append(proposal.Evidence, EvidenceRef{
 				ResourceType: change.ResourceType,
 				ResourceID:   change.ResourceID,
@@ -305,7 +326,7 @@ func (m *Manager) Create(req CreateProposalRequest) (Proposal, error) {
 				Revision:     revision,
 				ContentHash:  change.BaseHash,
 				StartOffset:  0,
-				EndOffset:    len([]rune(text)),
+				EndOffset:    endOffset,
 				QuotePreview: preview,
 			})
 		}
