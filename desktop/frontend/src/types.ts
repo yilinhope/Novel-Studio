@@ -143,6 +143,7 @@ export interface StudioBridge {
   GetConfig?(): Promise<ConfigSnapshot>
   SaveProviderConfig?(draft: ProviderDraft): Promise<ConfigSnapshot>
   TestModelConnection?(draft: ProviderDraft, model: string): Promise<void>
+  DiscoverProviderModels?(draft: ProviderDraft): Promise<ConfigModel[]>
   SwitchModel?(selection: ModelSelection): Promise<ConfigSnapshot>
   SetRoleThinking?(setting: RoleThinking): Promise<ConfigSnapshot>
   SaveBudgetConfig?(budget: BudgetConfig): Promise<ConfigSnapshot>
