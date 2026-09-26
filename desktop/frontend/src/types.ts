@@ -176,6 +176,7 @@ export interface StudioBridge {
   ExportProject?(options: ExportOptions): Promise<ExportResult>
   GetConfig?(): Promise<ConfigSnapshot>
   SaveProviderConfig?(draft: ProviderDraft): Promise<ConfigSnapshot>
+  DeleteProviderConfig?(provider: string): Promise<ConfigSnapshot>
   TestModelConnection?(draft: ProviderDraft, model: string): Promise<void>
   DiscoverProviderModels?(draft: ProviderDraft): Promise<ConfigModel[]>
   SwitchModel?(selection: ModelSelection): Promise<ConfigSnapshot>

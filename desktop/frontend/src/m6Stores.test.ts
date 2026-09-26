@@ -82,6 +82,17 @@ test('模型配置保存失败时向编辑器传播 Core 错误', async () => {
   expect(useConfigStore.getState().busy).toBe(false)
 })
 
+test('删除模型配置委托给 Core 并刷新配置快照', async () => {
+  const deleted = vi.fn().mockResolvedValue(config('D:/after-delete'))
+  vi.stubGlobal('window', {go: {bridge: {App: {DeleteProviderConfig: deleted} as unknown as StudioBridge}}})
+
+  await useConfigStore.getState().deleteProvider('proxy')
+
+  expect(deleted).toHaveBeenCalledWith('proxy')
+  expect(useConfigStore.getState().config?.projectRoot).toBe('D:/after-delete')
+  expect(useConfigStore.getState().busy).toBe(false)
+})
+
 test('Export 错误保留 Core 错误语义', async () => {
   const exportProject = vi.fn().mockRejectedValue(new Error('EPUB 输出路径已存在'))
   vi.stubGlobal('window', {go: {bridge: {App: {ExportProject: exportProject} as unknown as StudioBridge}}})

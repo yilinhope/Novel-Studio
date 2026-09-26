@@ -3,6 +3,7 @@ import { CheckCircle2, Plus, RefreshCw, Save, Trash2, Zap } from 'lucide-react'
 import type { ConfigModel, ConfigSnapshot, ProviderDraft } from '../types'
 
 type SaveProvider = (draft: ProviderDraft) => Promise<void>
+type DeleteProvider = (provider: string) => Promise<void>
 type DiscoverModels = (draft: ProviderDraft) => Promise<ConfigModel[]>
 type TestModelConnection = (draft: ProviderDraft, model: string) => Promise<void>
 
@@ -31,12 +32,14 @@ export function ModelSettingsEditor({
   config,
   busy,
   onSave,
+  onDelete,
   onDiscover,
   onTest,
 }: {
   config: ConfigSnapshot
   busy: boolean
   onSave: SaveProvider
+  onDelete: DeleteProvider
   onDiscover: DiscoverModels
   onTest: TestModelConnection
 }) {
@@ -49,6 +52,7 @@ export function ModelSettingsEditor({
   const [presetID, setPresetID] = useState('')
   const [editingNew, setEditingNew] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [discovering, setDiscovering] = useState(false)
   const [testing, setTesting] = useState('')
   const [message, setMessage] = useState('')
@@ -138,6 +142,31 @@ export function ModelSettingsEditor({
     }
   }
 
+  const deleteProvider = async () => {
+    const name = providerName.trim()
+    if (editingNew || !name) return
+    if (!window.confirm(`确定删除 Provider 配置“${name}”？此操作会由 Core 检查默认模型、角色和 fallback 引用。`)) return
+    setDeleting(true)
+    setError('')
+    setMessage('')
+    try {
+      await onDelete(name)
+      setProviderName('')
+      setProviderType('')
+      setProviderAPI('chat')
+      setBaseUrl('')
+      setApiKey('')
+      setModels([])
+      setPresetID('custom')
+      setEditingNew(false)
+      setMessage(`Provider 配置已删除：${name}`)
+    } catch (cause) {
+      setError(String(cause))
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const discover = async () => {
     const request = draft()
     if (!request.provider) { setError('请先填写 Provider 名称。'); return }
@@ -191,7 +220,7 @@ export function ModelSettingsEditor({
       <p className="muted" style={{margin: 0}}>读取结果不会自动保存；确认列表后点击下方保存。Ollama 等本地服务可直接手动输入模型名。</p>
       {models.map((model, index) => <div key={`${index}-${model.name}`} style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 130px 120px auto auto', gap: 8, alignItems: 'center'}}><input value={model.name} onChange={event => setModels(models.map((item, itemIndex) => itemIndex === index ? {...item, name: event.target.value} : item))} placeholder="model（模型名称）"/><input type="number" min="0" value={model.contextWindow || ''} onChange={event => setModels(models.map((item, itemIndex) => itemIndex === index ? {...item, contextWindow: event.target.value ? Number(event.target.value) : 0} : item))} placeholder="上下文窗口"/><select value={model.jsonSchema === undefined ? '' : model.jsonSchema ? 'true' : 'false'} onChange={event => setModels(models.map((item, itemIndex) => itemIndex === index ? {...item, jsonSchema: event.target.value === '' ? undefined : event.target.value === 'true'} : item))}><option value="">JSON Schema 自动</option><option value="true">支持 JSON Schema</option><option value="false">不支持 JSON Schema</option></select><button onClick={() => void test(model)} disabled={busy || saving || discovering || testing !== '' || !model.name.trim()} title="测试当前草稿，不保存"><Zap size={14}/>{testing === model.name.trim() ? '测试中…' : '测试'}</button><button onClick={() => setModels(models.filter((_, itemIndex) => itemIndex !== index))} disabled={busy || saving || models.length <= 1} title="移除模型"><Trash2 size={14}/></button></div>)}
     </div>
-    <div style={{display: 'flex', gap: 8, alignItems: 'center'}}><button className="primary" onClick={() => void save()} disabled={busy || saving || discovering || testing !== ''}><Save size={14}/>{saving ? '保存中…' : '保存 Provider 配置'}</button>{message && <span className="muted" role="status"><CheckCircle2 size={14}/> {message}</span>}</div>
+    <div style={{display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap'}}><button className="primary" onClick={() => void save()} disabled={busy || saving || deleting || discovering || testing !== ''}><Save size={14}/>{saving ? '保存中…' : '保存 Provider 配置'}</button>{!editingNew && providerName && <button onClick={() => void deleteProvider()} disabled={busy || saving || deleting || discovering || testing !== ''} style={{color: 'var(--danger)'}}><Trash2 size={14}/>{deleting ? '删除中…' : '删除当前配置'}</button>}{message && <span className="muted" role="status"><CheckCircle2 size={14}/> {message}</span>}</div>
     {error && <div className="editor-error" role="alert">{error}</div>}
   </div>
 }

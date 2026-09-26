@@ -75,6 +75,46 @@ func TestConfigureModelsRejectsDeletingReferencedModel(t *testing.T) {
 	}
 }
 
+func TestDeleteProviderConfigRemovesUnusedProvider(t *testing.T) {
+	h, path := newModelConfigTestHost(t)
+	if err := h.ConfigureModels(ModelConfigurationDraft{
+		Provider: "backup", Type: "openai", BaseURL: "https://backup.example/v1",
+		Models: []bootstrap.ModelConfig{{Name: "backup-model"}}, APIKeyAction: APIKeyKeep,
+	}); err != nil {
+		t.Fatalf("configure backup: %v", err)
+	}
+	if err := h.DeleteProviderConfig("backup"); err != nil {
+		t.Fatalf("delete backup: %v", err)
+	}
+	if _, exists := h.cfg.Providers["backup"]; exists {
+		t.Fatalf("运行时仍保留已删除 Provider: %#v", h.cfg.Providers)
+	}
+	saved, err := bootstrap.LoadConfigFile(path)
+	if err != nil {
+		t.Fatalf("load saved config: %v", err)
+	}
+	if _, exists := saved.Providers["backup"]; exists {
+		t.Fatalf("配置文件仍保留已删除 Provider: %#v", saved.Providers)
+	}
+	if _, exists := saved.Providers["proxy"]; !exists {
+		t.Fatal("删除 Provider 不应影响仍在使用的 Provider")
+	}
+}
+
+func TestDeleteProviderConfigRejectsReferencedProvider(t *testing.T) {
+	h, path := newModelConfigTestHost(t)
+	err := h.DeleteProviderConfig("proxy")
+	if err == nil || !strings.Contains(err.Error(), "default") || !strings.Contains(err.Error(), "writer") {
+		t.Fatalf("应拒绝删除仍被引用的 Provider，得到 %v", err)
+	}
+	if _, err := bootstrap.LoadConfigFile(path); err != nil {
+		t.Fatalf("拒绝删除后配置文件应仍可读取: %v", err)
+	}
+	if _, exists := h.cfg.Providers["proxy"]; !exists {
+		t.Fatal("拒绝删除后运行时不应移除 Provider")
+	}
+}
+
 // /config 不再代切默认：删掉顶层正在用的模型必须被拒，让用户先去 /model 切走。
 func TestConfigureModelsRejectsDeletingCurrentModel(t *testing.T) {
 	h, _ := newModelConfigTestHost(t)

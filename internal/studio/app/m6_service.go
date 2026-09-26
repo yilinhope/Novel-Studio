@@ -24,6 +24,7 @@ type m6Session interface {
 	CancelCoCreate()
 	ImportFrom(context.Context, imp.Options) (<-chan imp.Event, error)
 	ConfigureModels(host.ModelConfigurationDraft) error
+	DeleteProviderConfig(string) error
 	TestModelConnection(context.Context, host.ModelConfigurationDraft, string) error
 	SwitchModel(string, string, string) error
 	SetRoleThinking(string, string) error
@@ -189,6 +190,16 @@ func (s *EngineService) ConfigureModels(projectDir, outputDir string, draft host
 		return err
 	}
 	err = ext.ConfigureModels(draft)
+	s.controlMu.Unlock()
+	return err
+}
+
+func (s *EngineService) DeleteProviderConfig(projectDir, outputDir, provider string) error {
+	ext, _, err := s.lockedM6Host(projectDir, outputDir)
+	if err != nil {
+		return err
+	}
+	err = ext.DeleteProviderConfig(provider)
 	s.controlMu.Unlock()
 	return err
 }
