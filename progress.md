@@ -88,3 +88,33 @@
 - 已将 `docs/V2_M2_FACT_AUDIT.md` 标记为 Deferred Research；未保留 Fact Engine/Character Knowledge 实现。
 - 已基于当前 `origin/main` 源码生成 `docs/CORE_GUI_PARITY_MATRIX.md`，覆盖 TUI 命令、Host/Store/Config、Import/Export、Simulation、Rules/Style、Diagnostics 和 Runtime 观测。
 - 本轮停在审计阶段，不进入 Wave A 代码实现；静态矩阵结论不等同于真实桌面运行验收。
+
+## Session: 2026-09-26 — Wave A kickoff
+
+- 阅读 `docs/PRODUCT_GOAL_CHARTER.md`、`docs/CORE_GUI_PARITY_COMPLETION_PLAN.md`、`docs/CORE_GUI_PARITY_MATRIX.md`；确认本轮只进入 Wave A Story Data Center + Continuity Center。
+- 从最新 `origin/main` `a463521` 创建 `codex/wave-a-story-continuity`，工作树干净。
+- 重建 GitNexus 索引并完成相关 Store 方法 impact；高风险来自共享 Store 读取调用图，本轮采用新增 Studio Facade/Bridge 适配，保持 Core Store 不变。
+- 下一步：先实现只读 ViewModel/Facade/Bridge，再实现 React Store/导航/页面和定向测试。
+
+## Session: 2026-09-26 — Wave A implementation
+
+- 新增 Story/Continuity ViewModel、Studio Facade 与 Wails Bridge，只读取现有 Core Store；所有分页响应回显 ProjectRoot、OutputDir、generation、requestId、sequence。
+- Story Data Center 已接入 premise、人物、世界规则、扁平/分层大纲、Compass、章节/弧/卷摘要；分层章节和摘要按页惰性读取，扁平与分层大纲可分别切换。
+- Continuity Center 已接入时间线、伏笔、关系、状态变化、最新角色快照和 Core BuildCast 首次出场投影；没有新增事实源或前端推导。
+- 新增 React parity store、导航页面、loading/error/empty、分页与项目切换 stale response 保护；新增 4 个前端回归测试和 Core/Bridge 大列表、空数据、无 Host 测试。
+- 当前定向验证：Go `go test ./internal/studio/...` 124 passed；Frontend 51 tests 与 production build 通过。下一步运行全量 Go/vet、Windows Wails、GitNexus detect-changes 后提交统一 PR。
+
+## Session: 2026-09-26 — Wave A final verification
+
+- Go 全量 `go test ./... -count=1` 通过；`go vet ./...` 通过。
+- Frontend `npm test -- --run` 通过 10 files / 51 tests；`npm run build` 通过。
+- Windows Wails production build 通过，产物为 `cmd/novel-studio/build/bin/Novel-Studio.exe`；仍有既有 `Not found: time.Time` 绑定警告，不影响构建退出码。
+- GitNexus 重建后 `detect-changes --scope all` 完成，`partial/truncated` 未报告，225 个变更符号、5 个受影响流程，风险为 medium；风险集中在既有 Bridge/App 动态边界，未修改 Core Store。
+- 构建生成目录副作用已还原 `desktop/frontend/dist/.gitkeep`；当前只保留 Wave A 源码、测试、文档与计划变更。
+
+## Wave A review 修复（2026-09-26）
+
+- 修复 parity 导航绕过 dirty 章节离开确认的问题；取消保留当前章节和草稿，确认后清理草稿再进入 Story/Continuity。
+- 修复分层卷列表超过 50 项翻页时 Arc Selector 使用旧页的问题；选中 Arc 的章节详情分页仍保留原 selector。
+- 角色快照现在同时支持最新快照与指定 Volume/Arc 历史快照，后端分别使用 Core `LoadLatestSnapshots` 与 `LoadSnapshots`。
+- 定向验证阶段：Studio 测试通过，Frontend 55 tests 与 production build 通过；最终全量验证待本轮完成。

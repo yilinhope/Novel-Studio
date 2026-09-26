@@ -281,3 +281,30 @@ test('放弃确认被取消时保留当前章节与脏正文',async () => {
   expect(useStudio.getState().chapter?.number).toBe(1)
   expect(useStudio.getState().dirty).toBe(true)
 })
+
+test('进入 Story/Continuity 前沿用章节编辑器 dirty 离开确认', async () => {
+  const confirm = vi.fn().mockReturnValue(false)
+  vi.stubGlobal('window',{go:{bridge:{App:api}},confirm})
+  useStudio.setState({project, view:'chapter', chapter:{number:1,title:'第一章',content:'原正文',wordCount:3,hasContent:true,canEdit:true}, savedContent:'原正文', draftContent:'未保存修改', dirty:true})
+
+  useStudio.getState().parity('characters')
+
+  expect(confirm).toHaveBeenCalledOnce()
+  expect(useStudio.getState().view).toBe('chapter')
+  expect(useStudio.getState().draftContent).toBe('未保存修改')
+  expect(useStudio.getState().dirty).toBe(true)
+})
+
+test('确认离开章节编辑器后进入 Story/Continuity 并放弃 dirty draft', async () => {
+  const confirm = vi.fn().mockReturnValue(true)
+  vi.stubGlobal('window',{go:{bridge:{App:api}},confirm})
+  useStudio.setState({project, view:'chapter', chapter:{number:1,title:'第一章',content:'原正文',wordCount:3,hasContent:true,canEdit:true}, savedContent:'原正文', draftContent:'未保存修改', dirty:true})
+
+  useStudio.getState().parity('characters')
+  await new Promise(resolve => setTimeout(resolve, 0))
+
+  expect(confirm).toHaveBeenCalledOnce()
+  expect(useStudio.getState().view).toBe('parity')
+  expect(useStudio.getState().draftContent).toBe('原正文')
+  expect(useStudio.getState().dirty).toBe(false)
+})
