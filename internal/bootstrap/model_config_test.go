@@ -128,6 +128,28 @@ func TestSwappableModelJSONSchemaOverrideFollowsSwap(t *testing.T) {
 	}
 }
 
+func TestNewModelSetUsesDeepSeekAdapterForCustomEndpoint(t *testing.T) {
+	cfg := Config{
+		Provider:  "my-deepseek",
+		ModelName: "deepseek-v4-pro",
+		Providers: map[string]ProviderConfig{
+			"my-deepseek": {
+				Type:    "deepseek",
+				APIKey:  "deepseek-secret",
+				BaseURL: "https://proxy.example.invalid/v1",
+				Models:  []ModelConfig{{Name: "deepseek-v4-pro"}},
+			},
+		},
+	}
+	modelSet, err := NewModelSet(cfg)
+	if err != nil {
+		t.Fatalf("创建 DeepSeek 自定义端点模型失败：%v", err)
+	}
+	if got := modelSet.Default.Info().Provider; got != "deepseek" {
+		t.Fatalf("模型适配器 = %q，想要 deepseek", got)
+	}
+}
+
 func TestResolveContextWindowIsProviderAware(t *testing.T) {
 	cfg := Config{
 		ContextWindow: 300000,

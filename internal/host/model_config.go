@@ -281,6 +281,50 @@ func (h *Host) ConfigureModels(draft ModelConfigurationDraft) error {
 	return nil
 }
 
+// DeleteProviderConfig 删除一个未被当前配置引用的 Provider。
+// 删除是 Core 级原子操作：先检查默认模型、角色和 fallback 引用，再构建并校验
+// 候选 ModelSet，最后一次性写盘并热应用，避免前端只删快照而留下悬空配置。
+func (h *Host) DeleteProviderConfig(provider string) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	provider = strings.TrimSpace(provider)
+	if provider == "" {
+		return fmt.Errorf("provider 不能为空")
+	}
+	if _, ok := h.cfg.Providers[provider]; !ok {
+		return fmt.Errorf("Provider %q 不存在", provider)
+	}
+	if refs := h.providerReferencesLocked(provider); len(refs) > 0 {
+		return fmt.Errorf("Provider %q 仍被 %s 引用，请先切换后再删除", provider, strings.Join(refs, "、"))
+	}
+
+	candidate := bootstrap.CloneConfig(h.cfg)
+	delete(candidate.Providers, provider)
+	if err := candidate.ValidateBase(); err != nil {
+		return fmt.Errorf("删除 Provider %q 后配置无效: %w", provider, err)
+	}
+	prepared, err := bootstrap.NewModelSet(candidate)
+	if err != nil {
+		return fmt.Errorf("删除 Provider %q 后无法创建模型客户端: %w", provider, err)
+	}
+	if h.configPath == "" {
+		return fmt.Errorf("无法定位配置文件路径")
+	}
+	if err := bootstrap.SaveConfig(h.configPath, candidate); err != nil {
+		return fmt.Errorf("删除 Provider 配置失败: %w", err)
+	}
+
+	h.models.ApplyPrepared(prepared)
+	h.cfg = candidate
+	h.applyThinkingLocked("default")
+	h.emitEvent(Event{
+		Time: time.Now(), Category: "SYSTEM", Level: "info",
+		Summary: fmt.Sprintf("Provider 配置已删除：%s → %s", provider, h.configPath),
+	})
+	return nil
+}
+
 func validateModelRenames(requested []ModelRename, oldModels, newModels []bootstrap.ModelConfig) (map[string]string, error) {
 	oldNames := make(map[string]bool, len(oldModels))
 	newNames := make(map[string]bool, len(newModels))
@@ -411,6 +455,25 @@ func (h *Host) modelReferencesLocked(provider, model string) []string {
 		}
 		for i, fallback := range rc.Fallbacks {
 			if fallback.Provider == provider && fallback.Model == model {
+				refs = append(refs, fmt.Sprintf("%s fallback[%d]", role, i))
+			}
+		}
+	}
+	sort.Strings(refs)
+	return refs
+}
+
+func (h *Host) providerReferencesLocked(provider string) []string {
+	var refs []string
+	if h.cfg.Provider == provider {
+		refs = append(refs, "default")
+	}
+	for role, rc := range h.cfg.Roles {
+		if rc.Provider == provider {
+			refs = append(refs, role)
+		}
+		for i, fallback := range rc.Fallbacks {
+			if fallback.Provider == provider {
 				refs = append(refs, fmt.Sprintf("%s fallback[%d]", role, i))
 			}
 		}

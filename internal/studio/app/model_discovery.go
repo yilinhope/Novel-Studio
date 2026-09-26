@@ -39,11 +39,11 @@ func discoverProviderModels(ctx context.Context, draft viewmodel.ProviderDraft, 
 	if protocol == "" {
 		protocol = "openai"
 	}
-	if protocol != "openai" && protocol != "gemini" {
+	if protocol != "openai" && protocol != "deepseek" && protocol != "gemini" {
 		return nil, fmt.Errorf("当前协议不支持自动读取模型列表，请手动输入模型名")
 	}
-	if protocol == "gemini" && strings.TrimSpace(draft.APIKey) == "" {
-		return nil, fmt.Errorf("Gemini 读取模型列表需要 API Key")
+	if (protocol == "gemini" || protocol == "deepseek") && strings.TrimSpace(draft.APIKey) == "" {
+		return nil, fmt.Errorf("%s 读取模型列表需要 API Key", map[string]string{"gemini": "Gemini", "deepseek": "DeepSeek"}[protocol])
 	}
 	endpoint, err := modelDiscoveryEndpoint(draft.BaseURL, protocol)
 	if err != nil {
@@ -108,7 +108,11 @@ func modelDiscoveryEndpoint(rawBaseURL, protocol string) (string, error) {
 		if strings.HasSuffix(path, "/models") {
 			// 已经是模型目录地址。
 		} else if path == "" {
-			path = "/v1/models"
+			if protocol == "deepseek" {
+				path = "/models"
+			} else {
+				path = "/v1/models"
+			}
 		} else {
 			path += "/models"
 		}

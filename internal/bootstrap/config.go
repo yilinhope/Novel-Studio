@@ -151,6 +151,11 @@ func (pc ProviderConfig) RequiresAPIKey(name string) bool {
 	switch name {
 	case "ollama", "bedrock":
 		return false
+	case "deepseek":
+		return true
+	}
+	if strings.EqualFold(strings.TrimSpace(pc.Type), "deepseek") {
+		return true
 	}
 	return pc.Type == ""
 }
@@ -558,8 +563,15 @@ func (c Config) validateProviderAPI(owner, providerName string, pc ProviderConfi
 	if err != nil {
 		return fmt.Errorf("%s provider %q api 配置无法解析协议类型: %w", owner, providerName, err)
 	}
-	if strings.ToLower(strings.TrimSpace(providerType)) != "openai" {
+	switch strings.ToLower(strings.TrimSpace(providerType)) {
+	case "openai":
+		return nil
+	case "deepseek":
+		if pc.API == "" || strings.EqualFold(strings.TrimSpace(pc.API), "chat") {
+			return nil
+		}
+		return fmt.Errorf("%s provider %q api 仅支持 Chat Completions：DeepSeek 专用适配器不支持 %q: %w", owner, providerName, pc.API, errs.ErrConfig)
+	default:
 		return fmt.Errorf("%s provider %q api 仅支持 OpenAI 协议 provider: %w", owner, providerName, errs.ErrConfig)
 	}
-	return nil
 }

@@ -1238,6 +1238,19 @@ func (a *App) SaveProviderConfig(draft viewmodel.ProviderDraft) (viewmodel.Confi
 	return app.ReadConfigSnapshot(projectDir)
 }
 
+func (a *App) DeleteProviderConfig(provider string) (viewmodel.ConfigSnapshot, error) {
+	projectDir, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return viewmodel.ConfigSnapshot{}, err
+	}
+	a.projectMu.Lock()
+	defer a.projectMu.Unlock()
+	if err := a.ensureEngineService().DeleteProviderConfig(projectDir, outputDir, provider); err != nil {
+		return viewmodel.ConfigSnapshot{}, err
+	}
+	return app.ReadConfigSnapshot(projectDir)
+}
+
 func (a *App) TestModelConnection(draft viewmodel.ProviderDraft, model string) error {
 	projectDir, outputDir, err := a.currentProjectPaths()
 	if err != nil {

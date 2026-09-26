@@ -3,6 +3,7 @@ import { CheckCircle2, Plus, RefreshCw, Save, Trash2, Zap } from 'lucide-react'
 import type { ConfigModel, ConfigSnapshot, ProviderDraft } from '../types'
 
 type SaveProvider = (draft: ProviderDraft) => Promise<void>
+type DeleteProvider = (provider: string) => Promise<void>
 type DiscoverModels = (draft: ProviderDraft) => Promise<ConfigModel[]>
 type TestModelConnection = (draft: ProviderDraft, model: string) => Promise<void>
 
@@ -12,7 +13,7 @@ type ProviderPreset = {id: string; label: string; type: string; api: string; bas
 const providerPresets: ProviderPreset[] = [
   {id: 'openai', label: 'OpenAI', type: 'openai', api: 'chat', baseUrl: 'https://api.openai.com'},
   {id: 'novelai', label: 'NovelAI', type: 'openai', api: 'chat', baseUrl: 'https://text.novelai.net/oa'},
-  {id: 'deepseek', label: 'DeepSeek', type: 'openai', api: 'chat', baseUrl: 'https://api.deepseek.com'},
+  {id: 'deepseek', label: 'DeepSeek', type: 'deepseek', api: '', baseUrl: 'https://api.deepseek.com'},
   {id: 'gemini', label: 'Google Gemini', type: 'gemini', api: 'chat', baseUrl: 'https://generativelanguage.googleapis.com'},
   {id: 'xai', label: 'xAI（Grok）', type: 'openai', api: 'chat', baseUrl: 'https://api.x.ai/v1'},
   {id: 'siliconflow', label: 'SiliconFlow', type: 'openai', api: 'chat', baseUrl: 'https://api.siliconflow.cn/v1'},
@@ -31,12 +32,14 @@ export function ModelSettingsEditor({
   config,
   busy,
   onSave,
+  onDelete,
   onDiscover,
   onTest,
 }: {
   config: ConfigSnapshot
   busy: boolean
   onSave: SaveProvider
+  onDelete: DeleteProvider
   onDiscover: DiscoverModels
   onTest: TestModelConnection
 }) {
@@ -49,6 +52,7 @@ export function ModelSettingsEditor({
   const [presetID, setPresetID] = useState('')
   const [editingNew, setEditingNew] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [discovering, setDiscovering] = useState(false)
   const [testing, setTesting] = useState('')
   const [message, setMessage] = useState('')
@@ -60,8 +64,9 @@ export function ModelSettingsEditor({
     const selected = config.providers.find(item => item.name === name)
     setPresetID(providerPresets.some(item => item.id === name) ? name : 'custom')
     setProviderName(name)
-    setProviderType(selected?.type ?? '')
-    setProviderAPI(selected?.api || 'chat')
+    const selectedType = selected?.type || (name.trim().toLowerCase() === 'deepseek' ? 'deepseek' : '')
+    setProviderType(selectedType)
+    setProviderAPI(selectedType === 'deepseek' ? '' : (selected?.api || 'chat'))
     setBaseUrl(selected?.baseUrl ?? '')
     setApiKey('')
     setModels(cloneModels(selected?.models))
@@ -96,10 +101,19 @@ export function ModelSettingsEditor({
     setMessage(`${preset.label} 已填入默认协议和地址，请获取模型列表或手动添加模型。`)
   }
 
+  const changeProviderType = (type: string) => {
+    setProviderType(type)
+    if (type === 'deepseek') {
+      setProviderAPI('')
+    } else if (!providerAPI) {
+      setProviderAPI('chat')
+    }
+  }
+
   const draft = (): ProviderDraft => ({
     provider: providerName.trim(),
     type: providerType,
-    api: providerAPI,
+    api: providerType === 'deepseek' ? '' : providerAPI,
     baseUrl: baseUrl.trim(),
     models: models.filter(model => model.name.trim()).map(model => ({
       name: model.name.trim(),
@@ -125,6 +139,31 @@ export function ModelSettingsEditor({
       setError(String(cause))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const deleteProvider = async () => {
+    const name = providerName.trim()
+    if (editingNew || !name) return
+    if (!window.confirm(`确定删除 Provider 配置“${name}”？此操作会由 Core 检查默认模型、角色和 fallback 引用。`)) return
+    setDeleting(true)
+    setError('')
+    setMessage('')
+    try {
+      await onDelete(name)
+      setProviderName('')
+      setProviderType('')
+      setProviderAPI('chat')
+      setBaseUrl('')
+      setApiKey('')
+      setModels([])
+      setPresetID('custom')
+      setEditingNew(false)
+      setMessage(`Provider 配置已删除：${name}`)
+    } catch (cause) {
+      setError(String(cause))
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -171,9 +210,9 @@ export function ModelSettingsEditor({
     <label>服务商<select value={presetID} onChange={event => editingNew && applyPreset(event.target.value)} disabled={!editingNew}>{providerPresets.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
     <div style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 10}}>
       <label>显示名称 / Provider ID<input value={providerName} onChange={event => setProviderName(event.target.value)} placeholder="例如 openai、deepseek、my-proxy" disabled={!editingNew || presetID !== 'custom'}/></label>
-      <label>调用协议<select value={providerType} onChange={event => setProviderType(event.target.value)}><option value="">Core 自动判断</option><option value="openai">OpenAI-compatible</option><option value="gemini">Gemini</option><option value="anthropic">Anthropic</option></select></label>
+      <label>调用协议<select value={providerType} onChange={event => changeProviderType(event.target.value)}><option value="">Core 自动判断</option><option value="openai">OpenAI-compatible</option><option value="deepseek">DeepSeek 专用适配器</option><option value="gemini">Gemini</option><option value="anthropic">Anthropic</option></select></label>
     </div>
-    <label>API endpoint<select value={providerAPI} onChange={event => setProviderAPI(event.target.value)}><option value="chat">Chat Completions</option><option value="responses">Responses</option></select></label>
+    {providerType === 'deepseek' ? <label>API endpoint<input value="Chat Completions（DeepSeek 适配器）" disabled /></label> : <label>API endpoint<select value={providerAPI} onChange={event => setProviderAPI(event.target.value)}><option value="chat">Chat Completions</option><option value="responses">Responses</option></select></label>}
     <label>Base URL<input value={baseUrl} onChange={event => setBaseUrl(event.target.value)} placeholder="https://api.openai.com/v1"/></label>
     <label>API Key<input type="password" value={apiKey} onChange={event => setApiKey(event.target.value)} placeholder={provider?.hasApiKey ? `留空保持现有 Key（${provider.apiKeyHint || '已配置'}）` : 'sk-…'} autoComplete="new-password"/></label>
     <div className="panel" style={{display: 'grid', gap: 8, margin: 0}}>
@@ -181,7 +220,7 @@ export function ModelSettingsEditor({
       <p className="muted" style={{margin: 0}}>读取结果不会自动保存；确认列表后点击下方保存。Ollama 等本地服务可直接手动输入模型名。</p>
       {models.map((model, index) => <div key={`${index}-${model.name}`} style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 130px 120px auto auto', gap: 8, alignItems: 'center'}}><input value={model.name} onChange={event => setModels(models.map((item, itemIndex) => itemIndex === index ? {...item, name: event.target.value} : item))} placeholder="model（模型名称）"/><input type="number" min="0" value={model.contextWindow || ''} onChange={event => setModels(models.map((item, itemIndex) => itemIndex === index ? {...item, contextWindow: event.target.value ? Number(event.target.value) : 0} : item))} placeholder="上下文窗口"/><select value={model.jsonSchema === undefined ? '' : model.jsonSchema ? 'true' : 'false'} onChange={event => setModels(models.map((item, itemIndex) => itemIndex === index ? {...item, jsonSchema: event.target.value === '' ? undefined : event.target.value === 'true'} : item))}><option value="">JSON Schema 自动</option><option value="true">支持 JSON Schema</option><option value="false">不支持 JSON Schema</option></select><button onClick={() => void test(model)} disabled={busy || saving || discovering || testing !== '' || !model.name.trim()} title="测试当前草稿，不保存"><Zap size={14}/>{testing === model.name.trim() ? '测试中…' : '测试'}</button><button onClick={() => setModels(models.filter((_, itemIndex) => itemIndex !== index))} disabled={busy || saving || models.length <= 1} title="移除模型"><Trash2 size={14}/></button></div>)}
     </div>
-    <div style={{display: 'flex', gap: 8, alignItems: 'center'}}><button className="primary" onClick={() => void save()} disabled={busy || saving || discovering || testing !== ''}><Save size={14}/>{saving ? '保存中…' : '保存 Provider 配置'}</button>{message && <span className="muted" role="status"><CheckCircle2 size={14}/> {message}</span>}</div>
+    <div style={{display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap'}}><button className="primary" onClick={() => void save()} disabled={busy || saving || deleting || discovering || testing !== ''}><Save size={14}/>{saving ? '保存中…' : '保存 Provider 配置'}</button>{!editingNew && providerName && <button onClick={() => void deleteProvider()} disabled={busy || saving || deleting || discovering || testing !== ''} style={{color: 'var(--danger)'}}><Trash2 size={14}/>{deleting ? '删除中…' : '删除当前配置'}</button>}{message && <span className="muted" role="status"><CheckCircle2 size={14}/> {message}</span>}</div>
     {error && <div className="editor-error" role="alert">{error}</div>}
   </div>
 }
