@@ -49,7 +49,7 @@
 | 伏笔账本 | TUI `/diag` 统计、Engine 上下文、`/sync` | `WorldStore.LoadForeshadowLedger`、ForeshadowUpdates replay | 连续性中心分页展示状态、埋设/推进/回收章节 | Full GUI | 只读展示 Core 账本，不在 GUI 重算 |
 | 人物关系 | Engine 上下文、`/sync` | `WorldStore.LoadRelationships`、RelationshipChanges projection | 连续性中心分页展示 Core 关系记录 | Full GUI | 只读展示，不自建关系推导 |
 | 角色/实体状态变化 | Engine 上下文、`/sync` | `WorldStore.LoadStateChanges`、`domain.StateChange` | 连续性中心分页展示历史状态变化 | Full GUI | 只读展示，不自建状态机 |
-| 角色快照 | 弧边界结构维护 | `CharacterStore.LoadSnapshots` / `LoadLatestSnapshots` | 连续性中心分页展示 Core 最新快照 | Full GUI | 只读展示 Core 快照；缺失时显示空状态 |
+| 角色快照 | 弧边界结构维护 | `CharacterStore.LoadSnapshots` / `LoadLatestSnapshots` | 连续性中心可选择最新快照或指定卷/弧历史快照，并分页展示 Core 数据 | Full GUI | 只读展示 Core 快照；缺失时显示空状态 |
 | 配角首次出场 | `commit_chapter` 记录 CastIntro，Engine 上下文 | `Store.BuildCast`、`domain.ProjectCast`（由已接纳 ChapterRecord 派生） | 连续性中心分页展示 Core Cast Projection | Full GUI | 保留“配角”范围语义；不从正文推导 |
 | Continuity Projections 重建 | `/sync` 接纳正文后 | `revision.Projector.Apply` 重建 Summary/Timeline/Foreshadow/Relationship/State/Style 等投影 | 用户可执行 Core Sync，也可只读浏览 Story/Continuity 投影 | Partial GUI | 投影仍只由 Core Sync 重建；GUI 只读详情 |
 | Review / Gate 状态 | `/review`、`/next` | Review Store、Advance Permit/Hold、Progress | Studio Review Center 显示真实 Review 和 Gate | Full GUI | 与 Continuity 条目分开，不能将 Gate 当作 Review |

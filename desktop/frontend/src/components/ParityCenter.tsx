@@ -2,7 +2,7 @@ import { useParityStore } from '../parityStore'
 import type {
   CastPage, CharacterPage, ForeshadowPage, LayeredChapterPage, LayeredOutlinePage, OutlinePage,
   RelationshipPage, SnapshotPage, StateChangePage, StoryCompass, StoryPremise, StorySummaryPage,
-  TimelinePage, WorldRulePage,
+  SnapshotScope, TimelinePage, WorldRulePage,
 } from '../types'
 import './parity.css'
 
@@ -12,13 +12,14 @@ const title: Record<string, string> = {
 }
 
 export function ParityCenter() {
-  const {section, data, loading, error, offset, selectArc, page, selectedVolume, selectedArc, summaryScope, selectSummaryScope, outlineMode, selectOutlineMode, layeredOutline} = useParityStore()
+  const {section, data, loading, error, offset, selectArc, page, selectedVolume, selectedArc, summaryScope, selectSummaryScope, outlineMode, selectOutlineMode, layeredOutline, snapshotScopes, selectedSnapshotVolume, selectedSnapshotArc, selectSnapshotScope} = useParityStore()
   const pageInfo = data && 'total' in data ? data : null
   return <div className="parity-center">
     <header className="parity-header"><div><p className="eyebrow">CORE READ ONLY</p><h1>{title[section]}</h1><p>内容直接读取当前项目的 Core Store。缺失数据会明确显示为空，不由界面补算。</p></div><span className="source-pill">Core 数据</span></header>
     {section === 'summaries' && <div className="parity-tabs" role="tablist" aria-label="摘要范围">{(['chapter','arc','volume'] as const).map(scope => <button key={scope} className={summaryScope === scope ? 'selected' : ''} onClick={() => void selectSummaryScope(scope)}>{scope === 'chapter' ? '章节摘要' : scope === 'arc' ? '弧摘要' : '卷摘要'}</button>)}</div>}
     {section === 'outline' && <div className="parity-tabs" role="tablist" aria-label="大纲视图"><button className={outlineMode === 'layered' ? 'selected' : ''} onClick={() => void selectOutlineMode('layered')}>分层卷 / 弧大纲</button><button className={outlineMode === 'flat' ? 'selected' : ''} onClick={() => void selectOutlineMode('flat')}>扁平全书大纲</button></div>}
     {section === 'outline' && layeredOutline && <LayerSelector data={layeredOutline} onSelect={selectArc} selectedVolume={selectedVolume} selectedArc={selectedArc}/>}
+    {section === 'snapshots' && <SnapshotScopeSelector scopes={snapshotScopes} selectedVolume={selectedSnapshotVolume} selectedArc={selectedSnapshotArc} onSelect={selectSnapshotScope}/ >}
     {loading && <div className="parity-state"><span className="spinner"/>正在读取 Core 数据…</div>}
     {!loading && error && <div className="parity-state error" role="alert"><strong>读取失败</strong><p>{error}</p><button onClick={() => void useParityStore.getState().selectSection(section)}>重新读取</button></div>}
     {!loading && !error && data && <DataView section={section} data={data} outlineMode={outlineMode}/ >}
@@ -28,6 +29,10 @@ export function ParityCenter() {
 
 function LayerSelector({data, onSelect, selectedVolume, selectedArc}: {data: LayeredOutlinePage; onSelect: (volume: number, arc: number) => void; selectedVolume: number; selectedArc: number}) {
   return <div className="layer-selector"><strong>分层大纲</strong>{data.items.map(volume => <section key={volume.index}><h3>第 {volume.index} 卷 · {volume.title}</h3>{volume.theme && <p>{volume.theme}</p>}<div className="layer-arcs">{volume.arcs.map(arc => <button key={`${volume.index}-${arc.index}`} className={selectedVolume === volume.index && selectedArc === arc.index ? 'selected' : ''} onClick={() => onSelect(volume.index, arc.index)}><span>第 {arc.index} 弧 · {arc.title}</span><small>{arc.chapterCount ? `${arc.chapterCount} 章` : `预计 ${arc.estimatedChapters || 0} 章`}</small></button>)}</div></section>)}</div>
+}
+
+function SnapshotScopeSelector({scopes, selectedVolume, selectedArc, onSelect}: {scopes: SnapshotScope[]; selectedVolume: number; selectedArc: number; onSelect: (volume: number, arc: number) => void}) {
+  return <div className="parity-tabs snapshot-scopes" role="tablist" aria-label="角色快照范围"><span className="scope-label">快照范围</span><button className={selectedVolume === 0 && selectedArc === 0 ? 'selected' : ''} onClick={() => void onSelect(0, 0)}>最新角色快照</button>{scopes.map(scope => <button key={`${scope.volume}-${scope.arc}`} className={selectedVolume === scope.volume && selectedArc === scope.arc ? 'selected' : ''} onClick={() => void onSelect(scope.volume, scope.arc)}>第 {scope.volume} 卷 · 第 {scope.arc} 弧{scope.title ? ` · ${scope.title}` : ''}</button>)}</div>
 }
 
 function DataView({section, data, outlineMode}: {section: string; data: NonNullable<ReturnType<typeof useParityStore.getState>['data']>; outlineMode: 'layered' | 'flat'}) {

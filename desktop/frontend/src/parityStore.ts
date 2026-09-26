@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { bridge } from './services'
 import type {
   CastPage, CharacterPage, ForeshadowPage, LayeredChapterPage, LayeredOutlinePage, OutlinePage,
-  ParitySection, ReadRequest, RelationshipPage, SnapshotPage, StateChangePage, StoryCompass,
+  ParitySection, ReadRequest, RelationshipPage, SnapshotPage, SnapshotScope, StateChangePage, StoryCompass,
   StoryPremise, StorySummaryPage, TimelinePage, WorldRulePage,
 } from './types'
 import { useStudio } from './store'
@@ -12,6 +12,7 @@ type ParityState = {
   section: ParitySection
   outlineMode: 'layered' | 'flat'
   layeredOutline: LayeredOutlinePage | null
+  snapshotScopes: SnapshotScope[]
   summaryScope: 'chapter' | 'arc' | 'volume'
   data: ParityData | null
   loading: boolean
@@ -20,10 +21,13 @@ type ParityState = {
   limit: number
   selectedVolume: number
   selectedArc: number
+  selectedSnapshotVolume: number
+  selectedSnapshotArc: number
   selectSection(section: ParitySection): Promise<void>
   selectOutlineMode(mode: 'layered' | 'flat'): Promise<void>
   page(offset: number): Promise<void>
   selectArc(volume: number, arc: number): Promise<void>
+  selectSnapshotScope(volume: number, arc: number): Promise<void>
   selectSummaryScope(scope: 'chapter' | 'arc' | 'volume'): Promise<void>
   reset(): void
 }
@@ -49,18 +53,18 @@ async function readSection(section: ParitySection, request: ReadRequest, volume:
     case 'foreshadow': if (api.GetContinuityForeshadow) return api.GetContinuityForeshadow(request); break
     case 'relationships': if (api.GetContinuityRelationships) return api.GetContinuityRelationships(request); break
     case 'states': if (api.GetContinuityStateChanges) return api.GetContinuityStateChanges(request); break
-    case 'snapshots': if (api.GetContinuitySnapshots) return api.GetContinuitySnapshots(request); break
+    case 'snapshots': if (api.GetContinuitySnapshots) return api.GetContinuitySnapshots(request, volume, arc); break
     case 'cast': if (api.GetContinuityCast) return api.GetContinuityCast(request); break
   }
   throw new Error('当前桌面桥接尚未提供此 Story/Continuity 读取能力。')
 }
 
 export const useParityStore = create<ParityState>((set, get) => ({
-  section: 'premise', outlineMode: 'layered', layeredOutline: null, summaryScope: 'chapter', data: null, loading: false, error: '', offset: 0, limit: PAGE_SIZE, selectedVolume: 0, selectedArc: 0,
+  section: 'premise', outlineMode: 'layered', layeredOutline: null, snapshotScopes: [], summaryScope: 'chapter', data: null, loading: false, error: '', offset: 0, limit: PAGE_SIZE, selectedVolume: 0, selectedArc: 0, selectedSnapshotVolume: 0, selectedSnapshotArc: 0,
   async selectSection(section) {
     if (!useStudio.getState().project) return
     requestNonce++
-    set({section, data: null, layeredOutline: null, loading: true, error: '', offset: 0, selectedVolume: 0, selectedArc: 0})
+    set({section, data: null, layeredOutline: null, snapshotScopes: [], loading: true, error: '', offset: 0, selectedVolume: 0, selectedArc: 0, selectedSnapshotVolume: 0, selectedSnapshotArc: 0})
     const state = useStudio.getState()
     const project = state.project!
     const sequence = ++requestSequence
@@ -70,7 +74,7 @@ export const useParityStore = create<ParityState>((set, get) => ({
       const data = await readSection(section, request, 0, 0, get().outlineMode, get().summaryScope)
       const active = useStudio.getState().project
       if (nonce !== requestNonce || normalizeProject(active?.outputDir ?? '') !== normalizeProject(project.outputDir)) return
-      set({data, layeredOutline: section === 'outline' && get().outlineMode === 'layered' ? data as LayeredOutlinePage : null, loading: false, error: ''})
+      set({data, layeredOutline: section === 'outline' && get().outlineMode === 'layered' ? data as LayeredOutlinePage : null, snapshotScopes: section === 'snapshots' ? (data as SnapshotPage).scopes ?? [] : [], loading: false, error: ''})
     } catch (error) {
       if (nonce === requestNonce && normalizeProject(useStudio.getState().project?.outputDir ?? '') === normalizeProject(project.outputDir)) set({loading: false, error: String(error)})
     }
@@ -94,7 +98,7 @@ export const useParityStore = create<ParityState>((set, get) => ({
     }
   },
   async page(offset) {
-    const {section, selectedVolume, selectedArc, summaryScope} = get()
+    const {section, selectedVolume, selectedArc, summaryScope, outlineMode, selectedSnapshotVolume, selectedSnapshotArc} = get()
     const state = useStudio.getState()
     const project = state.project
     if (!project) return
@@ -108,10 +112,11 @@ export const useParityStore = create<ParityState>((set, get) => ({
       let data: ParityData
       if (section === 'outline' && selectedVolume > 0 && selectedArc > 0 && api.GetStoryLayeredChapters) data = await api.GetStoryLayeredChapters(request, selectedVolume, selectedArc)
       else if (section === 'summaries' && api.GetStorySummaries) data = await api.GetStorySummaries(request, summaryScope)
-      else data = await readSection(section, request, selectedVolume, selectedArc, get().outlineMode, summaryScope)
+      else data = await readSection(section, request, section === 'snapshots' ? selectedSnapshotVolume : selectedVolume, section === 'snapshots' ? selectedSnapshotArc : selectedArc, get().outlineMode, summaryScope)
       const active = useStudio.getState().project
       if (nonce !== requestNonce || normalizeProject(active?.outputDir ?? '') !== normalizeProject(project.outputDir)) return
-      set({data, loading: false, error: '', offset})
+      const shouldReplaceLayeredOutline = section === 'outline' && outlineMode === 'layered' && selectedVolume === 0 && selectedArc === 0
+      set({data, layeredOutline: shouldReplaceLayeredOutline ? data as LayeredOutlinePage : get().layeredOutline, snapshotScopes: section === 'snapshots' ? (data as SnapshotPage).scopes ?? get().snapshotScopes : get().snapshotScopes, loading: false, error: '', offset})
     } catch (error) {
       if (nonce === requestNonce && normalizeProject(useStudio.getState().project?.outputDir ?? '') === normalizeProject(project.outputDir)) set({loading: false, error: String(error)})
     }
@@ -153,5 +158,22 @@ export const useParityStore = create<ParityState>((set, get) => ({
       if (nonce === requestNonce && normalizeProject(useStudio.getState().project?.outputDir ?? '') === normalizeProject(project.outputDir)) set({loading: false, error: String(error)})
     }
   },
-  reset() { requestNonce++; set({data: null, layeredOutline: null, loading: false, error: '', offset: 0, selectedVolume: 0, selectedArc: 0, outlineMode: 'layered', summaryScope: 'chapter'}) },
+  async selectSnapshotScope(volume, arc) {
+    const project = useStudio.getState().project
+    const api = bridge()
+    if (!project || !api.GetContinuitySnapshots) return
+    requestNonce++
+    const nonce = requestNonce
+    const sequence = ++requestSequence
+    const request: ReadRequest = {projectId: project.outputDir, generation: project.generation ?? 0, requestId: `parity-${nonce}`, sequence, offset: 0, limit: PAGE_SIZE}
+    set({loading: true, error: '', selectedSnapshotVolume: volume, selectedSnapshotArc: arc, offset: 0})
+    try {
+      const data = await api.GetContinuitySnapshots(request, volume, arc)
+      if (nonce !== requestNonce || normalizeProject(useStudio.getState().project?.outputDir ?? '') !== normalizeProject(project.outputDir)) return
+      set({data, snapshotScopes: data.scopes ?? get().snapshotScopes, loading: false, error: ''})
+    } catch (error) {
+      if (nonce === requestNonce && normalizeProject(useStudio.getState().project?.outputDir ?? '') === normalizeProject(project.outputDir)) set({loading: false, error: String(error)})
+    }
+  },
+  reset() { requestNonce++; set({data: null, layeredOutline: null, snapshotScopes: [], loading: false, error: '', offset: 0, selectedVolume: 0, selectedArc: 0, selectedSnapshotVolume: 0, selectedSnapshotArc: 0, outlineMode: 'layered', summaryScope: 'chapter'}) },
 }))

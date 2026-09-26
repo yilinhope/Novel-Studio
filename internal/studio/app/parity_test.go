@@ -31,7 +31,7 @@ func parityFixture(t *testing.T) string {
 	if err := st.Outline.SaveOutline([]domain.OutlineEntry{{Chapter: 1, Title: "出航", CoreEvent: "离港", Hook: "风暴来临", Scenes: []string{"码头"}}, {Chapter: 2, Title: "风眼"}}); err != nil {
 		t.Fatal(err)
 	}
-	if err := st.Outline.SaveLayeredOutline([]domain.VolumeOutline{{Index: 1, Title: "潮门", Theme: "寻找归途", Arcs: []domain.ArcOutline{{Index: 1, Title: "离港", Goal: "离开故乡", Chapters: []domain.OutlineEntry{{Title: "出航"}, {Title: "风眼"}}}}}}); err != nil {
+	if err := st.Outline.SaveLayeredOutline([]domain.VolumeOutline{{Index: 1, Title: "潮门", Theme: "寻找归途", Arcs: []domain.ArcOutline{{Index: 1, Title: "离港", Goal: "离开故乡", Chapters: []domain.OutlineEntry{{Title: "出航"}, {Title: "风眼"}}}, {Index: 2, Title: "回响", Goal: "面对真相"}}}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := st.Outline.SaveCompass(domain.StoryCompass{EndingDirection: "回到故乡", OpenThreads: []string{"月门真相"}, EstimatedScale: "一卷", LastUpdated: 2}); err != nil {
@@ -59,6 +59,9 @@ func parityFixture(t *testing.T) string {
 		t.Fatal(err)
 	}
 	if err := st.Characters.SaveSnapshots(1, 1, []domain.CharacterSnapshot{{Volume: 1, Arc: 1, Name: "林渡", Status: "坚定", Motivation: "回家"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Characters.SaveSnapshots(1, 2, []domain.CharacterSnapshot{{Volume: 1, Arc: 2, Name: "林渡", Status: "觉醒", Motivation: "面对真相"}}); err != nil {
 		t.Fatal(err)
 	}
 	for _, chapter := range []int{1, 2} {
@@ -95,6 +98,14 @@ func TestStoryAndContinuityReadFromCoreStoreWithPaging(t *testing.T) {
 	if err != nil || timeline.Total != 1 || timeline.Items[0].Event != "离港" {
 		t.Fatalf("时间线必须来自 Core Store：%+v %v", timeline, err)
 	}
+	snapshots, err := service.GetContinuitySnapshots(1, 1, 0, 50)
+	if err != nil || snapshots.Total != 1 || snapshots.Items[0].Arc != 1 || len(snapshots.Scopes) != 2 {
+		t.Fatalf("历史角色快照和卷弧范围必须来自 Core Store：%+v %v", snapshots, err)
+	}
+	latestSnapshots, err := service.GetContinuitySnapshots(0, 0, 0, 50)
+	if err != nil || latestSnapshots.Total != 1 || latestSnapshots.Items[0].Arc != 2 {
+		t.Fatalf("最新角色快照应继续使用 Core 最新快照语义：%+v %v", latestSnapshots, err)
+	}
 	cast, err := service.GetContinuityCast(0, 50)
 	if err != nil || cast.Total != 1 || cast.Items[0].Name != "沈遥" || cast.Items[0].FirstSeenChapter != 1 {
 		t.Fatalf("配角投影必须来自 Core BuildCast：%+v %v", cast, err)
@@ -123,7 +134,7 @@ func TestParityReadMissingOptionalDataIsEmpty(t *testing.T) {
 	if err != nil || compass.Available {
 		t.Fatalf("缺失 Compass 应返回不可用状态：%+v %v", compass, err)
 	}
-	snapshots, err := service.GetContinuitySnapshots(0, 50)
+	snapshots, err := service.GetContinuitySnapshots(0, 0, 0, 50)
 	if err != nil || snapshots.Total != 0 || len(snapshots.Items) != 0 {
 		t.Fatalf("缺失快照应返回空页：%+v %v", snapshots, err)
 	}

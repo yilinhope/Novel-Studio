@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/voocel/ainovel-cli/internal/domain"
+	"github.com/voocel/ainovel-cli/internal/store"
 	"github.com/voocel/ainovel-cli/internal/studio/viewmodel"
 )
 
@@ -75,12 +77,21 @@ func (s *Service) GetContinuityStateChanges(offset, limit int) (viewmodel.StateC
 	return viewmodel.StateChangePage{PageInfo: viewmodel.PageInfo{Offset: start, Limit: pageLimit, Total: len(result), HasMore: pageHasMore(end, len(result))}, Items: result[start:end]}, nil
 }
 
-func (s *Service) GetContinuitySnapshots(offset, limit int) (viewmodel.SnapshotPage, error) {
+func (s *Service) GetContinuitySnapshots(volume, arc, offset, limit int) (viewmodel.SnapshotPage, error) {
 	st, _, err := s.currentProject()
 	if err != nil {
 		return viewmodel.SnapshotPage{}, err
 	}
-	items, err := st.Characters.LoadLatestSnapshots()
+	scopes, err := loadSnapshotScopes(st)
+	if err != nil {
+		return viewmodel.SnapshotPage{}, fmt.Errorf("读取角色快照失败：%w", err)
+	}
+	var items []domain.CharacterSnapshot
+	if volume > 0 && arc > 0 {
+		items, err = st.Characters.LoadSnapshots(volume, arc)
+	} else {
+		items, err = st.Characters.LoadLatestSnapshots()
+	}
 	if err != nil {
 		return viewmodel.SnapshotPage{}, fmt.Errorf("读取角色快照失败：%w", err)
 	}
@@ -89,7 +100,21 @@ func (s *Service) GetContinuitySnapshots(offset, limit int) (viewmodel.SnapshotP
 		result = append(result, viewmodel.CharacterSnapshot{Volume: item.Volume, Arc: item.Arc, Name: item.Name, Status: item.Status, Power: item.Power, Motivation: item.Motivation, Relations: item.Relations})
 	}
 	start, end, pageLimit := readPageBounds(len(result), offset, limit)
-	return viewmodel.SnapshotPage{PageInfo: viewmodel.PageInfo{Offset: start, Limit: pageLimit, Total: len(result), HasMore: pageHasMore(end, len(result))}, Items: result[start:end]}, nil
+	return viewmodel.SnapshotPage{Scopes: scopes, PageInfo: viewmodel.PageInfo{Offset: start, Limit: pageLimit, Total: len(result), HasMore: pageHasMore(end, len(result))}, Items: result[start:end]}, nil
+}
+
+func loadSnapshotScopes(st *store.Store) ([]viewmodel.SnapshotScope, error) {
+	volumes, err := st.Outline.LoadLayeredOutline()
+	if err != nil {
+		return nil, err
+	}
+	scopes := make([]viewmodel.SnapshotScope, 0)
+	for _, volume := range volumes {
+		for _, arc := range volume.Arcs {
+			scopes = append(scopes, viewmodel.SnapshotScope{Volume: volume.Index, Arc: arc.Index, Title: arc.Title})
+		}
+	}
+	return scopes, nil
 }
 
 func (s *Service) GetContinuityCast(offset, limit int) (viewmodel.CastPage, error) {

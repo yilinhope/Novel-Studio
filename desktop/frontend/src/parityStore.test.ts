@@ -50,6 +50,30 @@ test('全书大纲可分别切换 Core 分层与扁平数据', async () => {
   expect(useParityStore.getState().data).toMatchObject({items: [{title: '出航'}]})
 })
 
+test('分层大纲翻页时同步当前卷列表，避免 Arc Selector 停留在旧页', async () => {
+  vi.mocked(api.GetStoryLayeredOutline!).mockResolvedValueOnce({projectId: project.outputDir, generation: 7, projectRoot: project.projectRoot, outputDir: project.outputDir, offset: 0, limit: 50, total: 51, hasMore: true, items: Array.from({length: 50}, (_, index) => ({index: index + 1, title: `第${index + 1}卷`, theme: '', final: false, arcs: []}))})
+    .mockResolvedValueOnce({projectId: project.outputDir, generation: 7, projectRoot: project.projectRoot, outputDir: project.outputDir, offset: 50, limit: 50, total: 51, hasMore: false, items: [{index: 51, title: '第51卷', theme: '', final: true, arcs: [{index: 1, title: '终章弧', goal: '收束', chapterCount: 1}]}]})
+
+  await useParityStore.getState().selectSection('outline')
+  await useParityStore.getState().page(50)
+
+  expect(useParityStore.getState().data).toMatchObject({offset: 50, items: [{index: 51}]})
+  expect(useParityStore.getState().layeredOutline?.items).toHaveLength(1)
+  expect(useParityStore.getState().layeredOutline?.items[0]?.arcs[0]?.title).toBe('终章弧')
+})
+
+test('角色快照可在最新与指定卷弧之间切换', async () => {
+  vi.mocked(api.GetContinuitySnapshots!).mockResolvedValueOnce({projectId: project.outputDir, generation: 7, projectRoot: project.projectRoot, outputDir: project.outputDir, offset: 0, limit: 50, total: 1, hasMore: false, scopes: [{volume: 1, arc: 1, title: '离港'}], items: [{volume: 1, arc: 1, name: '林渡', status: '坚定', motivation: '回家'}]})
+    .mockResolvedValueOnce({projectId: project.outputDir, generation: 7, projectRoot: project.projectRoot, outputDir: project.outputDir, offset: 0, limit: 50, total: 1, hasMore: false, scopes: [{volume: 1, arc: 1, title: '离港'}, {volume: 1, arc: 2, title: '回响'}], items: [{volume: 1, arc: 2, name: '林渡', status: '觉醒', motivation: '面对真相'}]})
+
+  await useParityStore.getState().selectSection('snapshots')
+  await useParityStore.getState().selectSnapshotScope(1, 2)
+
+  expect(api.GetContinuitySnapshots).toHaveBeenNthCalledWith(1, expect.objectContaining({projectId: project.outputDir}), 0, 0)
+  expect(api.GetContinuitySnapshots).toHaveBeenNthCalledWith(2, expect.objectContaining({projectId: project.outputDir}), 1, 2)
+  expect(useParityStore.getState().data).toMatchObject({items: [{arc: 2, status: '觉醒'}]})
+})
+
 test('项目切换后旧的连续性响应不会污染当前页面', async () => {
   let resolveOld!: (page: CharacterPage) => void
   vi.mocked(api.GetStoryCharacters!).mockImplementation(() => new Promise(resolve => {resolveOld = resolve}))

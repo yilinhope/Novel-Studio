@@ -18,6 +18,8 @@ interface StudioState {
 }
 let request = 0
 const normalizePath = (path: string) => path.replaceAll('\\', '/').replace(/\/+$/, '').toLocaleLowerCase()
+const canLeaveChapter = (state: Pick<StudioState, 'saveBusy' | 'syncing' | 'dirty'>) =>
+  !state.saveBusy && !state.syncing && (!state.dirty || window.confirm('当前章节有未保存修改。离开将放弃这些修改，是否继续？'))
 export const useStudio = create<StudioState>((set, get) => ({
   project: null, chapter: null, busy: false, error: '', view: 'overview', chapterLoading: false,
   draftContent: '', savedContent: '', dirty: false, saveBusy: false, saveError: '', syncing: false, syncError: '', syncNotice: '', refreshWarning: '',
@@ -184,22 +186,22 @@ export const useStudio = create<StudioState>((set, get) => ({
     }
   },
   overview() {
-    if (get().saveBusy || get().syncing || (get().dirty && !window.confirm('当前章节有未保存修改。离开将放弃这些修改，是否继续？'))) return
+    if (!canLeaveChapter(get())) return
     ++request
     set({view:'overview', chapterLoading:false, error:'', draftContent:get().savedContent, dirty:false, saveError:''})
   },
   runtime() {
-    if (get().saveBusy || get().syncing || (get().dirty && !window.confirm('当前章节有未保存修改。离开将放弃这些修改，是否继续？'))) return
+    if (!canLeaveChapter(get())) return
     ++request
     set({view:'runtime', chapterLoading:false, error:'', draftContent:get().savedContent, dirty:false, saveError:''})
   },
   review() {
-    if (get().saveBusy || get().syncing || (get().dirty && !window.confirm('当前章节有未保存修改。离开将放弃这些修改，是否继续？'))) return
+    if (!canLeaveChapter(get())) return
     ++request
     set({view:'review', chapterLoading:false, error:'', draftContent:get().savedContent, dirty:false, saveError:''})
   },
   proposals() {
-    if (get().saveBusy || get().syncing || (get().dirty && !window.confirm('当前章节有未保存修改。离开将放弃这些修改，是否继续？'))) return
+    if (!canLeaveChapter(get())) return
     ++request
     set({view:'proposals', chapterLoading:false, error:'', draftContent:get().savedContent, dirty:false, saveError:''})
   },
@@ -207,5 +209,5 @@ export const useStudio = create<StudioState>((set, get) => ({
   imports() { if (!get().saveBusy && !get().syncing) { ++request; set({view: 'import', chapterLoading: false, error: ''}) } },
   settings() { if (!get().saveBusy && !get().syncing) { ++request; set({view: 'settings', chapterLoading: false, error: ''}) } },
   exports() { if (!get().saveBusy && !get().syncing) { ++request; set({view: 'export', chapterLoading: false, error: ''}) } },
-  parity(section) { if (!get().saveBusy && !get().syncing && !get().busy) { ++request; set({view: 'parity', chapterLoading: false, error: ''}); void import('./parityStore').then(({useParityStore}) => useParityStore.getState().selectSection(section)) } },
+  parity(section) { if (!get().busy && canLeaveChapter(get())) { ++request; set({view: 'parity', chapterLoading: false, error: '', draftContent: get().savedContent, dirty: false, saveError: ''}); void import('./parityStore').then(({useParityStore}) => useParityStore.getState().selectSection(section)) } },
 }))

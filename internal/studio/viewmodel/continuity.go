@@ -65,10 +65,17 @@ type CharacterSnapshot struct {
 	Relations  string `json:"relations,omitempty"`
 }
 
+type SnapshotScope struct {
+	Volume int    `json:"volume"`
+	Arc    int    `json:"arc"`
+	Title  string `json:"title"`
+}
+
 type SnapshotPage struct {
 	ReadIdentity
 	PageInfo
-	Items []CharacterSnapshot `json:"items"`
+	Scopes []SnapshotScope     `json:"scopes,omitempty"`
+	Items  []CharacterSnapshot `json:"items"`
 }
 
 type CastEntry struct {

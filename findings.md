@@ -160,3 +160,10 @@
 - 分层大纲返回卷/弧元数据，章节通过单独分页 API 延迟读取；摘要按章节/弧/卷范围分页；前端不解析 JSON/JSONL/Markdown，也不读取章节正文。
 - Cast 使用 `Store.BuildCast(progress.CompletedChapters)` 的既有 ChapterRecord 投影；快照使用 `LoadLatestSnapshots`，均不在 UI 推导关系或状态。
 - Core Store 共享读取方法的 GitNexus 影响仍为 HIGH/CRITICAL 下界，因此实现只加 Studio 适配层；新增 Project 身份装饰只改变传输 ViewModel，不改变 Core 语义。
+
+## Wave A review 修复发现（2026-09-26）
+
+- dirty navigation guard 只复用现有章节编辑器状态和确认语义，没有新增 GUI 正文事实源。
+- layered outline 分页仅在卷列表且未选中 Arc 时同步 selector 元数据；章节详情仍由 Core 分页 API 返回。
+- SnapshotScope 是现有 Core 分层大纲的传输投影；历史快照读取直接委托 `CharacterStore.LoadSnapshots(volume, arc)`，未新增 Fact/Knowledge 模型或持久化。
+- 本轮未改变 Core 业务语义、Host 生命周期或项目写锁边界。

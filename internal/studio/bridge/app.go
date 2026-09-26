@@ -302,14 +302,14 @@ func (a *App) GetContinuityStateChanges(request viewmodel.ReadRequest) (viewmode
 	return result, err
 }
 
-func (a *App) GetContinuitySnapshots(request viewmodel.ReadRequest) (viewmodel.SnapshotPage, error) {
+func (a *App) GetContinuitySnapshots(request viewmodel.ReadRequest, volume, arc int) (viewmodel.SnapshotPage, error) {
 	a.projectMu.RLock()
 	defer a.projectMu.RUnlock()
 	identity, err := a.readIdentity(request)
 	if err != nil {
 		return viewmodel.SnapshotPage{}, err
 	}
-	result, err := a.service.GetContinuitySnapshots(request.Offset, request.Limit)
+	result, err := a.service.GetContinuitySnapshots(volume, arc, request.Offset, request.Limit)
 	result.ReadIdentity = identity
 	return result, err
 }

@@ -278,3 +278,10 @@
 - 前端同时暴露分层与扁平大纲，卷/弧章节和摘要/连续性列表按页读取；React 不读取项目文件。
 - Cast 继续使用 Core `Store.BuildCast` 的已接纳 ChapterRecord 投影；没有从正文或 UI 推导新事实。
 - `ConfirmChapterCommit` 与 Core Sync 刷新返回的 Project 补回当前 Bridge generation，避免后续只读请求丢失作用域身份。
+
+## Wave A review 修复收束（2026-09-26）
+
+- [x] parity 导航复用章节编辑器 dirty 离开确认；取消保留 draft，确认后才进入 Story/Continuity。
+- [x] 分层大纲卷列表翻页同步 `layeredOutline`；选中 Arc 的章节详情分页保留 selector；补 51+ 卷回归。
+- [x] 连续性角色快照增加卷/弧范围选择并委托 Core `LoadSnapshots(volume, arc)`；最新快照继续委托 `LoadLatestSnapshots()`，矩阵保持 Full GUI。
+- [ ] 完成全量验证、GitNexus 变更检查并推送 PR #12，等待 CI。

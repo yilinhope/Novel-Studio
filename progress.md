@@ -111,3 +111,10 @@
 - Windows Wails production build 通过，产物为 `cmd/novel-studio/build/bin/Novel-Studio.exe`；仍有既有 `Not found: time.Time` 绑定警告，不影响构建退出码。
 - GitNexus 重建后 `detect-changes --scope all` 完成，`partial/truncated` 未报告，225 个变更符号、5 个受影响流程，风险为 medium；风险集中在既有 Bridge/App 动态边界，未修改 Core Store。
 - 构建生成目录副作用已还原 `desktop/frontend/dist/.gitkeep`；当前只保留 Wave A 源码、测试、文档与计划变更。
+
+## Wave A review 修复（2026-09-26）
+
+- 修复 parity 导航绕过 dirty 章节离开确认的问题；取消保留当前章节和草稿，确认后清理草稿再进入 Story/Continuity。
+- 修复分层卷列表超过 50 项翻页时 Arc Selector 使用旧页的问题；选中 Arc 的章节详情分页仍保留原 selector。
+- 角色快照现在同时支持最新快照与指定 Volume/Arc 历史快照，后端分别使用 Core `LoadLatestSnapshots` 与 `LoadSnapshots`。
+- 定向验证阶段：Studio 测试通过，Frontend 55 tests 与 production build 通过；最终全量验证待本轮完成。

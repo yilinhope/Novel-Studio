@@ -127,7 +127,8 @@ export interface RelationshipPage extends ReadIdentity, PageInfo { items: Relati
 export interface StateChange { chapter: number; entity: string; field: string; oldValue?: string; newValue: string; reason?: string }
 export interface StateChangePage extends ReadIdentity, PageInfo { items: StateChange[] }
 export interface CharacterSnapshot { volume: number; arc: number; name: string; status: string; power?: string; motivation: string; relations?: string }
-export interface SnapshotPage extends ReadIdentity, PageInfo { items: CharacterSnapshot[] }
+export interface SnapshotScope { volume: number; arc: number; title: string }
+export interface SnapshotPage extends ReadIdentity, PageInfo { scopes?: SnapshotScope[]; items: CharacterSnapshot[] }
 export interface CastEntry { name: string; briefRole?: string; firstSeenChapter: number; lastSeenChapter: number; appearanceCount: number; appearanceChapters?: number[] }
 export interface CastPage extends ReadIdentity, PageInfo { items: CastEntry[] }
 export type ParitySection = 'premise' | 'characters' | 'world' | 'outline' | 'compass' | 'summaries' | 'timeline' | 'foreshadow' | 'relationships' | 'states' | 'snapshots' | 'cast'
@@ -193,7 +194,7 @@ export interface StudioBridge {
   GetContinuityForeshadow?(request: ReadRequest): Promise<ForeshadowPage>
   GetContinuityRelationships?(request: ReadRequest): Promise<RelationshipPage>
   GetContinuityStateChanges?(request: ReadRequest): Promise<StateChangePage>
-  GetContinuitySnapshots?(request: ReadRequest): Promise<SnapshotPage>
+  GetContinuitySnapshots?(request: ReadRequest, volume: number, arc: number): Promise<SnapshotPage>
   GetContinuityCast?(request: ReadRequest): Promise<CastPage>
 }
 declare global {
