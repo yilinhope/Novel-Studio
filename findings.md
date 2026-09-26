@@ -128,3 +128,35 @@
 - 源码矩阵见 `docs/CORE_GUI_PARITY_MATRIX.md`。当前 Studio 已覆盖主要创作闭环，但 Story Data Center 与 Continuity Center 尚无独立 Bridge/ViewModel/GUI；Core Store 已有对应读取能力。
 - GitNexus 影响审计：`OutlineStore.LoadLayeredOutline` 为 CRITICAL（97 个下游影响、7 个流程），`WorldStore.LoadTimeline` 为 HIGH 且索引提示 4 个接收者类型未解析，`CharacterStore.LoadSnapshots` 为 LOW 且提示 1 个调用点下界；本轮没有修改这些 Core 符号。
 - 当前用户要求停在审计阶段，因此不新增 Wave A 代码；后续实现需先复跑 impact 并保持 React → Wails Bridge → Studio Facade/ViewModel → Core Store 链路。
+
+## Wave A 实施审计（2026-09-26）
+
+### 基线与事实源
+
+- 最新 `origin/main` 为 `a463521`，从该提交建立 `codex/wave-a-story-continuity`。
+- `internal/store.Store` 已组合 `Book`、`Outline`、`Characters`、`World`、`Summaries`、`Progress`、`ChapterRecords` 等 Core Store；现有 `internal/studio/app.Service` 只读快照目前只投影 Overview/Tree/Chapter。
+- Story 读取入口：`Book.Load`、`Outline.LoadPremise/LoadOutline/LoadLayeredOutline/LoadCompass`、`Characters.Load`、`World.LoadWorldRules`、`Summaries.LoadSummary/LoadArcSummary/LoadVolumeSummary`。
+- Continuity 读取入口：`World.LoadTimeline/LoadForeshadowLedger/LoadRelationships/LoadStateChanges`、`Characters.LoadSnapshots/LoadLatestSnapshots`、`Store.BuildCast`（基于已接纳 ChapterRecord 投影）。
+- 这些 Store 读取在缺失文件时返回空/nil；损坏或权限错误继续上抛，Facade 需保留错误并区分 optional empty。
+
+### 边界
+
+- `OpenProject`/只读 Service 读取不创建 Host；Bridge 通过当前 `outputDir` 绑定 Store 作用域。
+- `ProjectRoot` 用于项目身份和配置边界，`OutputDir` 是 Core Store 根目录；不从前端路径推导第二套项目事实。
+- 大列表由 Facade 在 Core 数据边界分页，章节/弧/卷摘要按候选编号按页读取；Layered outline 使用卷弧元数据与章节惰性详情，Snapshots 暴露当前 Store 的最近快照投影。
+- 前端请求需回显 projectId/generation/requestId/sequence，并在 store 层二次拒绝切换后的晚到响应。
+
+### GitNexus impact
+
+- `OutlineStore.LoadPremise`：HIGH，39 下游、3 流程。
+- `OutlineStore.LoadOutline`：CRITICAL lower-bound，74 下游、6 流程，索引提示 1 个 receiver typing 未解析。
+- `WorldStore.LoadForeshadowLedger`：CRITICAL，27 下游；`LoadRelationships`：HIGH，11 下游；`LoadStateChanges`：HIGH lower-bound，9 下游。
+- 这些风险来自共享 Core Store 读取边界；本轮不修改 Store 实现，只在 Studio Facade/Bridge 读取并补回归测试。
+
+## Wave A 实施发现（2026-09-26）
+
+- Story/Continuity 的核心字段均可由现有 Store 读取；没有发现需要新增 Core 字段、第二套小说事实或持久化迁移。
+- `ReadRequest` 在 Bridge 校验当前 OutputDir 与 generation，并回显 ProjectRoot/OutputDir/requestId/sequence；React 以 nonce 和项目路径双重拒绝晚到响应。
+- 分层大纲返回卷/弧元数据，章节通过单独分页 API 延迟读取；摘要按章节/弧/卷范围分页；前端不解析 JSON/JSONL/Markdown，也不读取章节正文。
+- Cast 使用 `Store.BuildCast(progress.CompletedChapters)` 的既有 ChapterRecord 投影；快照使用 `LoadLatestSnapshots`，均不在 UI 推导关系或状态。
+- Core Store 共享读取方法的 GitNexus 影响仍为 HIGH/CRITICAL 下界，因此实现只加 Studio 适配层；新增 Project 身份装饰只改变传输 ViewModel，不改变 Core 语义。

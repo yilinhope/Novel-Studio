@@ -227,3 +227,54 @@
 - 审计结论：Story/Continuity 所需的 premise、characters、world rules、outline、Compass、summaries、timeline、foreshadow、relationships、state changes、snapshots 与 cast projection 已存在于 Core Store/ChapterRecord 投影；Studio 主要缺少只读 Facade/ViewModel/GUI 入口。
 - 已知 parity 缺口：`/reopen`、`/simulate`、`/importsim`、`/diag`/diag-export、Rules/Style/Voice 管理、Config advanced/fallback/notify、Import auto-confirm/story-resolution、Runtime context/compression 观测等，详见矩阵。
 - 后续若开始 Wave A，必须先重新运行相关符号的 GitNexus impact；若实现中发现 Core 语义缺失、第二事实源或持久化迁移需求，立即暂停并汇报。
+
+## Wave A — Core GUI Parity Completion（2026-09-26）
+
+### Goal
+
+从最新 `origin/main` 完成 Story Data Center 与 Continuity Center 的只读 GUI 闭环。链路固定为 React → Wails Bridge → Studio Facade/ViewModel → Core Store；只读读取不创建 Host、不写回 metadata、不创建第二套小说事实源。
+
+### Scope
+
+- [x] Story Data Center：Premise、Characters、World Rules、Flat Outline、Layered Volume/Arc/Chapter Outline、Story Compass、Chapter/Arc/Volume Summaries。
+- [x] Continuity Center：Timeline、Foreshadow Ledger、Relationships、State Changes、Character Snapshots、Cast/First Appearance。
+- [x] React 导航、分页/惰性详情、loading/error/empty 和项目切换 stale protection。
+- [x] Go Facade/ViewModel/Bridge 与真实 Core Store 读取测试。
+- [x] Frontend 导航、数据展示、加载错误、空数据、项目切换和 stale response 测试。
+- [x] 更新 `docs/CORE_GUI_PARITY_MATRIX.md` 的 Wave A 状态；不进入 Wave B/C、Deferred Research 或 Fact Engine。
+
+### Guardrails
+
+- 不实现 `/simulate`、`/importsim`、Rules/Style/Voice、`/diag`、Advanced Config、Import option parity、Runtime parity、`/reopen`、Fact/Knowledge/Dependency/Impact/Repair。
+- 不让 React 解析 JSON/JSONL/Markdown；不让只读页面创建 Host。
+- 数据缺失时返回明确的 optional missing/empty 状态，不在 GUI 推导关系、状态、时间线或事实。
+- 所有读取请求携带并校验 projectId、generation、requestId、sequence；项目切换后旧响应不得写入前端。
+
+### Audit
+
+- 基线：`origin/main` merge commit `a463521`。
+- GitNexus 已重建；`OutlineStore.LoadOutline` 影响为 CRITICAL（lower-bound，74 下游、6 流程），`LoadPremise` HIGH（39 下游），`LoadLayeredOutline`/World projection 共享高影响边界；本轮只新增读取适配，不修改这些 Core 符号。
+- `CharacterStore.LoadSnapshots` 与 `SummaryStore.LoadSummary` 的索引符号存在解析下界，需以源码搜索、Facade 测试和全量验证补证。
+
+### Phases
+
+1. [x] 从最新 `origin/main` 建立 `codex/wave-a-story-continuity` 并完成文档/源码轻量审计与 GitNexus impact。
+2. [x] 建立 Story/Continuity ViewModel、只读 Facade 和 Bridge API。
+3. [x] 建立前端 Store、导航和 Story/Continuity 页面，接入项目身份与 stale protection。
+4. [x] 补齐 Go/Frontend 测试与大列表分页/惰性详情覆盖。
+5. [x] 运行 Go tests、vet、Frontend tests/build、Windows Wails production build。
+6. [x] 重跑 GitNexus `detect-changes --scope all`，复核 Wave A 矩阵与文档范围。
+7. [ ] 提交中文说明、推送并创建统一 PR；CI 全绿后报告结果。
+
+### Errors Encountered
+
+| Error | Attempt | Resolution |
+|---|---:|---|
+| 旧 GitNexus 索引无法解析目标方法 | 1 | 按项目规则重建 `.gitnexus` 索引后，以完整 Method ID 重跑 impact；UNKNOWN 仅作为索引边界处理 |
+
+### Implementation notes
+
+- Story/Continuity 只读 API 均经过 Bridge project mutex、当前 `ProjectRoot`/`OutputDir` 和 generation 校验；只读调用不创建 Host。
+- 前端同时暴露分层与扁平大纲，卷/弧章节和摘要/连续性列表按页读取；React 不读取项目文件。
+- Cast 继续使用 Core `Store.BuildCast` 的已接纳 ChapterRecord 投影；没有从正文或 UI 推导新事实。
+- `ConfirmChapterCommit` 与 Core Sync 刷新返回的 Project 补回当前 Bridge generation，避免后续只读请求丢失作用域身份。

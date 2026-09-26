@@ -4,15 +4,17 @@ import { setChapterCommitHandler, useEngineStore } from './engineStore'
 import { useRevisionStore } from './revisionStore'
 import { useProposalStore } from './proposalStore'
 import type { Chapter, Project, StudioEngineEvent } from './types'
+import type { ParitySection } from './types'
 
 interface StudioState {
   project: Project | null; chapter: Chapter | null; busy: boolean; error: string
-  view: 'overview' | 'chapter' | 'runtime' | 'review' | 'proposals' | 'create' | 'import' | 'settings' | 'export'; chapterLoading: boolean
+  view: 'overview' | 'chapter' | 'parity' | 'runtime' | 'review' | 'proposals' | 'create' | 'import' | 'settings' | 'export'; chapterLoading: boolean
   draftContent: string; savedContent: string; dirty: boolean; saveBusy: boolean; saveError: string
   syncing: boolean; syncError: string; syncNotice: string; refreshWarning: string
   open(path?: string): Promise<void>; read(number: number): Promise<void>; setDraftContent(content: string): void
   saveChapter(): Promise<void>; syncChapterRevisions(): Promise<void>; overview(): void; runtime(): void; review(): void; proposals(): void
   create(): void; imports(): void; settings(): void; exports(): void
+  parity(section: ParitySection): void
 }
 let request = 0
 const normalizePath = (path: string) => path.replaceAll('\\', '/').replace(/\/+$/, '').toLocaleLowerCase()
@@ -38,6 +40,7 @@ export const useStudio = create<StudioState>((set, get) => ({
       const project = await api.OpenProject(selected)
       if (ticket === request) {
         set({project, chapter: null, draftContent: '', savedContent: '', dirty: false, saveError: '', syncError: '', syncNotice: '', refreshWarning: '', view: 'overview'})
+        void import('./parityStore').then(({useParityStore}) => useParityStore.getState().reset())
         await useEngineStore.getState().selectProject(project.overview.path, api.GetRuntimeState)
         await useRevisionStore.getState().selectProject(project.outputDir, () => api.GetRevisionStatus())
         await useEngineStore.getState().refreshRuntime()
@@ -204,4 +207,5 @@ export const useStudio = create<StudioState>((set, get) => ({
   imports() { if (!get().saveBusy && !get().syncing) { ++request; set({view: 'import', chapterLoading: false, error: ''}) } },
   settings() { if (!get().saveBusy && !get().syncing) { ++request; set({view: 'settings', chapterLoading: false, error: ''}) } },
   exports() { if (!get().saveBusy && !get().syncing) { ++request; set({view: 'export', chapterLoading: false, error: ''}) } },
+  parity(section) { if (!get().saveBusy && !get().syncing && !get().busy) { ++request; set({view: 'parity', chapterLoading: false, error: ''}); void import('./parityStore').then(({useParityStore}) => useParityStore.getState().selectSection(section)) } },
 }))

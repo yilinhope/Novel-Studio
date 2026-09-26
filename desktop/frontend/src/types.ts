@@ -4,7 +4,7 @@ export interface Overview {
   wordCount: number; currentVolume: number; currentArc: number
 }
 export interface TreeNode { id: string; kind: string; title: string; chapter: number; children: TreeNode[] }
-export interface Project { projectRoot: string; outputDir: string; overview: Overview; tree: TreeNode[] }
+export interface Project { projectId?: string; generation?: number; projectRoot: string; outputDir: string; overview: Overview; tree: TreeNode[] }
 export interface ChapterCommitConfirmation { confirmed: boolean; project: Project }
 export interface Chapter { number: number; title: string; content: string; wordCount: number; hasContent: boolean; canEdit: boolean }
 export interface ReviewIssue { type: string; severity: string; description: string; evidence?: string; suggestion?: string; chapters?: number[]; requires_change: boolean }
@@ -98,6 +98,39 @@ export interface RoleThinking { role: string; level: string }
 export interface UsageTotals { input: number; output: number; cacheRead: number; cacheWrite: number; costUsd: number; savedUsd: number; cacheCapable: boolean; cacheBreaks: number }
 export interface AgentUsage { role?: string; model?: string; input: number; output: number; cacheRead: number; cacheWrite: number; costUsd: number; savedUsd: number; cacheCapable: boolean }
 export interface UsageSnapshot { projectId: string; updatedAt: string; overall: UsageTotals; perAgent: AgentUsage[]; perModel: AgentUsage[]; missingUsage: number; budget: BudgetConfig }
+
+export interface ReadRequest { projectId: string; generation: number; requestId: string; sequence: number; offset: number; limit: number }
+export interface ReadIdentity { projectId: string; generation: number; projectRoot: string; outputDir: string; requestId?: string; sequence?: number }
+export interface PageInfo { offset: number; limit: number; total: number; hasMore: boolean }
+export interface StoryPremise extends ReadIdentity { book: { title: string; synopsis: string }; premise: string; bookAvailable: boolean; premiseAvailable: boolean }
+export interface Character { name: string; aliases?: string[]; role: string; description: string; arc: string; traits?: string[]; tier?: string }
+export interface CharacterPage extends ReadIdentity, PageInfo { items: Character[] }
+export interface WorldRule { category: string; rule: string; boundary: string }
+export interface WorldRulePage extends ReadIdentity, PageInfo { items: WorldRule[] }
+export interface OutlineEntry { chapter: number; title: string; coreEvent: string; hook: string; scenes?: string[] }
+export interface OutlinePage extends ReadIdentity, PageInfo { items: OutlineEntry[] }
+export interface LayeredArc { index: number; title: string; goal: string; estimatedChapters?: number; chapterCount: number }
+export interface LayeredVolume { index: number; title: string; theme: string; final: boolean; arcs: LayeredArc[] }
+export interface LayeredOutlinePage extends ReadIdentity, PageInfo { items: LayeredVolume[] }
+export interface LayeredChapterPage extends ReadIdentity, PageInfo { volume: number; arc: number; items: OutlineEntry[] }
+export interface StoryCompass extends ReadIdentity { endingDirection: string; openThreads?: string[]; estimatedScale?: string; lastUpdated?: number; available: boolean }
+export interface ChapterSummary { chapter: number; title: string; summary: string; characters?: string[]; keyEvents?: string[] }
+export interface ArcSummary { volume: number; arc: number; title: string; summary: string; keyEvents?: string[] }
+export interface VolumeSummary { volume: number; title: string; summary: string; keyEvents?: string[] }
+export interface StorySummaryPage extends ReadIdentity, PageInfo { scope: 'chapter' | 'arc' | 'volume'; chapters?: ChapterSummary[]; arcs?: ArcSummary[]; volumes?: VolumeSummary[] }
+export interface TimelineEvent { chapter: number; time: string; event: string; characters?: string[] }
+export interface TimelinePage extends ReadIdentity, PageInfo { items: TimelineEvent[] }
+export interface ForeshadowEntry { id: string; description: string; plantedAt: number; status: string; resolvedAt?: number }
+export interface ForeshadowPage extends ReadIdentity, PageInfo { items: ForeshadowEntry[] }
+export interface RelationshipEntry { characterA: string; characterB: string; relation: string; chapter: number }
+export interface RelationshipPage extends ReadIdentity, PageInfo { items: RelationshipEntry[] }
+export interface StateChange { chapter: number; entity: string; field: string; oldValue?: string; newValue: string; reason?: string }
+export interface StateChangePage extends ReadIdentity, PageInfo { items: StateChange[] }
+export interface CharacterSnapshot { volume: number; arc: number; name: string; status: string; power?: string; motivation: string; relations?: string }
+export interface SnapshotPage extends ReadIdentity, PageInfo { items: CharacterSnapshot[] }
+export interface CastEntry { name: string; briefRole?: string; firstSeenChapter: number; lastSeenChapter: number; appearanceCount: number; appearanceChapters?: number[] }
+export interface CastPage extends ReadIdentity, PageInfo { items: CastEntry[] }
+export type ParitySection = 'premise' | 'characters' | 'world' | 'outline' | 'compass' | 'summaries' | 'timeline' | 'foreshadow' | 'relationships' | 'states' | 'snapshots' | 'cast'
 export interface StudioBridge {
   SelectProjectDirectory(): Promise<string>
   OpenProject(path: string): Promise<Project>
@@ -148,6 +181,20 @@ export interface StudioBridge {
   SetRoleThinking?(setting: RoleThinking): Promise<ConfigSnapshot>
   SaveBudgetConfig?(budget: BudgetConfig): Promise<ConfigSnapshot>
   GetUsage?(): Promise<UsageSnapshot>
+  GetStoryPremise?(request: ReadRequest): Promise<StoryPremise>
+  GetStoryCharacters?(request: ReadRequest): Promise<CharacterPage>
+  GetStoryWorldRules?(request: ReadRequest): Promise<WorldRulePage>
+  GetStoryOutline?(request: ReadRequest): Promise<OutlinePage>
+  GetStoryLayeredOutline?(request: ReadRequest): Promise<LayeredOutlinePage>
+  GetStoryLayeredChapters?(request: ReadRequest, volume: number, arc: number): Promise<LayeredChapterPage>
+  GetStoryCompass?(request: ReadRequest): Promise<StoryCompass>
+  GetStorySummaries?(request: ReadRequest, scope: 'chapter' | 'arc' | 'volume'): Promise<StorySummaryPage>
+  GetContinuityTimeline?(request: ReadRequest): Promise<TimelinePage>
+  GetContinuityForeshadow?(request: ReadRequest): Promise<ForeshadowPage>
+  GetContinuityRelationships?(request: ReadRequest): Promise<RelationshipPage>
+  GetContinuityStateChanges?(request: ReadRequest): Promise<StateChangePage>
+  GetContinuitySnapshots?(request: ReadRequest): Promise<SnapshotPage>
+  GetContinuityCast?(request: ReadRequest): Promise<CastPage>
 }
 declare global {
   interface Window {

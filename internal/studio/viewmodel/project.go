@@ -2,6 +2,8 @@ package viewmodel
 
 // Project 是一次打开操作返回的只读快照。
 type Project struct {
+	ProjectID   string   `json:"projectId"`
+	Generation  uint64   `json:"generation"`
 	ProjectRoot string   `json:"projectRoot"`
 	OutputDir   string   `json:"outputDir"`
 	Overview    Overview `json:"overview"`

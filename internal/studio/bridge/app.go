@@ -30,6 +30,7 @@ type App struct {
 	revisions          *app.RevisionService
 	projectDir         string
 	outputDir          string
+	projectGeneration  uint64
 	operationMu        sync.Mutex
 	operation          string
 	operationID        uint64
@@ -117,6 +118,9 @@ func (a *App) OpenProject(path string) (viewmodel.Project, error) {
 	a.mu.Lock()
 	a.projectDir = project.ProjectRoot
 	a.outputDir = project.OutputDir
+	a.projectGeneration++
+	project.ProjectID = project.OutputDir
+	project.Generation = a.projectGeneration
 	a.mu.Unlock()
 	return project, nil
 }
@@ -136,6 +140,191 @@ func sameProjectPath(left, right string) bool {
 func (a *App) GetProjectOverview() (viewmodel.Overview, error)  { return a.service.GetProjectOverview() }
 func (a *App) GetProjectTree() ([]viewmodel.Node, error)        { return a.service.GetProjectTree() }
 func (a *App) GetChapter(number int) (viewmodel.Chapter, error) { return a.service.GetChapter(number) }
+
+func (a *App) readIdentity(request viewmodel.ReadRequest) (viewmodel.ReadIdentity, error) {
+	projectRoot, outputDir, err := a.currentProjectPaths()
+	if err != nil {
+		return viewmodel.ReadIdentity{}, err
+	}
+	a.mu.RLock()
+	generation := a.projectGeneration
+	a.mu.RUnlock()
+	if request.ProjectID != "" && !sameProjectPath(request.ProjectID, outputDir) {
+		return viewmodel.ReadIdentity{}, fmt.Errorf("项目已切换，读取请求已过期")
+	}
+	if request.Generation != 0 && request.Generation != generation {
+		return viewmodel.ReadIdentity{}, fmt.Errorf("项目读取代次已过期，请刷新当前项目")
+	}
+	return viewmodel.ReadIdentity{ProjectID: outputDir, Generation: generation, ProjectRoot: projectRoot, OutputDir: outputDir, RequestID: request.RequestID, Sequence: request.Sequence}, nil
+}
+
+func (a *App) GetStoryPremise(request viewmodel.ReadRequest) (viewmodel.StoryPremise, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	identity, err := a.readIdentity(request)
+	if err != nil {
+		return viewmodel.StoryPremise{}, err
+	}
+	result, err := a.service.GetStoryPremise()
+	result.ReadIdentity = identity
+	return result, err
+}
+
+func (a *App) GetStoryCharacters(request viewmodel.ReadRequest) (viewmodel.CharacterPage, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	identity, err := a.readIdentity(request)
+	if err != nil {
+		return viewmodel.CharacterPage{}, err
+	}
+	result, err := a.service.GetStoryCharacters(request.Offset, request.Limit)
+	result.ReadIdentity = identity
+	return result, err
+}
+
+func (a *App) GetStoryWorldRules(request viewmodel.ReadRequest) (viewmodel.WorldRulePage, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	identity, err := a.readIdentity(request)
+	if err != nil {
+		return viewmodel.WorldRulePage{}, err
+	}
+	result, err := a.service.GetStoryWorldRules(request.Offset, request.Limit)
+	result.ReadIdentity = identity
+	return result, err
+}
+
+func (a *App) GetStoryOutline(request viewmodel.ReadRequest) (viewmodel.OutlinePage, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	identity, err := a.readIdentity(request)
+	if err != nil {
+		return viewmodel.OutlinePage{}, err
+	}
+	result, err := a.service.GetStoryOutline(request.Offset, request.Limit)
+	result.ReadIdentity = identity
+	return result, err
+}
+
+func (a *App) GetStoryLayeredOutline(request viewmodel.ReadRequest) (viewmodel.LayeredOutlinePage, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	identity, err := a.readIdentity(request)
+	if err != nil {
+		return viewmodel.LayeredOutlinePage{}, err
+	}
+	result, err := a.service.GetStoryLayeredOutline(request.Offset, request.Limit)
+	result.ReadIdentity = identity
+	return result, err
+}
+
+func (a *App) GetStoryLayeredChapters(request viewmodel.ReadRequest, volume, arc int) (viewmodel.LayeredChapterPage, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	identity, err := a.readIdentity(request)
+	if err != nil {
+		return viewmodel.LayeredChapterPage{}, err
+	}
+	result, err := a.service.GetStoryLayeredChapters(volume, arc, request.Offset, request.Limit)
+	result.ReadIdentity = identity
+	return result, err
+}
+
+func (a *App) GetStoryCompass(request viewmodel.ReadRequest) (viewmodel.StoryCompass, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	identity, err := a.readIdentity(request)
+	if err != nil {
+		return viewmodel.StoryCompass{}, err
+	}
+	result, err := a.service.GetStoryCompass()
+	result.ReadIdentity = identity
+	return result, err
+}
+
+func (a *App) GetStorySummaries(request viewmodel.ReadRequest, scope string) (viewmodel.StorySummaryPage, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	identity, err := a.readIdentity(request)
+	if err != nil {
+		return viewmodel.StorySummaryPage{}, err
+	}
+	result, err := a.service.GetStorySummaries(scope, request.Offset, request.Limit)
+	result.ReadIdentity = identity
+	return result, err
+}
+
+func (a *App) GetContinuityTimeline(request viewmodel.ReadRequest) (viewmodel.TimelinePage, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	identity, err := a.readIdentity(request)
+	if err != nil {
+		return viewmodel.TimelinePage{}, err
+	}
+	result, err := a.service.GetContinuityTimeline(request.Offset, request.Limit)
+	result.ReadIdentity = identity
+	return result, err
+}
+
+func (a *App) GetContinuityForeshadow(request viewmodel.ReadRequest) (viewmodel.ForeshadowPage, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	identity, err := a.readIdentity(request)
+	if err != nil {
+		return viewmodel.ForeshadowPage{}, err
+	}
+	result, err := a.service.GetContinuityForeshadow(request.Offset, request.Limit)
+	result.ReadIdentity = identity
+	return result, err
+}
+
+func (a *App) GetContinuityRelationships(request viewmodel.ReadRequest) (viewmodel.RelationshipPage, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	identity, err := a.readIdentity(request)
+	if err != nil {
+		return viewmodel.RelationshipPage{}, err
+	}
+	result, err := a.service.GetContinuityRelationships(request.Offset, request.Limit)
+	result.ReadIdentity = identity
+	return result, err
+}
+
+func (a *App) GetContinuityStateChanges(request viewmodel.ReadRequest) (viewmodel.StateChangePage, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	identity, err := a.readIdentity(request)
+	if err != nil {
+		return viewmodel.StateChangePage{}, err
+	}
+	result, err := a.service.GetContinuityStateChanges(request.Offset, request.Limit)
+	result.ReadIdentity = identity
+	return result, err
+}
+
+func (a *App) GetContinuitySnapshots(request viewmodel.ReadRequest) (viewmodel.SnapshotPage, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	identity, err := a.readIdentity(request)
+	if err != nil {
+		return viewmodel.SnapshotPage{}, err
+	}
+	result, err := a.service.GetContinuitySnapshots(request.Offset, request.Limit)
+	result.ReadIdentity = identity
+	return result, err
+}
+
+func (a *App) GetContinuityCast(request viewmodel.ReadRequest) (viewmodel.CastPage, error) {
+	a.projectMu.RLock()
+	defer a.projectMu.RUnlock()
+	identity, err := a.readIdentity(request)
+	if err != nil {
+		return viewmodel.CastPage{}, err
+	}
+	result, err := a.service.GetContinuityCast(request.Offset, request.Limit)
+	result.ReadIdentity = identity
+	return result, err
+}
 func (a *App) GetReviewCenter() (viewmodel.ReviewCenter, error) {
 	status, err := a.revisionStatusService().CheckChapterRevisions()
 	if err != nil {
@@ -248,6 +437,7 @@ func (a *App) SyncChapterRevisions(chapter int) (viewmodel.ChapterSyncResult, er
 		}
 		result.RefreshWarning += warning
 	} else {
+		a.decorateProject(&project)
 		result.Project = &project
 		a.mu.Lock()
 		a.projectDir, a.outputDir = project.ProjectRoot, project.OutputDir
@@ -536,6 +726,7 @@ func (a *App) ConfirmChapterCommit(chapter int, startedAt string) (viewmodel.Cha
 	if err != nil {
 		return viewmodel.ChapterCommitConfirmation{}, err
 	}
+	a.decorateProject(&project)
 	return viewmodel.ChapterCommitConfirmation{Confirmed: confirmed, Project: project}, nil
 }
 
@@ -619,8 +810,23 @@ func (a *App) publishProject(outputDir string) (viewmodel.Project, error) {
 	}
 	a.mu.Lock()
 	a.projectDir, a.outputDir = project.ProjectRoot, project.OutputDir
+	a.projectGeneration++
+	project.ProjectID = project.OutputDir
+	project.Generation = a.projectGeneration
 	a.mu.Unlock()
 	return project, nil
+}
+
+// decorateProject 给不会切换项目代次的刷新结果补回当前 Bridge 身份。
+// 这只附加传输层身份，不改变 Core Project 事实。
+func (a *App) decorateProject(project *viewmodel.Project) {
+	if project == nil {
+		return
+	}
+	a.mu.RLock()
+	project.ProjectID = project.OutputDir
+	project.Generation = a.projectGeneration
+	a.mu.RUnlock()
 }
 
 func applyCreateProjectRefresh(event *viewmodel.CreateEvent, project viewmodel.Project, refreshErr error) {

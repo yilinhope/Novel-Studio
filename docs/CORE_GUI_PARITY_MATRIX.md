@@ -1,6 +1,6 @@
 # ainovel-cli Core GUI Parity Matrix
 
-> 审计基线：`origin/main`，提交 `6cb873a`（2026-09-26）。依据当前仓库的 TUI command registry、README 作者流程、Host / Store / Config 公共能力、Studio Bridge/ViewModel 和 React 页面逐项核对。状态只描述 Novel Studio 桌面 GUI 的作者工作流覆盖。
+> 审计基线：`origin/main`，提交 `a463521`（2026-09-26）。依据当前仓库的 TUI command registry、README 作者流程、Host / Store / Config 公共能力、Studio Bridge/ViewModel 和 React 页面逐项核对。状态只描述 Novel Studio 桌面 GUI 的作者工作流覆盖。
 >
 > 状态枚举：`Full GUI`、`Partial GUI`、`Missing GUI`、`Intentionally CLI-only`。本表中的“CLI/TUI 入口”包括交互式 TUI、公开 CLI 启动参数及 README 作者工作流；开发者 eval、headless 自动化和运维参数单独标识。
 
@@ -32,26 +32,26 @@
 
 | Core Feature | CLI/TUI Entry | Core API/Data | Studio Current | Status | Action |
 |---|---|---|---|---|---|
-| 作品资料、Premise | Architect 建书；`/start` | `BookStore.Load`、`OutlineStore.LoadPremise` | 总览显示标题与简介；Premise 正文没有查看页/API | Partial GUI | Wave A 只读 Story Data Center |
-| 人物档案 | 建书/导入；Agent 上下文可用 | `CharacterStore.Load`，`domain.Character` | 无人物列表/详情页 | Missing GUI | Wave A 只读展示 Core 人物档案 |
-| 世界规则 | Architect Foundation | `WorldStore.LoadWorldRules`，`domain.WorldRule` | 无专门浏览器 | Missing GUI | Wave A 只读展示，不编辑或重写规则语义 |
-| 扁平全书大纲 | TUI 章节规划；`/start` 导入需求 | `OutlineStore.LoadOutline`，`domain.OutlineEntry` | 章节树有部分标题/层级，没有章节事件、Hook、Scenes 详情 | Partial GUI | Wave A 展示完整 Core 条目 |
-| 分层卷/弧大纲 | TUI 长篇动态规划 | `OutlineStore.LoadLayeredOutline`，Volume/Arc/Chapter outline | 项目树展示卷/弧/章标题，不展示 Theme/Goal/Final/详细条目字段 | Partial GUI | Wave A 只读展示 Core 分层结构 |
-| Story Compass | Architect 在卷边界更新 | `OutlineStore.LoadCompass`，`domain.StoryCompass` | 无查看入口 | Missing GUI | Wave A 展示终局方向、Open Threads、规模和更新时间 |
-| 章节/弧/卷摘要 | Engine 上下文与章节提交 | `SummaryStore.LoadSummary*` | 项目树仅标题；无摘要浏览页 | Missing GUI | Wave A 按需读取，避免全量章节正文 |
+| 作品资料、Premise | Architect 建书；`/start` | `BookStore.Load`、`OutlineStore.LoadPremise` | Story Data Center 只读展示标题、简介与 premise | Full GUI | 保持 Core 读取语义；不在 GUI 重写作品资料 |
+| 人物档案 | 建书/导入；Agent 上下文可用 | `CharacterStore.Load`，`domain.Character` | Story Data Center 分页展示 Core 人物档案 | Full GUI | 保持 Core 读取语义；详情按页加载 |
+| 世界规则 | Architect Foundation | `WorldStore.LoadWorldRules`，`domain.WorldRule` | Story Data Center 分页展示 Core 世界规则 | Full GUI | 保持 Core 读取语义；不编辑或重写规则语义 |
+| 扁平全书大纲 | TUI 章节规划；`/start` 导入需求 | `OutlineStore.LoadOutline`，`domain.OutlineEntry` | Story Data Center 分页展示完整条目、事件、Hook、Scenes | Full GUI | 按 Core 条目只读展示 |
+| 分层卷/弧大纲 | TUI 长篇动态规划 | `OutlineStore.LoadLayeredOutline`，Volume/Arc/Chapter outline | Story Data Center 展示卷/弧元数据，并按弧惰性读取章节详情 | Full GUI | 保持 Core 分层结构；章节详情按需分页 |
+| Story Compass | Architect 在卷边界更新 | `OutlineStore.LoadCompass`，`domain.StoryCompass` | 当前方向页展示终局方向、Open Threads、规模和更新时间 | Full GUI | 只读展示 Core Compass |
+| 章节/弧/卷摘要 | Engine 上下文与章节提交 | `SummaryStore.LoadSummary*` | 故事摘要页按章节/弧/卷分页读取 Core 摘要 | Full GUI | 不读取全部章节正文；按范围分页 |
 | Core 创建/导入时写入设定 | Quick Start、`/import` | Foundation Tools、Import Synthesize/Publish、Store | Studio 通过 Core 创建/导入工作流 | Full GUI | 保持 Core 管线；Story Center 只读 |
 
 ## Continuity Center
 
 | Core Feature | CLI/TUI Entry | Core API/Data | Studio Current | Status | Action |
 |---|---|---|---|---|---|
-| 时间线 | Engine 上下文、`/sync` 重建 | `WorldStore.LoadTimeline`、`ChapterFacts.TimelineEvents` | 无时间线浏览器 | Missing GUI | Wave A 展示既有投影 |
-| 伏笔账本 | TUI `/diag` 统计、Engine 上下文、`/sync` | `WorldStore.LoadForeshadowLedger`、ForeshadowUpdates replay | Review/Runtime 不展示账本条目 | Missing GUI | Wave A 展示状态、埋设/推进/回收章节 |
-| 人物关系 | Engine 上下文、`/sync` | `WorldStore.LoadRelationships`、RelationshipChanges projection | 无关系浏览器 | Missing GUI | Wave A 展示 Core 已维护关系记录 |
-| 角色/实体状态变化 | Engine 上下文、`/sync` | `WorldStore.LoadStateChanges`、`domain.StateChange` | 无状态变化列表 | Missing GUI | Wave A 展示历史变化，不自建状态机 |
-| 角色快照 | 弧边界结构维护 | `CharacterStore.LoadSnapshots` / `LoadLatestSnapshots` | 无快照查看页 | Missing GUI | Wave A 按弧/卷查看 Core 快照 |
-| 配角首次出场 | `commit_chapter` 记录 CastIntro，Engine 上下文 | `Store.BuildCast`、`domain.ProjectCast`（由已接纳 ChapterRecord 派生） | Studio 未读 Cast Projection | Missing GUI | Wave A 显示已有投影并保留其“配角”范围语义 |
-| Continuity Projections 重建 | `/sync` 接纳正文后 | `revision.Projector.Apply` 重建 Summary/Timeline/Foreshadow/Relationship/State/Style 等投影 | 用户可执行 Core Sync，但看不到上述投影详情 | Partial GUI | Wave A 加只读读取；不在 GUI 重建投影 |
+| 时间线 | Engine 上下文、`/sync` 重建 | `WorldStore.LoadTimeline`、`ChapterFacts.TimelineEvents` | 连续性中心分页展示 Core 时间线 | Full GUI | 只读展示既有投影，不在 GUI 重算 |
+| 伏笔账本 | TUI `/diag` 统计、Engine 上下文、`/sync` | `WorldStore.LoadForeshadowLedger`、ForeshadowUpdates replay | 连续性中心分页展示状态、埋设/推进/回收章节 | Full GUI | 只读展示 Core 账本，不在 GUI 重算 |
+| 人物关系 | Engine 上下文、`/sync` | `WorldStore.LoadRelationships`、RelationshipChanges projection | 连续性中心分页展示 Core 关系记录 | Full GUI | 只读展示，不自建关系推导 |
+| 角色/实体状态变化 | Engine 上下文、`/sync` | `WorldStore.LoadStateChanges`、`domain.StateChange` | 连续性中心分页展示历史状态变化 | Full GUI | 只读展示，不自建状态机 |
+| 角色快照 | 弧边界结构维护 | `CharacterStore.LoadSnapshots` / `LoadLatestSnapshots` | 连续性中心分页展示 Core 最新快照 | Full GUI | 只读展示 Core 快照；缺失时显示空状态 |
+| 配角首次出场 | `commit_chapter` 记录 CastIntro，Engine 上下文 | `Store.BuildCast`、`domain.ProjectCast`（由已接纳 ChapterRecord 派生） | 连续性中心分页展示 Core Cast Projection | Full GUI | 保留“配角”范围语义；不从正文推导 |
+| Continuity Projections 重建 | `/sync` 接纳正文后 | `revision.Projector.Apply` 重建 Summary/Timeline/Foreshadow/Relationship/State/Style 等投影 | 用户可执行 Core Sync，也可只读浏览 Story/Continuity 投影 | Partial GUI | 投影仍只由 Core Sync 重建；GUI 只读详情 |
 | Review / Gate 状态 | `/review`、`/next` | Review Store、Advance Permit/Hold、Progress | Studio Review Center 显示真实 Review 和 Gate | Full GUI | 与 Continuity 条目分开，不能将 Gate 当作 Review |
 
 ## Reference Simulation、Rules 与 Style
