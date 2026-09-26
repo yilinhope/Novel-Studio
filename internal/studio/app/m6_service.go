@@ -8,6 +8,7 @@ import (
 
 	"github.com/voocel/ainovel-cli/internal/host"
 	"github.com/voocel/ainovel-cli/internal/host/imp"
+	"github.com/voocel/ainovel-cli/internal/host/sim"
 	"github.com/voocel/ainovel-cli/internal/studio/viewmodel"
 )
 
@@ -27,6 +28,8 @@ type m6Session interface {
 	TestModelConnection(context.Context, host.ModelConfigurationDraft, string) error
 	SwitchModel(string, string, string) error
 	SetRoleThinking(string, string) error
+	SimulateFrom(context.Context, string) (<-chan sim.Event, error)
+	ImportSimulationProfile(context.Context, string) (<-chan sim.Event, error)
 }
 
 func (s *EngineService) lockedM6Host(projectDir, outputDir string) (m6Session, uint64, error) {
@@ -170,6 +173,42 @@ func (s *EngineService) StartImport(ctx context.Context, projectDir, outputDir s
 	return ch, generation, nil
 }
 
+// StartSimulation 复用当前项目 Host，Core 负责 exclusive、项目写锁和 book lease。
+func (s *EngineService) StartSimulation(ctx context.Context, projectDir, outputDir, sourceDir string) (<-chan sim.Event, uint64, error) {
+	ext, generation, err := s.lockedM6Host(projectDir, outputDir)
+	if err != nil {
+		return nil, 0, err
+	}
+	if err := s.ensureStoppedForControl("仿写画像分析"); err != nil {
+		s.controlMu.Unlock()
+		return nil, 0, err
+	}
+	ch, err := ext.SimulateFrom(ctx, sourceDir)
+	s.controlMu.Unlock()
+	if err != nil {
+		return nil, 0, err
+	}
+	return ch, generation, nil
+}
+
+// StartSimulationImport 导入经 Core 校验的仿写画像。
+func (s *EngineService) StartSimulationImport(ctx context.Context, projectDir, outputDir, path string) (<-chan sim.Event, uint64, error) {
+	ext, generation, err := s.lockedM6Host(projectDir, outputDir)
+	if err != nil {
+		return nil, 0, err
+	}
+	if err := s.ensureStoppedForControl("导入仿写画像"); err != nil {
+		s.controlMu.Unlock()
+		return nil, 0, err
+	}
+	ch, err := ext.ImportSimulationProfile(ctx, path)
+	s.controlMu.Unlock()
+	if err != nil {
+		return nil, 0, err
+	}
+	return ch, generation, nil
+}
+
 func (s *EngineService) CancelExclusive(projectDir, outputDir string) error {
 	ext, _, err := s.lockedM6Host(projectDir, outputDir)
 	if err != nil {
@@ -242,6 +281,12 @@ func (s *EngineService) SnapshotForProject(outputDir string) (host.UISnapshot, b
 // RejectConfigMutation 防止 Budget 这类仅在 Host.New 时建立的配置，在已有
 // Engine Session 仍持有旧 BudgetSentinel 时被误报为已即时生效。
 func (s *EngineService) RejectConfigMutation(projectDir, outputDir string) error {
+	return s.RejectHostMutation(projectDir, outputDir, "预算配置")
+}
+
+// RejectHostMutation 拒绝会被已有 Host 快照遮蔽的配置/文风/规则修改。
+// 这些设置只在 Host 创建时加载，保存成功不能伪造当前 Session 已热更新。
+func (s *EngineService) RejectHostMutation(projectDir, outputDir, action string) error {
 	s.controlMu.Lock()
 	defer s.controlMu.Unlock()
 	s.mu.Lock()
@@ -253,13 +298,13 @@ func (s *EngineService) RejectConfigMutation(projectDir, outputDir string) error
 		return fmt.Errorf("另一个项目仍由当前 Engine Session 持有")
 	}
 	if s.starting || s.runActive || s.runtime.State == viewmodel.RuntimeRunning || s.runtime.State == viewmodel.RuntimePausing || s.runtime.State == viewmodel.RuntimeStopping {
-		return fmt.Errorf("创作会话处于%s状态，请先停止后再修改预算", s.runtime.State)
+		return fmt.Errorf("创作会话处于%s状态，请先停止后再修改%s", s.runtime.State, action)
 	}
 	snapshot := s.engine.Snapshot()
 	if snapshot.Exclusive != "" || snapshot.CoCreating {
-		return fmt.Errorf("当前 Core 正在%s，请先完成后再修改预算", firstOperation(snapshot))
+		return fmt.Errorf("当前 Core 正在%s，请先完成后再修改%s", firstOperation(snapshot), action)
 	}
-	return fmt.Errorf("当前 Engine Session 仍持有旧配置，请先停止创作会话后再修改预算")
+	return fmt.Errorf("当前 Engine Session 仍持有旧配置，请先停止创作会话后再修改%s", action)
 }
 
 func firstOperation(snapshot host.UISnapshot) string {

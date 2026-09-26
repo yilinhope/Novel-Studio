@@ -132,6 +132,18 @@ export interface SnapshotPage extends ReadIdentity, PageInfo { scopes?: Snapshot
 export interface CastEntry { name: string; briefRole?: string; firstSeenChapter: number; lastSeenChapter: number; appearanceCount: number; appearanceChapters?: number[] }
 export interface CastPage extends ReadIdentity, PageInfo { items: CastEntry[] }
 export type ParitySection = 'premise' | 'characters' | 'world' | 'outline' | 'compass' | 'summaries' | 'timeline' | 'foreshadow' | 'relationships' | 'states' | 'snapshots' | 'cast'
+export interface SimulationSource { relativePath: string; sha256: string; fingerprint: string; sizeBytes: number; modTime?: string; analyzedAt?: string; changed: boolean }
+export interface SimulationSourcesPage extends ReadIdentity { sourceDir: string; items: SimulationSource[] }
+export interface SimulationProfile { version: string; created_at?: string; updated_at?: string; corpus: { source_dir?: string; sources: SimulationSource[] }; source_reports: Record<string, unknown>[]; synthesis: Record<string, unknown> }
+export interface SimulationProfilePage extends ReadIdentity { available: boolean; profile?: SimulationProfile }
+export interface SimulationEvent { projectId: string; generation: number; requestId?: string; state: 'running' | 'completed' | 'error'; stage: string; current: number; total: number; message: string; error?: string; timestamp: string }
+export interface SimulationImportRequest { projectId?: string; generation?: number; requestId?: string; path: string }
+export interface RuleFile { name: string; scope: 'global' | 'project'; path: string; sizeBytes: number; modifiedAt: string; content?: string }
+export interface RulesSnapshot { version: number; status: string; structured: Record<string, unknown>; preferences: string; sources: string[]; uncertain?: string[] }
+export interface RulesWorkspace extends ReadIdentity { global: RuleFile[]; project: RuleFile[]; effective?: RulesSnapshot; effectiveAvailable: boolean; effectiveNotice?: string }
+export interface RuleMutationRequest { projectId?: string; generation?: number; requestId?: string; scope: 'global' | 'project'; name: string; newName?: string; content?: string }
+export interface StyleState extends ReadIdentity { selectedStyle: string; styleNames: string[]; selectedStyleText?: string; styleSource: string; effectiveVoice: string; effectiveVoiceSource: string; voiceGlobal: string; voiceProject: string; effectiveAntiAiTone: string; effectiveAntiAiToneSource: string; antiAiToneGlobal: string; antiAiToneProject: string; genreReference?: string; genreReferenceSource?: string; effectiveNotice: string }
+export interface StyleMutationRequest { projectId?: string; generation?: number; requestId?: string; scope?: 'global' | 'project'; name?: string; content?: string }
 export interface StudioBridge {
   SelectProjectDirectory(): Promise<string>
   OpenProject(path: string): Promise<Project>
@@ -196,6 +208,21 @@ export interface StudioBridge {
   GetContinuityStateChanges?(request: ReadRequest): Promise<StateChangePage>
   GetContinuitySnapshots?(request: ReadRequest, volume: number, arc: number): Promise<SnapshotPage>
   GetContinuityCast?(request: ReadRequest): Promise<CastPage>
+  GetSimulationSources?(request: ReadRequest): Promise<SimulationSourcesPage>
+  GetSimulationProfile?(request: ReadRequest): Promise<SimulationProfilePage>
+  SelectSimulationProfile?(): Promise<string>
+  StartSimulation?(request: ReadRequest): Promise<OperationAck>
+  ImportSimulationProfile?(request: SimulationImportRequest): Promise<OperationAck>
+  CancelSimulation?(): Promise<void>
+  GetRulesWorkspace?(request: ReadRequest): Promise<RulesWorkspace>
+  GetRule?(request: ReadRequest, scope: 'global' | 'project', name: string): Promise<RuleFile>
+  SaveRule?(request: RuleMutationRequest): Promise<RulesWorkspace>
+  DeleteRule?(request: RuleMutationRequest): Promise<RulesWorkspace>
+  RenameRule?(request: RuleMutationRequest): Promise<RulesWorkspace>
+  GetStyleState?(request: ReadRequest): Promise<StyleState>
+  SaveStyleSelection?(request: StyleMutationRequest): Promise<StyleState>
+  SaveStyleAsset?(request: StyleMutationRequest): Promise<StyleState>
+  DeleteStyleAsset?(request: StyleMutationRequest): Promise<StyleState>
 }
 declare global {
   interface Window {

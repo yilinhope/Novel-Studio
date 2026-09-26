@@ -285,3 +285,52 @@
 - [x] 分层大纲卷列表翻页同步 `layeredOutline`；选中 Arc 的章节详情分页保留 selector；补 51+ 卷回归。
 - [x] 连续性角色快照增加卷/弧范围选择并委托 Core `LoadSnapshots(volume, arc)`；最新快照继续委托 `LoadLatestSnapshots()`，矩阵保持 Full GUI。
 - [ ] 完成全量验证、GitNexus 变更检查并推送 PR #12，等待 CI。
+
+## Wave B — Core GUI Parity Completion（2026-09-26）
+
+### Goal
+
+从 PR #12 合并后的最新 `origin/main` 完成 Reference Simulation（`/simulate`、`/importsim`、sources、profile）及 Writing Rules / Style / Voice 的作者向 GUI parity。Core 仍是唯一事实源；没有安全 Core 写入口时不允许 React 直接写业务文件。
+
+### Baseline
+
+- 起始基线：`1721ab4e4e9bb402fa4dd04c216646c89b39cf49`（PR #12 merge commit）。
+- 工作分支：`codex/wave-b-core-gui-parity`，起始工作树干净。
+- PR #12 已合并且 CI 4/4 通过。
+- 最高级约束：`docs/PRODUCT_GOAL_CHARTER.md`；同时遵守 parity plan/matrix 和用户提供的 Wave B 要求。
+
+### Scope Guardrails
+
+- 仅 Wave B：Simulation / Import Simulation / sources / profile；Global/Project/Effective Rules；Style / Voice / anti-AI-tone。
+- 不做 Wave C（diag、Advanced Config、Import option parity、Runtime parity、reopen）。不恢复 Fact Engine / Knowledge / Dependency / Impact / Repair，不做 Reference Library DB、Embedding/RAG、Writing Skills Engine。
+- React 不解析或直接写业务 JSON/JSONL/Markdown。只读入口不创建 Host。Backend project scope 由当前打开项目决定。
+- UI 不伪造 progress、effective precedence、生效时机、Core 状态；没有安全 Core API 时先停并汇报。
+- 所有异步使用 projectId/generation/requestId/sequence；导航复用 Wave A dirty guard。
+
+### Phases
+
+1. [x] 最新 main 三文档核对与 Wave B Core 调用链审计；产出事实源、路径、schema、互斥/Host/Session 语义及风险。
+2. [x] 对 Simulation 的安全 Facade/Bridge/ViewModel/API 建模和 Go 回归测试。
+3. [x] 实现 Simulation sources/profile/import/run UI 与 lifecycle/stale/dirty guard 测试。
+4. [x] 对 Rules / Style / Voice 的读取、precedence、atomic mutation 与 Host 生效时机完成审计并建模；未发现需要暂停的 unsafe write path。
+5. [x] 实现 Writing Rules / Style / Voice Facade/UI，覆盖 project scope、mutation gate、dirty guard 与回归测试。
+6. [x] 更新 parity matrix；仅将 Simulation、profile、Voice/anti-AI-tone 标为 Full，Rules/Style 保留 Core 快照或 projection 缺口的 Partial。
+7. [x] 全量 Go tests/vet、Frontend tests/build、Windows Wails production build、GitNexus impact/detect-changes、最终 diff review。
+8. [ ] 创建统一 PR 并等待 CI；不进入 Wave C。
+
+### Completion Criteria
+
+以用户 2026-09-26 提供的 Wave B pasted request 第十八节 DoD 为准；特别区分静态验证与真实桌面/模型运行验收，不夸大未现场验证部分。
+
+### Errors Encountered
+
+| Error | Attempt | Resolution |
+|---|---:|---|
+| Wails 绑定输出 `Not found: time.Time` | 1 | 既有 ViewModel 时间字段的生成器 warning；本轮新增 `RuleFile.ModifiedAt` 已改为字符串，Wails 构建退出码为 0 |
+
+## Wave B review fixes（2026-09-26）
+
+- [x] P1：Style/Voice/anti-AI-tone ViewModel 分离 effective preview 与 global/project raw override；编辑器仅保存当前 scope raw 内容。
+- [x] P1：Rule rename 在目标存在时显式拒绝，并补 collision regression。
+- [x] P2：Voice 与 anti-AI-tone 增加删除当前层覆盖/恢复继承入口和确认，补前端删除请求回归。
+- [ ] 重新运行全量验证、GitNexus detect-changes，推送并等待 PR #13 CI。

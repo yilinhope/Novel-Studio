@@ -118,3 +118,26 @@
 - 修复分层卷列表超过 50 项翻页时 Arc Selector 使用旧页的问题；选中 Arc 的章节详情分页仍保留原 selector。
 - 角色快照现在同时支持最新快照与指定 Volume/Arc 历史快照，后端分别使用 Core `LoadLatestSnapshots` 与 `LoadSnapshots`。
 - 定向验证阶段：Studio 测试通过，Frontend 55 tests 与 production build 通过；最终全量验证待本轮完成。
+
+## Wave B kickoff（2026-09-26）
+
+- PR #12 通过 `gh pr view 12` 确认已于 2026-09-26 合并，merge commit 为 `1721ab4e4e9bb402fa4dd04c216646c89b39cf49`；4 项 CI 均成功。
+- 已从最新 `origin/main` 建立 `codex/wave-b-core-gui-parity`，起始工作树干净。
+- 已读取 PRODUCT_GOAL_CHARTER、CORE_GUI_PARITY_COMPLETION_PLAN、CORE_GUI_PARITY_MATRIX；Wave B 限定 Simulation 与 Rules/Style/Voice，不扩大到 Wave C 或原 V2-M2。
+- 当前阶段为 Core 调用链与 GitNexus 轻量实施审计；审计结论未完成前不写业务代码。
+
+## Wave B implementation and verification（2026-09-26）
+
+- Simulation 已接入显式项目语料目录、Core profile/source 只读读取、导入、分析、取消和真实 stage/current/total 事件；只读路径不创建 Host，运行与导入复用 Host exclusive、project write 和 book lease。
+- Rules 已接入全局/项目原文件列表、显式读取、原子新建/编辑/重命名/删除；Effective 只读取已有 Core snapshot，不在只读页面触发模型或隐式写入。Host 的项目规则路径由当前 ProjectRoot 注入，避免依赖进程 cwd。
+- Style/Voice/anti-AI-tone 已接入 Core assets/config 的选择、优先级来源展示和项目/全局覆盖写入；保存受 Host mutation gate 与 book lease 保护，页面明确修改在新 Host 生效；WorldStore.LoadStyleRules 仍按矩阵保留 Partial。
+- 前端新增参考作品与写作设置导航、Simulation/Rules/Style 页面、dirty navigation guard、项目切换 stale 响应保护；补充 Wave B store stale 回归测试。
+- 当前验证：Go `go test ./...` 1055 passed、`go vet ./...` passed；Frontend 11 files / 58 tests、production build passed；Windows Wails production build passed。Wails 仍打印仓库既有 `Not found: time.Time` binding warning，不影响构建退出码。
+- GitNexus 已在本轮代码编辑前完成索引与关键符号 impact；提交前仍需运行 `detect-changes --scope all`，确认结果非 partial/truncated。
+
+## Wave B review fixes（2026-09-26）
+
+- 修复 Style override 编辑语义：`StyleState` 同时返回 Core 合成的 `EffectiveVoice/EffectiveAntiAITone` 只读预览和 Global/Project raw 文本；保存只写当前 scope，不再把 effective 内容固化回 override。
+- 修复 Rule rename 覆盖风险：目标文件存在时在 `os.Rename` 前拒绝，补两文件 collision 测试。
+- Style 设置页增加 Voice 与 anti-AI-tone 的“删除此层覆盖 / 恢复继承”按钮和确认，复用既有 DeleteStyleAsset Bridge/API；补前端删除请求测试。
+- 定向验证：Go 142 tests、Frontend 59 tests 通过；全量与 CI 验证待完成。

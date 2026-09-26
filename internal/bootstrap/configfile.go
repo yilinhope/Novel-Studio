@@ -329,6 +329,27 @@ func SaveBudgetConfig(path string, budget BudgetConfig) error {
 	return SaveConfig(path, target)
 }
 
+// SaveStyleConfig 补丁式更新目标配置层的文风选择，不读取或固化其它配置层。
+func SaveStyleConfig(path, style string) error {
+	style = strings.TrimSpace(style)
+	if style != "" {
+		for _, r := range style {
+			if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-') {
+				return fmt.Errorf("文风名称无效: %q", style)
+			}
+		}
+	}
+	target, found, err := loadOptionalJSON(path)
+	if err != nil {
+		return err
+	}
+	if !found {
+		target = Config{}
+	}
+	target.Style = style
+	return SaveConfig(path, target)
+}
+
 // stripJSONComments 去除 JSON 中的 // 行注释，跟踪引号状态避免误删字符串内容。
 func stripJSONComments(data []byte) []byte {
 	out := make([]byte, 0, len(data))

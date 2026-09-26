@@ -972,6 +972,7 @@ func newHostForProject(projectDir, outputDir string) (EngineSession, error) {
 	bundle := assets.Load(cfg.Style, assets.DefaultLoadOptions(outputDir))
 	engine, err := host.New(cfg, bundle,
 		host.WithFileLog("studio.log", false),
+		host.WithProjectDir(projectDir),
 		host.WithConfigPath(bootstrap.EffectiveConfigPathFromDir(projectDir)))
 	if err != nil {
 		return nil, err

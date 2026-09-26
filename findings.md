@@ -167,3 +167,36 @@
 - layered outline 分页仅在卷列表且未选中 Arc 时同步 selector 元数据；章节详情仍由 Core 分页 API 返回。
 - SnapshotScope 是现有 Core 分层大纲的传输投影；历史快照读取直接委托 `CharacterStore.LoadSnapshots(volume, arc)`，未新增 Fact/Knowledge 模型或持久化。
 - 本轮未改变 Core 业务语义、Host 生命周期或项目写锁边界。
+
+## Wave B kickoff 事实（2026-09-26）
+
+- `origin/main` 与 HEAD 均为 PR #12 merge commit `1721ab4e4e9bb402fa4dd04c216646c89b39cf49`；PR #12 merged，CI 4/4 success。
+- 新分支 `codex/wave-b-core-gui-parity` 从该基线建立，工作树干净。
+- PRODUCT_GOAL_CHARTER 是最高 scope guardrail；本 Wave 只做 `/simulate`、`/importsim`、simulation sources/profile、writing rules、style/voice/anti-AI-tone 的 GUI parity。
+- 先以 GitNexus 图查询/impact 和 Core 源码确认安全入口、事实路径、precedence、Host/session 生效语义；任何没有安全写 API 的能力不得由 React 直接写文件。
+
+## Wave B Core 审计结论（2026-09-26）
+
+### Simulation
+
+- Core 事实源是 `meta/simulation_profile.json`，由 `store.Simulation` 读取/原子保存；schema 为 `simulation_profile.v1`，`domain.ValidateSimulationProfile` 负责校验。
+- 语料只扫描 `simulate/` 下递归的 `.txt`、`.md`、`.markdown`；指纹为原始字节 SHA-256 与相对路径组合，未变化语料不会再次调用模型，变更语料走增量分析和 synthesis merge。
+- 画像字段全部来自 `domain.SimulationProfile`：corpus/source reports/synthesis（style、lexicon、plot、hook、pacing、engagement、role guidance），Studio 不建立第二套 profile schema。
+- `/simulate` 通过 `Host.Simulate` 获取 architect 模型，经过 Host exclusive、项目写锁和 book lease，并发运行/Engine running/co-create 会被 Core 拒绝；事件只有真实 stage/current/total/message，没有百分比。`/importsim` 先由 Core 校验 profile，再按 fingerprint 合并写入当前 Store。
+- `Host.Simulate` 原实现用 `os.Getwd()` 拼 `simulate`，不满足 Studio 当前项目 scope；应增加带项目 sourceDir 的 Core 入口，Studio 不得改变 cwd 或直接读语料。只读 sources/profile 可从 Store/扫描器读取，不创建 Host。
+- Core 没有清除/替换 profile 语义；Wave B 只暴露刷新/分析和导入，不新增删除或第二个 Library DB。
+
+### Rules
+
+- 原始规则为全局 `~/.ainovel/rules/*.md` 与项目 `<projectRoot>/.ainovel/rules/*.md`，每层顶层 `.md` 按字典序读取，Global → Project；隐藏文件和非 Markdown 跳过。
+- `rules.BuildSnapshot` 在 Go 侧确定性合并字段：高层结构化字段覆盖、fatigue words 合并、preferences 按来源追加；运行时唯一事实源是 `meta/user_rules.json`。
+- `Host.New`/`PrepareUserRules`/`ensureUserRules` 当前调用 `rules.DefaultOptions()`，项目规则目录依赖 cwd；Studio Host 必须通过项目根注入 `LoadOptions`，否则打开不同项目可能读错规则。
+- 读取有效快照不得调用 `GetOrBuild`，因为缺失快照会触发模型并落盘；只读页面应返回已有 snapshot 或明确 unavailable。规则原文件变更不会热重载当前 Host，已有 Host 继续使用旧 snapshot；要重新归一化必须走 Core 的明确准备/重建入口，不能由 React 自己 merge。
+- 当前没有 Rule CRUD Studio API；允许新增薄 Core service 封装既有 `.md` 文件语义，用原子写入、文件名校验和项目/全局路径区分。保存原文件后应显示“下次规则准备/新 Session 生效”，不能伪造当前 Host 已热更新。
+
+### Style / Voice
+
+- `assets.Load` 的事实路径是内置 embed < `~/.ainovel/style` 全局 < `<outputDir>/style` 本书；voice.md 与 anti-ai-tone.md 为追加并带来源边界，`styles/*.md` 同名整文件替换/可新增，genre style-reference 同名覆盖。
+- `bootstrap.Config.Style` 是当前 style 选择字段；`assets.Bundle` 在 Host.New 时加载，`agents.BuildWorkers` 将 voice/style/anti-AI-tone 组装进提示词。现有 Core 设计明确为启动时解析、重启/新 Host 生效，不做运行中热重载。
+- `WorldStore.LoadStyleRules`/`SaveStyleRules` 是章节弧边界的 Core 投影，不是 Wave B 的用户 style/voice 编辑入口；Studio 只读展示当前真实值，不把它改造成第二套 style schema。
+- GitNexus impact：`sim.ImportProfile` 影响 Host/TUI，风险 HIGH；`assets.Load` 为 HIGH 且有 38 个未解析调用边界；`LoadStyleRules` 为 CRITICAL lower-bound；`RawFileSources`/`BuildSnapshot` 为 LOW；`LoadConfigFromDir` 为 HIGH。对高风险符号采用新增适配入口，不修改既有调用语义。
