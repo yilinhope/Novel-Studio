@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,6 +43,38 @@ func TestConfigResolveReasoningEffort(t *testing.T) {
 	}
 	if got := empty.ResolveReasoningEffort("writer"); got != "xhigh" {
 		t.Errorf("空默认下 writer 覆盖应生效，得 %q", got)
+	}
+}
+
+func TestDeepSeekProviderUsesNativeAdapterContract(t *testing.T) {
+	if !(ProviderConfig{Type: "deepseek"}).RequiresAPIKey("deepseek-proxy") {
+		t.Fatal("DeepSeek 专用适配器必须要求 API Key")
+	}
+
+	base := Config{
+		Provider:  "deepseek-proxy",
+		ModelName: "deepseek-v4-pro",
+		Providers: map[string]ProviderConfig{
+			"deepseek-proxy": {
+				Type:    "deepseek",
+				APIKey:  "deepseek-secret",
+				BaseURL: "https://proxy.example.invalid",
+				Models:  []ModelConfig{{Name: "deepseek-v4-pro"}},
+			},
+		},
+	}
+	if err := base.ValidateBase(); err != nil {
+		t.Fatalf("DeepSeek native config 应有效：%v", err)
+	}
+	base.Providers["deepseek-proxy"] = ProviderConfig{
+		Type:    "deepseek",
+		API:     "responses",
+		APIKey:  "deepseek-secret",
+		BaseURL: "https://proxy.example.invalid",
+		Models:  []ModelConfig{{Name: "deepseek-v4-pro"}},
+	}
+	if err := base.ValidateBase(); err == nil || !strings.Contains(err.Error(), "DeepSeek") {
+		t.Fatalf("DeepSeek responses API 应被拒绝：%v", err)
 	}
 }
 

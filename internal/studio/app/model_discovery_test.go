@@ -51,6 +51,44 @@ func TestDiscoverProviderModelsOpenAICompatible(t *testing.T) {
 	}
 }
 
+func TestDiscoverProviderModelsDeepSeekUsesNativeModelsEndpoint(t *testing.T) {
+	var requestURL string
+	var authorization string
+	models, err := discoverProviderModels(context.Background(), viewmodel.ProviderDraft{
+		Provider: "deepseek-proxy",
+		Type:     "deepseek",
+		BaseURL:  "https://proxy.example.invalid",
+		APIKey:   "deepseek-secret",
+	}, &http.Client{Transport: discoveryRoundTripper(func(request *http.Request) (*http.Response, error) {
+		requestURL = request.URL.String()
+		authorization = request.Header.Get("Authorization")
+		return discoveryResponse(http.StatusOK, `{"data":[{"id":"deepseek-v4-pro"}]}`), nil
+	})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if requestURL != "https://proxy.example.invalid/models" {
+		t.Fatalf("DeepSeek 模型目录 URL 错误：%s", requestURL)
+	}
+	if authorization != "Bearer deepseek-secret" {
+		t.Fatalf("DeepSeek API Key 未以 Authorization 发送：%q", authorization)
+	}
+	if len(models) != 1 || models[0].Name != "deepseek-v4-pro" {
+		t.Fatalf("DeepSeek 模型列表解析错误：%+v", models)
+	}
+}
+
+func TestDiscoverProviderModelsDeepSeekRequiresAPIKey(t *testing.T) {
+	_, err := discoverProviderModels(context.Background(), viewmodel.ProviderDraft{
+		Provider: "deepseek-proxy",
+		Type:     "deepseek",
+		BaseURL:  "https://proxy.example.invalid",
+	}, &http.Client{})
+	if err == nil || !strings.Contains(err.Error(), "DeepSeek") || !strings.Contains(err.Error(), "API Key") {
+		t.Fatalf("DeepSeek 缺少 API Key 应明确拒绝：%v", err)
+	}
+}
+
 func TestDiscoverProviderModelsGeminiUsesHeaderAndNormalizesName(t *testing.T) {
 	var requestURL string
 	var apiKey string

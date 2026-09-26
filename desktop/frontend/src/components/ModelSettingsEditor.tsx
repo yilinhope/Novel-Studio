@@ -12,7 +12,7 @@ type ProviderPreset = {id: string; label: string; type: string; api: string; bas
 const providerPresets: ProviderPreset[] = [
   {id: 'openai', label: 'OpenAI', type: 'openai', api: 'chat', baseUrl: 'https://api.openai.com'},
   {id: 'novelai', label: 'NovelAI', type: 'openai', api: 'chat', baseUrl: 'https://text.novelai.net/oa'},
-  {id: 'deepseek', label: 'DeepSeek', type: 'openai', api: 'chat', baseUrl: 'https://api.deepseek.com'},
+  {id: 'deepseek', label: 'DeepSeek', type: 'deepseek', api: '', baseUrl: 'https://api.deepseek.com'},
   {id: 'gemini', label: 'Google Gemini', type: 'gemini', api: 'chat', baseUrl: 'https://generativelanguage.googleapis.com'},
   {id: 'xai', label: 'xAI（Grok）', type: 'openai', api: 'chat', baseUrl: 'https://api.x.ai/v1'},
   {id: 'siliconflow', label: 'SiliconFlow', type: 'openai', api: 'chat', baseUrl: 'https://api.siliconflow.cn/v1'},
@@ -60,8 +60,9 @@ export function ModelSettingsEditor({
     const selected = config.providers.find(item => item.name === name)
     setPresetID(providerPresets.some(item => item.id === name) ? name : 'custom')
     setProviderName(name)
-    setProviderType(selected?.type ?? '')
-    setProviderAPI(selected?.api || 'chat')
+    const selectedType = selected?.type || (name.trim().toLowerCase() === 'deepseek' ? 'deepseek' : '')
+    setProviderType(selectedType)
+    setProviderAPI(selectedType === 'deepseek' ? '' : (selected?.api || 'chat'))
     setBaseUrl(selected?.baseUrl ?? '')
     setApiKey('')
     setModels(cloneModels(selected?.models))
@@ -96,10 +97,19 @@ export function ModelSettingsEditor({
     setMessage(`${preset.label} 已填入默认协议和地址，请获取模型列表或手动添加模型。`)
   }
 
+  const changeProviderType = (type: string) => {
+    setProviderType(type)
+    if (type === 'deepseek') {
+      setProviderAPI('')
+    } else if (!providerAPI) {
+      setProviderAPI('chat')
+    }
+  }
+
   const draft = (): ProviderDraft => ({
     provider: providerName.trim(),
     type: providerType,
-    api: providerAPI,
+    api: providerType === 'deepseek' ? '' : providerAPI,
     baseUrl: baseUrl.trim(),
     models: models.filter(model => model.name.trim()).map(model => ({
       name: model.name.trim(),
@@ -171,9 +181,9 @@ export function ModelSettingsEditor({
     <label>服务商<select value={presetID} onChange={event => editingNew && applyPreset(event.target.value)} disabled={!editingNew}>{providerPresets.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
     <div style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 10}}>
       <label>显示名称 / Provider ID<input value={providerName} onChange={event => setProviderName(event.target.value)} placeholder="例如 openai、deepseek、my-proxy" disabled={!editingNew || presetID !== 'custom'}/></label>
-      <label>调用协议<select value={providerType} onChange={event => setProviderType(event.target.value)}><option value="">Core 自动判断</option><option value="openai">OpenAI-compatible</option><option value="gemini">Gemini</option><option value="anthropic">Anthropic</option></select></label>
+      <label>调用协议<select value={providerType} onChange={event => changeProviderType(event.target.value)}><option value="">Core 自动判断</option><option value="openai">OpenAI-compatible</option><option value="deepseek">DeepSeek 专用适配器</option><option value="gemini">Gemini</option><option value="anthropic">Anthropic</option></select></label>
     </div>
-    <label>API endpoint<select value={providerAPI} onChange={event => setProviderAPI(event.target.value)}><option value="chat">Chat Completions</option><option value="responses">Responses</option></select></label>
+    {providerType === 'deepseek' ? <label>API endpoint<input value="Chat Completions（DeepSeek 适配器）" disabled /></label> : <label>API endpoint<select value={providerAPI} onChange={event => setProviderAPI(event.target.value)}><option value="chat">Chat Completions</option><option value="responses">Responses</option></select></label>}
     <label>Base URL<input value={baseUrl} onChange={event => setBaseUrl(event.target.value)} placeholder="https://api.openai.com/v1"/></label>
     <label>API Key<input type="password" value={apiKey} onChange={event => setApiKey(event.target.value)} placeholder={provider?.hasApiKey ? `留空保持现有 Key（${provider.apiKeyHint || '已配置'}）` : 'sk-…'} autoComplete="new-password"/></label>
     <div className="panel" style={{display: 'grid', gap: 8, margin: 0}}>
