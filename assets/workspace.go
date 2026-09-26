@@ -62,6 +62,27 @@ func SaveOverride(opts LoadOptions, scope OverrideScope, name, content string) e
 	return writeAtomic(filepath.Join(dir, filepath.FromSlash(name)), []byte(content))
 }
 
+// ReadOverride 读取指定范围的原始覆盖文本。文件不存在时返回空文本且不报错；
+// 该入口不会把内置、全局和项目层合成为 effective 内容。
+func ReadOverride(opts LoadOptions, scope OverrideScope, name string) (string, error) {
+	name = filepath.ToSlash(strings.TrimSpace(name))
+	if err := validateOverrideName(name); err != nil {
+		return "", err
+	}
+	dir, err := overrideDir(opts, scope)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(name)))
+	if os.IsNotExist(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 func DeleteOverride(opts LoadOptions, scope OverrideScope, name string) error {
 	name = filepath.ToSlash(strings.TrimSpace(name))
 	if err := validateOverrideName(name); err != nil {

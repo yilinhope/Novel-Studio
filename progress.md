@@ -134,3 +134,10 @@
 - 前端新增参考作品与写作设置导航、Simulation/Rules/Style 页面、dirty navigation guard、项目切换 stale 响应保护；补充 Wave B store stale 回归测试。
 - 当前验证：Go `go test ./...` 1055 passed、`go vet ./...` passed；Frontend 11 files / 58 tests、production build passed；Windows Wails production build passed。Wails 仍打印仓库既有 `Not found: time.Time` binding warning，不影响构建退出码。
 - GitNexus 已在本轮代码编辑前完成索引与关键符号 impact；提交前仍需运行 `detect-changes --scope all`，确认结果非 partial/truncated。
+
+## Wave B review fixes（2026-09-26）
+
+- 修复 Style override 编辑语义：`StyleState` 同时返回 Core 合成的 `EffectiveVoice/EffectiveAntiAITone` 只读预览和 Global/Project raw 文本；保存只写当前 scope，不再把 effective 内容固化回 override。
+- 修复 Rule rename 覆盖风险：目标文件存在时在 `os.Rename` 前拒绝，补两文件 collision 测试。
+- Style 设置页增加 Voice 与 anti-AI-tone 的“删除此层覆盖 / 恢复继承”按钮和确认，复用既有 DeleteStyleAsset Bridge/API；补前端删除请求测试。
+- 定向验证：Go 142 tests、Frontend 59 tests 通过；全量与 CI 验证待完成。

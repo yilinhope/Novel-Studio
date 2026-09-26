@@ -169,14 +169,34 @@ func (s *Service) GetStyleState() (viewmodel.StyleState, error) {
 	}
 	sort.Strings(names)
 	styleSource := assetSource(opts, filepath.ToSlash(filepath.Join("styles", cfg.Style+".md")), true)
-	voiceSource := assetSource(opts, "voice.md", false)
-	antiSource := assetSource(opts, "anti-ai-tone.md", false)
 	genreSource := ""
 	genreReference := bundle.References.StyleReference
 	if cfg.Style != "" {
 		genreSource = assetSource(opts, filepath.ToSlash(filepath.Join("genres", cfg.Style, "style-references.md")), true)
 	}
-	return viewmodel.StyleState{SelectedStyle: cfg.Style, StyleNames: names, SelectedStyleText: bundle.Styles[cfg.Style], StyleSource: styleSource, Voice: bundle.Voice, VoiceSource: voiceSource, AntiAITone: bundle.References.AntiAITone, AntiAIToneSource: antiSource, GenreReference: genreReference, GenreReferenceSource: genreSource, EffectiveNotice: "文风资产和 Style 选择在 Host 创建时加载；保存后需停止并重新开始/恢复 Session 才会进入新 Host。"}, nil
+	voiceGlobal, err := assets.ReadOverride(opts, assets.OverrideGlobal, "voice.md")
+	if err != nil {
+		return viewmodel.StyleState{}, fmt.Errorf("读取全局 Voice 覆盖失败：%w", err)
+	}
+	voiceProject, err := assets.ReadOverride(opts, assets.OverrideProject, "voice.md")
+	if err != nil {
+		return viewmodel.StyleState{}, fmt.Errorf("读取项目 Voice 覆盖失败：%w", err)
+	}
+	antiGlobal, err := assets.ReadOverride(opts, assets.OverrideGlobal, "anti-ai-tone.md")
+	if err != nil {
+		return viewmodel.StyleState{}, fmt.Errorf("读取全局 anti-AI-tone 覆盖失败：%w", err)
+	}
+	antiProject, err := assets.ReadOverride(opts, assets.OverrideProject, "anti-ai-tone.md")
+	if err != nil {
+		return viewmodel.StyleState{}, fmt.Errorf("读取项目 anti-AI-tone 覆盖失败：%w", err)
+	}
+	return viewmodel.StyleState{
+		SelectedStyle: cfg.Style, StyleNames: names, SelectedStyleText: bundle.Styles[cfg.Style], StyleSource: styleSource,
+		EffectiveVoice: bundle.Voice, EffectiveVoiceSource: appendableSource(opts, "voice.md"), VoiceGlobal: voiceGlobal, VoiceProject: voiceProject,
+		EffectiveAntiAITone: bundle.References.AntiAITone, EffectiveAntiSource: appendableSource(opts, "anti-ai-tone.md"), AntiAIToneGlobal: antiGlobal, AntiAIToneProject: antiProject,
+		GenreReference: genreReference, GenreReferenceSource: genreSource,
+		EffectiveNotice: "文风资产和 Style 选择在 Host 创建时加载；编辑器只修改当前范围的原始覆盖，保存后需停止并重新开始/恢复 Session 才会进入新 Host。",
+	}, nil
 }
 
 func (s *Service) SaveStyleSelection(style string) error {
@@ -241,4 +261,19 @@ func assetSource(opts assets.LoadOptions, rel string, selected bool) string {
 		}
 	}
 	return "Built-in"
+}
+
+func appendableSource(opts assets.LoadOptions, rel string) string {
+	sources := []string{"Built-in"}
+	if opts.HomeStyleDir != "" {
+		if _, err := os.Stat(filepath.Join(opts.HomeStyleDir, filepath.FromSlash(rel))); err == nil {
+			sources = append(sources, "Global")
+		}
+	}
+	if opts.BookStyleDir != "" {
+		if _, err := os.Stat(filepath.Join(opts.BookStyleDir, filepath.FromSlash(rel))); err == nil {
+			sources = append(sources, "Project")
+		}
+	}
+	return strings.Join(sources, " + ")
 }

@@ -327,3 +327,10 @@
 | Error | Attempt | Resolution |
 |---|---:|---|
 | Wails 绑定输出 `Not found: time.Time` | 1 | 既有 ViewModel 时间字段的生成器 warning；本轮新增 `RuleFile.ModifiedAt` 已改为字符串，Wails 构建退出码为 0 |
+
+## Wave B review fixes（2026-09-26）
+
+- [x] P1：Style/Voice/anti-AI-tone ViewModel 分离 effective preview 与 global/project raw override；编辑器仅保存当前 scope raw 内容。
+- [x] P1：Rule rename 在目标存在时显式拒绝，并补 collision regression。
+- [x] P2：Voice 与 anti-AI-tone 增加删除当前层覆盖/恢复继承入口和确认，补前端删除请求回归。
+- [ ] 重新运行全量验证、GitNexus detect-changes，推送并等待 PR #13 CI。

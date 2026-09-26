@@ -39,6 +39,18 @@ func TestWorkspaceRuleFilesUseExplicitGlobalAndProjectRoots(t *testing.T) {
 	if err := RenameRuleFile(opts, SourceProject, "edited.md", "renamed.md"); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(project, ".ainovel", "rules", "collision.md"), []byte("keep"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(project, ".ainovel", "rules", "renamed.md"), []byte("source"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := RenameRuleFile(opts, SourceProject, "renamed.md", "collision.md"); err == nil {
+		t.Fatal("rename should reject an existing destination")
+	}
+	if data, readErr := os.ReadFile(filepath.Join(project, ".ainovel", "rules", "collision.md")); readErr != nil || string(data) != "keep" {
+		t.Fatalf("collision destination was changed: %q %v", string(data), readErr)
+	}
 	if err := DeleteRuleFile(opts, SourceProject, "renamed.md"); err != nil {
 		t.Fatal(err)
 	}

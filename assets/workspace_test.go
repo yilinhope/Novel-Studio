@@ -12,6 +12,10 @@ func TestSaveAndDeleteOverrideUsesBookScope(t *testing.T) {
 	if err := SaveOverride(opts, OverrideProject, "voice.md", "book voice"); err != nil {
 		t.Fatal(err)
 	}
+	raw, err := ReadOverride(opts, OverrideProject, "voice.md")
+	if err != nil || raw != "book voice" {
+		t.Fatalf("raw override not readable: %q %v", raw, err)
+	}
 	data, err := os.ReadFile(filepath.Join(book, "voice.md"))
 	if err != nil || string(data) != "book voice" {
 		t.Fatalf("override not saved: %q %v", string(data), err)

@@ -83,10 +83,14 @@ type StyleState struct {
 	StyleNames           []string `json:"styleNames"`
 	SelectedStyleText    string   `json:"selectedStyleText,omitempty"`
 	StyleSource          string   `json:"styleSource"`
-	Voice                string   `json:"voice"`
-	VoiceSource          string   `json:"voiceSource"`
-	AntiAITone           string   `json:"antiAiTone"`
-	AntiAIToneSource     string   `json:"antiAiToneSource"`
+	EffectiveVoice       string   `json:"effectiveVoice"`
+	EffectiveVoiceSource string   `json:"effectiveVoiceSource"`
+	VoiceGlobal          string   `json:"voiceGlobal"`
+	VoiceProject         string   `json:"voiceProject"`
+	EffectiveAntiAITone  string   `json:"effectiveAntiAiTone"`
+	EffectiveAntiSource  string   `json:"effectiveAntiAiToneSource"`
+	AntiAIToneGlobal     string   `json:"antiAiToneGlobal"`
+	AntiAIToneProject    string   `json:"antiAiToneProject"`
 	GenreReference       string   `json:"genreReference,omitempty"`
 	GenreReferenceSource string   `json:"genreReferenceSource,omitempty"`
 	EffectiveNotice      string   `json:"effectiveNotice"`

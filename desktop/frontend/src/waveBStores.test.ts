@@ -13,7 +13,7 @@ let api: StudioBridge
 
 beforeEach(() => {
   api = {
-    GetSimulationSources: vi.fn(), GetSimulationProfile: vi.fn(), GetRulesWorkspace: vi.fn(), GetStyleState: vi.fn(),
+    GetSimulationSources: vi.fn(), GetSimulationProfile: vi.fn(), GetRulesWorkspace: vi.fn(), GetStyleState: vi.fn(), DeleteStyleAsset: vi.fn(),
   } as unknown as StudioBridge
   vi.stubGlobal('window', {go: {bridge: {App: api}}})
   useStudio.setState({project, view: 'overview', busy: false, syncing: false, saveBusy: false, dirty: false})
@@ -45,9 +45,20 @@ test('写作设置旧项目响应不会恢复旧的 loading 或配置状态', as
   useStudio.setState({project: {...project, outputDir: 'C:/books/b/output'}})
   useWritingSettingsStore.getState().reset()
   resolveRules({projectId: project.outputDir, generation: 3, projectRoot: project.projectRoot, outputDir: project.outputDir, global: [], project: [], effectiveAvailable: false})
-  resolveStyle({projectId: project.outputDir, generation: 3, projectRoot: project.projectRoot, outputDir: project.outputDir, selectedStyle: 'default', styleNames: [], styleSource: 'Built-in', voice: '', voiceSource: 'Built-in', antiAiTone: '', antiAiToneSource: 'Built-in', effectiveNotice: ''})
+  resolveStyle({projectId: project.outputDir, generation: 3, projectRoot: project.projectRoot, outputDir: project.outputDir, selectedStyle: 'default', styleNames: [], styleSource: 'Built-in', effectiveVoice: 'effective', effectiveVoiceSource: 'Built-in', voiceGlobal: '', voiceProject: '', effectiveAntiAiTone: 'effective', effectiveAntiAiToneSource: 'Built-in', antiAiToneGlobal: '', antiAiToneProject: '', effectiveNotice: ''})
   await pending
   expect(useWritingSettingsStore.getState().rules).toBeNull()
   expect(useWritingSettingsStore.getState().style).toBeNull()
   expect(useWritingSettingsStore.getState().loading).toBe(false)
+})
+
+test('删除 Style override 只请求当前范围并恢复 Core 返回的状态', async () => {
+  const style = {projectId: project.outputDir, generation: 3, projectRoot: project.projectRoot, outputDir: project.outputDir, selectedStyle: 'default', styleNames: [], styleSource: 'Built-in', effectiveVoice: 'effective', effectiveVoiceSource: 'Built-in + Project', voiceGlobal: '', voiceProject: 'project raw', effectiveAntiAiTone: 'effective', effectiveAntiAiToneSource: 'Built-in + Project', antiAiToneGlobal: '', antiAiToneProject: 'project raw', effectiveNotice: ''}
+  vi.mocked(api.DeleteStyleAsset!).mockResolvedValue(style)
+  useWritingSettingsStore.setState({style})
+
+  await useWritingSettingsStore.getState().deleteAsset('project', 'voice.md')
+
+  expect(api.DeleteStyleAsset).toHaveBeenCalledWith(expect.objectContaining({scope: 'project', name: 'voice.md', projectId: project.outputDir, generation: 3}))
+  expect(useWritingSettingsStore.getState().style).toEqual(style)
 })

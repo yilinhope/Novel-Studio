@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/voocel/ainovel-cli/internal/domain"
@@ -49,5 +50,36 @@ func TestWaveBReadServicesUseProjectRootAndDoNotCreateHost(t *testing.T) {
 	}
 	if _, err := service.GetStyleState(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestWaveBStyleStateSeparatesRawOverrideFromEffectivePreview(t *testing.T) {
+	output := fixture(t)
+	styleDir := filepath.Join(output, "style")
+	if err := os.MkdirAll(styleDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(styleDir, "voice.md"), []byte("项目层 Voice 原文"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(styleDir, "anti-ai-tone.md"), []byte("项目层 anti 原文"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{}
+	if _, err := service.OpenProject(filepath.Dir(filepath.Dir(output))); err != nil {
+		t.Fatal(err)
+	}
+	state, err := service.GetStyleState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.VoiceProject != "项目层 Voice 原文" || state.AntiAIToneProject != "项目层 anti 原文" {
+		t.Fatalf("raw project overrides were not returned: %+v", state)
+	}
+	if !strings.Contains(state.EffectiveVoice, "项目层 Voice 原文") || !strings.Contains(state.EffectiveAntiAITone, "项目层 anti 原文") {
+		t.Fatalf("effective preview does not include project overrides: %+v", state)
+	}
+	if state.EffectiveVoice == state.VoiceProject || state.EffectiveAntiAITone == state.AntiAIToneProject {
+		t.Fatal("effective preview must remain distinct from scoped raw override")
 	}
 }

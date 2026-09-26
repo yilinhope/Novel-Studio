@@ -142,7 +142,7 @@ export interface RuleFile { name: string; scope: 'global' | 'project'; path: str
 export interface RulesSnapshot { version: number; status: string; structured: Record<string, unknown>; preferences: string; sources: string[]; uncertain?: string[] }
 export interface RulesWorkspace extends ReadIdentity { global: RuleFile[]; project: RuleFile[]; effective?: RulesSnapshot; effectiveAvailable: boolean; effectiveNotice?: string }
 export interface RuleMutationRequest { projectId?: string; generation?: number; requestId?: string; scope: 'global' | 'project'; name: string; newName?: string; content?: string }
-export interface StyleState extends ReadIdentity { selectedStyle: string; styleNames: string[]; selectedStyleText?: string; styleSource: string; voice: string; voiceSource: string; antiAiTone: string; antiAiToneSource: string; genreReference?: string; genreReferenceSource?: string; effectiveNotice: string }
+export interface StyleState extends ReadIdentity { selectedStyle: string; styleNames: string[]; selectedStyleText?: string; styleSource: string; effectiveVoice: string; effectiveVoiceSource: string; voiceGlobal: string; voiceProject: string; effectiveAntiAiTone: string; effectiveAntiAiToneSource: string; antiAiToneGlobal: string; antiAiToneProject: string; genreReference?: string; genreReferenceSource?: string; effectiveNotice: string }
 export interface StyleMutationRequest { projectId?: string; generation?: number; requestId?: string; scope?: 'global' | 'project'; name?: string; content?: string }
 export interface StudioBridge {
   SelectProjectDirectory(): Promise<string>

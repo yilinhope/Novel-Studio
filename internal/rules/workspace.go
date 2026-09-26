@@ -168,5 +168,11 @@ func RenameRuleFile(opts LoadOptions, scope SourceKind, oldName, newName string)
 	if err != nil {
 		return err
 	}
+	target := filepath.Join(dir, newName)
+	if _, err := os.Stat(target); err == nil {
+		return fmt.Errorf("目标规则文件已存在: %q", newName)
+	} else if !os.IsNotExist(err) {
+		return err
+	}
 	return os.Rename(filepath.Join(dir, oldName), filepath.Join(dir, newName))
 }
