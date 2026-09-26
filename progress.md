@@ -81,3 +81,10 @@
 - 只读代码审查最初结论为 Not Ready：修复 Apply applied journal 崩溃恢复、同章重复 change、Restore BaseHash/operation journal、前端 Review/Proposal 项目 generation guard、切换 busy gate、Bridge metadata book lease。
 - 增加 ID 路径校验、Evidence QuotePreview 绑定、超大正文 Diff 摘要保护、Review SourceKey 重复拒绝，以及对应 Go 回归测试。
 - 当前验证：Go 1034 tests、go vet、Frontend 45 tests、Vite build、Wails Windows build 通过；真实桌面和模型运行仍需现场验收。
+
+## Session: 2026-09-26 — Core GUI Parity audit
+
+- 已将产品目标章程和 Core GUI Parity 完成计划加入 `docs/PRODUCT_GOAL_CHARTER.md`、`docs/CORE_GUI_PARITY_COMPLETION_PLAN.md`。
+- 已将 `docs/V2_M2_FACT_AUDIT.md` 标记为 Deferred Research；未保留 Fact Engine/Character Knowledge 实现。
+- 已基于当前 `origin/main` 源码生成 `docs/CORE_GUI_PARITY_MATRIX.md`，覆盖 TUI 命令、Host/Store/Config、Import/Export、Simulation、Rules/Style、Diagnostics 和 Runtime 观测。
+- 本轮停在审计阶段，不进入 Wave A 代码实现；静态矩阵结论不等同于真实桌面运行验收。

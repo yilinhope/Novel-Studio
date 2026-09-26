@@ -210,3 +210,20 @@
 - 增加 OpenAI、NovelAI、DeepSeek、Google Gemini、xAI、SiliconFlow、Ollama、BigModel 和自定义预设；预设只填充 UI 草稿，不新增配置事实源。
 - 已保存 Provider 的模型发现由 Bridge 在受信任边界补回 Core Key，修复空 Key 导致的发现失败；Key 不返回前端。
 - 补 Provider Key 解析测试；前端模型发现仍统一使用 OpenAI-compatible `/models` 或 Gemini `/v1beta/models`。
+
+## V2-M2 审计暂停记录（2026-09-26）
+
+- 已从最新 `origin/main`（包含 M1 与模型配置 PR）完成源码审计，结果见 `docs/V2_M2_FACT_AUDIT.md`。
+- 已确认 Core `ChapterRecord.Facts`、`revision.Service.Sync`、`revision.Projector` 是 M2 的事实源与 Sync 后重建边界。
+- 已确认当前没有 Fact Registry、Character Knowledge、Fact Conflict 或 Explorer 实现。
+- 本轮按用户要求停在审计阶段，未保留任何 M2 代码实现、Bridge API、前端 store/UI 或 schema 迁移。
+- 后续开始实现前，应重新检查分支与 GitNexus impact，并以审计文档中的事实模型、原子 generation 发布、warning 与项目 scope 边界为准。
+
+## Core GUI Parity 审计基线（2026-09-26）
+
+- 当前正式路线已从原 V2-M2 切换为 Core GUI Parity Completion；产品约束见 `docs/PRODUCT_GOAL_CHARTER.md`，阶段计划见 `docs/CORE_GUI_PARITY_COMPLETION_PLAN.md`。
+- 已从当前 `origin/main`（`6cb873a`）完成 CLI/TUI command registry、README 作者流程、Host/Store/Config、Studio Bridge/ViewModel 和 React 页面核对；结果见 `docs/CORE_GUI_PARITY_MATRIX.md`。
+- 本轮按用户要求**停在审计阶段**：不实施 Wave A，不新增 Story/Continuity Bridge、ViewModel、前端 Store/UI，不改变 Core 语义和持久化。
+- 审计结论：Story/Continuity 所需的 premise、characters、world rules、outline、Compass、summaries、timeline、foreshadow、relationships、state changes、snapshots 与 cast projection 已存在于 Core Store/ChapterRecord 投影；Studio 主要缺少只读 Facade/ViewModel/GUI 入口。
+- 已知 parity 缺口：`/reopen`、`/simulate`、`/importsim`、`/diag`/diag-export、Rules/Style/Voice 管理、Config advanced/fallback/notify、Import auto-confirm/story-resolution、Runtime context/compression 观测等，详见矩阵。
+- 后续若开始 Wave A，必须先重新运行相关符号的 GitNexus impact；若实现中发现 Core 语义缺失、第二事实源或持久化迁移需求，立即暂停并汇报。
