@@ -121,3 +121,10 @@
 - 外部只读审查发现 Apply journal=applied 崩溃窗口、重复章节 change、Restore 陈旧覆盖、前端切项目响应污染、metadata 跨进程租约和路径/证据/Diff 边界问题。
 - 已修复：applied journal 可恢复、同一资源重复 change 拒绝、Version BaseHash 与 restore journal、Bridge metadata/book lease、ReviewCenter 与 ProposalStore generation guard、Store 切换 busy gate、ID/QuotePreview 校验和超大 Diff 摘要降级。
 - 定向回归：Go V2/Bridge 37 tests；全量 Go 1034 tests；Frontend 45 tests；go vet、Vite、Wails build 均通过。
+
+## Core GUI Parity 审计（2026-09-26）
+
+- 当前路线已校准为 `ainovel-cli Complete GUI Parity → AI-Novel-Writer Feature Absorption → Validated Novel Studio Innovation`；原 V2-M2 Fact Engine 审计保留为 `Deferred Research`，不构成实现承诺。
+- 源码矩阵见 `docs/CORE_GUI_PARITY_MATRIX.md`。当前 Studio 已覆盖主要创作闭环，但 Story Data Center 与 Continuity Center 尚无独立 Bridge/ViewModel/GUI；Core Store 已有对应读取能力。
+- GitNexus 影响审计：`OutlineStore.LoadLayeredOutline` 为 CRITICAL（97 个下游影响、7 个流程），`WorldStore.LoadTimeline` 为 HIGH 且索引提示 4 个接收者类型未解析，`CharacterStore.LoadSnapshots` 为 LOW 且提示 1 个调用点下界；本轮没有修改这些 Core 符号。
+- 当前用户要求停在审计阶段，因此不新增 Wave A 代码；后续实现需先复跑 impact 并保持 React → Wails Bridge → Studio Facade/ViewModel → Core Store 链路。
