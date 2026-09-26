@@ -58,12 +58,12 @@
 
 | Core Feature | CLI/TUI Entry | Core API/Data | Studio Current | Status | Action |
 |---|---|---|---|---|---|
-| 从 `simulate/` 分析/增量更新画像 | `/simulate` | `Host.Simulate`、`internal/host/sim.Run`、`SimulationStore` | 无页面/API | Missing GUI | Wave B 调用 Core Host，展示真实阶段事件 |
-| 导入仿写画像 | `/importsim <profile.json>` | `Host.ImportSimulationProfile`、`sim.ImportProfile`、指纹合并 | 无页面/API | Missing GUI | Wave B 调用 Core 合并逻辑并显示来源结果 |
-| 查看画像和来源/更新时间 | Agent 上下文；profile 工件 | `meta/simulation_profile.json`、`domain.SimulationProfile`、compact profile | 无读取 API/UI | Missing GUI | Wave B 提供安全的 Facade/ViewModel |
-| 全局/项目写作规则 | `/config`/启动规则输入；README 规则流程 | `rules`、`userrules.Service`、`UserRulesStore` 快照 | 设置页没有规则管理 UI | Missing GUI | Wave B 按全局/项目优先级暴露 Core 规则能力 |
-| Style 选择与文风规则 | 配置 `style`；弧边界 style rules | `bootstrap.Config.Style`、assets Style、`WorldStore.LoadStyleRules` | Config Snapshot 有 style 值但设置页不显示/编辑；无文风规则页 | Partial GUI | Wave B 对照 Core 选择与 Style Rules Store |
-| Voice Layer / anti-AI-tone | 提示词/规则资源装载 | assets、rules/voice layer 文档和文件 | 无浏览/管理 UI | Missing GUI | Wave B 审计实际装载与写入接口后再做适配 |
+| 从 `simulate/` 分析/增量更新画像 | `/simulate` | `Host.Simulate`、`Host.SimulateFrom`、`internal/host/sim.Run`、`SimulationStore` | 参考作品中心列出源文件，启动/取消分析并显示 Core 阶段事件 | Full GUI | Studio 通过当前项目根绑定 `simulate`，不使用进程 cwd；不伪造百分比 |
+| 导入仿写画像 | `/importsim <profile.json>` | `Host.ImportSimulationProfile`、`sim.ImportProfile`、指纹合并 | 参考作品中心选择 profile 文件并交给 Core 校验/导入 | Full GUI | 文件选择由 Wails，JSON 由 Core 读取和校验 |
+| 查看画像和来源/更新时间 | Agent 上下文；profile 工件 | `meta/simulation_profile.json`、`domain.SimulationProfile`、compact profile | 参考作品中心显示真实 profile metadata、源报告和来源状态 | Full GUI | 只读 Store API 不创建 Host |
+| 全局/项目写作规则 | `/config`/启动规则输入；README 规则流程 | `rules`、`userrules.Service`、`UserRulesStore` 快照 | 写作设置显示 global/project/effective，支持 Core 规则文件新建、编辑、重命名、删除 | Partial GUI | 原文件读写已覆盖；有效快照仍由 Core 准备/重建，当前 Host 不热重载 |
+| Style 选择与文风规则 | 配置 `style`；弧边界 style rules | `bootstrap.Config.Style`、assets Style、`WorldStore.LoadStyleRules` | 写作设置显示/选择 Style、题材参考和来源；`WorldStore.LoadStyleRules` 投影仍只读未单独展示 | Partial GUI | 保留该 Core 子能力缺口，不提前标 Full |
+| Voice Layer / anti-AI-tone | 提示词/规则资源装载 | assets、rules/voice layer 文档和文件 | 写作设置显示内置/全局/项目生效文本并支持覆盖保存 | Full GUI | 采用 Core 追加语义；修改后需新 Host，不做热重载 |
 
 ## Diagnostics 与配置
 

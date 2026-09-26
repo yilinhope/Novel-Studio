@@ -48,6 +48,7 @@ type Host struct {
 	thinkingApplier agents.ApplyThinking // /model 调推理强度时联动各 Worker
 	writerRestore   *ctxpack.WriterRestorePack
 	userRules       *userrules.Service
+	rulesOpts       rules.LoadOptions
 	observer        *observer
 	usage           *UsageTracker
 	usageCancel     context.CancelFunc  // 停掉 autoSaveLoop 并触发最后一次 flush
@@ -112,6 +113,10 @@ func New(cfg bootstrap.Config, bundle assets.Bundle, options ...NewOption) (*Hos
 		if option != nil {
 			option(&opts)
 		}
+	}
+	rulesOpts := rules.DefaultOptions()
+	if strings.TrimSpace(opts.projectDir) != "" {
+		rulesOpts.ProjectRulesDir = rules.DefaultProjectRulesDir(opts.projectDir)
 	}
 
 	bookLease, err := acquireBookLease(cfg.OutputDir)
@@ -212,7 +217,8 @@ func New(cfg bootstrap.Config, bundle assets.Bundle, options ...NewOption) (*Hos
 		models:          models,
 		thinkingApplier: applyThinking,
 		writerRestore:   restore,
-		userRules:       userrules.NewService(store, models.Default, rules.DefaultOptions()),
+		rulesOpts:       rulesOpts,
+		userRules:       userrules.NewService(store, models.Default, rulesOpts),
 		usage:           usage,
 		usageCancel:     usageCancel,
 		configPath:      bootstrap.EffectiveConfigPath(),
@@ -328,7 +334,7 @@ func (h *Host) PrepareUserRules(rawPrompt string) error {
 	// 超时落到既有 degraded 路径：宁可降级为 raw preferences 也不阻塞开书。
 	ctx, cancel := context.WithTimeout(h.runCtx, userRulesBuildTimeout)
 	defer cancel()
-	svc := userrules.NewService(h.store, h.models.Default, rules.DefaultOptions())
+	svc := userrules.NewService(h.store, h.models.Default, h.rulesOpts)
 	snap, err := runObservedStep(h.observer, "SYSTEM", "rules", "规则归一化",
 		func() (*rules.Snapshot, error) { return svc.Build(ctx, rawPrompt) })
 	if err != nil {
@@ -352,7 +358,7 @@ func (h *Host) ensureUserRules() {
 	// 同样必须可取消 + 有超时,否则恢复路径复现 issue #125 的静默卡死。
 	ctx, cancel := context.WithTimeout(h.runCtx, userRulesBuildTimeout)
 	defer cancel()
-	svc := userrules.NewService(h.store, h.models.Default, rules.DefaultOptions())
+	svc := userrules.NewService(h.store, h.models.Default, h.rulesOpts)
 	snap, err := svc.GetOrBuild(ctx)
 	if err != nil {
 		slog.Warn("用户规则快照读取/生成失败，运行时将退到内置默认", "module", "rules", "err", err)
@@ -1834,6 +1840,16 @@ func (h *Host) importModelRuntime(role string, model agentcore.ChatModel) imp.Mo
 
 // Simulate 读取 simulate 目录并生成或增量更新仿写画像。
 func (h *Host) Simulate(ctx context.Context) (<-chan sim.Event, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("get working dir: %w", err)
+	}
+	return h.SimulateFrom(ctx, filepath.Join(wd, "simulate"))
+}
+
+// SimulateFrom 使用调用方明确提供的语料目录生成或增量更新仿写画像。
+// Studio 通过此入口绑定当前项目根，避免把进程 cwd 当成项目事实源。
+func (h *Host) SimulateFrom(ctx context.Context, sourceDir string) (<-chan sim.Event, error) {
 	if err := h.acquireExclusive("生成仿写画像"); err != nil {
 		return nil, err
 	}
@@ -1842,10 +1858,10 @@ func (h *Host) Simulate(ctx context.Context) (<-chan sim.Event, error) {
 	h.exclusiveCancel = cancel
 	h.mu.Unlock()
 
-	wd, err := os.Getwd()
-	if err != nil {
+	sourceDir = strings.TrimSpace(sourceDir)
+	if sourceDir == "" {
 		h.releaseExclusive()
-		return nil, fmt.Errorf("get working dir: %w", err)
+		return nil, fmt.Errorf("simulate source directory is required")
 	}
 	deps := sim.Deps{
 		Store: h.store,
@@ -1855,7 +1871,7 @@ func (h *Host) Simulate(ctx context.Context) (<-chan sim.Event, error) {
 			Merge:  h.bundle.Prompts.SimulationMerge,
 		},
 	}
-	ch, err := sim.Run(ctx, deps, sim.Options{SourceDir: filepath.Join(wd, "simulate")})
+	ch, err := sim.Run(ctx, deps, sim.Options{SourceDir: sourceDir})
 	if err != nil {
 		h.releaseExclusive()
 		return nil, err

@@ -8,12 +8,12 @@ import type { ParitySection } from './types'
 
 interface StudioState {
   project: Project | null; chapter: Chapter | null; busy: boolean; error: string
-  view: 'overview' | 'chapter' | 'parity' | 'runtime' | 'review' | 'proposals' | 'create' | 'import' | 'settings' | 'export'; chapterLoading: boolean
+  view: 'overview' | 'chapter' | 'parity' | 'runtime' | 'review' | 'proposals' | 'simulation' | 'writing' | 'create' | 'import' | 'settings' | 'export'; chapterLoading: boolean
   draftContent: string; savedContent: string; dirty: boolean; saveBusy: boolean; saveError: string
   syncing: boolean; syncError: string; syncNotice: string; refreshWarning: string
   open(path?: string): Promise<void>; read(number: number): Promise<void>; setDraftContent(content: string): void
   saveChapter(): Promise<void>; syncChapterRevisions(): Promise<void>; overview(): void; runtime(): void; review(): void; proposals(): void
-  create(): void; imports(): void; settings(): void; exports(): void
+  create(): void; imports(): void; settings(): void; exports(): void; simulation(): void; writing(): void
   parity(section: ParitySection): void
 }
 let request = 0
@@ -43,6 +43,8 @@ export const useStudio = create<StudioState>((set, get) => ({
       if (ticket === request) {
         set({project, chapter: null, draftContent: '', savedContent: '', dirty: false, saveError: '', syncError: '', syncNotice: '', refreshWarning: '', view: 'overview'})
         void import('./parityStore').then(({useParityStore}) => useParityStore.getState().reset())
+        void import('./simulationStore').then(({useSimulationStore}) => useSimulationStore.getState().reset())
+        void import('./writingSettingsStore').then(({useWritingSettingsStore}) => useWritingSettingsStore.getState().reset())
         await useEngineStore.getState().selectProject(project.overview.path, api.GetRuntimeState)
         await useRevisionStore.getState().selectProject(project.outputDir, () => api.GetRevisionStatus())
         await useEngineStore.getState().refreshRuntime()
@@ -209,5 +211,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   imports() { if (!get().saveBusy && !get().syncing) { ++request; set({view: 'import', chapterLoading: false, error: ''}) } },
   settings() { if (!get().saveBusy && !get().syncing) { ++request; set({view: 'settings', chapterLoading: false, error: ''}) } },
   exports() { if (!get().saveBusy && !get().syncing) { ++request; set({view: 'export', chapterLoading: false, error: ''}) } },
+  simulation() { if (!canLeaveChapter(get())) return; ++request; set({view: 'simulation', chapterLoading: false, error: '', draftContent: get().savedContent, dirty: false, saveError: ''}); void import('./simulationStore').then(({useSimulationStore}) => useSimulationStore.getState().load()) },
+  writing() { if (!canLeaveChapter(get())) return; ++request; set({view: 'writing', chapterLoading: false, error: '', draftContent: get().savedContent, dirty: false, saveError: ''}); void import('./writingSettingsStore').then(({useWritingSettingsStore}) => useWritingSettingsStore.getState().load()) },
   parity(section) { if (!get().busy && canLeaveChapter(get())) { ++request; set({view: 'parity', chapterLoading: false, error: '', draftContent: get().savedContent, dirty: false, saveError: ''}); void import('./parityStore').then(({useParityStore}) => useParityStore.getState().selectSection(section)) } },
 }))

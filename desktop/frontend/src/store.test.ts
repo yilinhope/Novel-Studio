@@ -31,6 +31,16 @@ test('取消选择不清空当前项目',async () => {
   expect(useStudio.getState().busy).toBe(false)
 })
 
+test('正文未保存时进入 Wave B 页面继续复用离开确认', () => {
+  useStudio.setState({project, view:'chapter', dirty:true, saveBusy:false, syncing:false})
+  window.confirm = vi.fn().mockReturnValue(false)
+  useStudio.getState().simulation()
+  expect(useStudio.getState().view).toBe('chapter')
+  vi.mocked(window.confirm).mockReturnValue(true)
+  useStudio.getState().writing()
+  expect(useStudio.getState().view).toBe('writing')
+})
+
 test('打开失败保留旧项目并显示错误',async () => {
   useStudio.setState({project})
   vi.mocked(api.OpenProject).mockRejectedValue(new Error('进度文件损坏'))
