@@ -22,8 +22,8 @@
 | 连续写作与恢复 | TUI 启动自动恢复；`--headless --prompt` 用于自动化 | `Host.Resume`、Engine、Checkpoint/Progress/RunMeta | Studio 显式 Resume；不会因只读打开项目而创建 Host | Full GUI | Wave D 对照状态与最终 Store |
 | Pause / Resume / Stop | TUI 按键/生命周期；Host API | `Host.Abort`、Engine lifecycle/事件 | Studio Runtime 控制 | Full GUI | 保持 Core Gate 和 Session 语义 |
 | Review 模式与 Next Gate | `/review on / off`、`/next` | `Host.SetAdvanceMode`、`Host.AdvanceOneChapter`、ReviewEntry、AdvancePermit/Hold | 审阅中心和运行中心显示 Core Review/Gate，支持切换/推进 | Full GUI | Wave D 回归 SavedUnsynced、Review 与 Gate 组合 |
-| 用户 Steer / Arbiter | TUI 输入干预；完本后的续写提示 `/reopen` | `Host` intervention、Arbiter、RunMeta.PendingSteer；`Host.Reopen` | Studio 可提交 Steer；未暴露独立 Reopen 操作 | Partial GUI | 后续补 Reopen GUI，复用 Host，不在前端推导完本状态 |
-| 完本后 Reopen | `/reopen [续写方向]` | `Host.Reopen`、`Progress.ReopenContinue`、PendingSteer | 无 Bridge/API/UI 操作 | Missing GUI | 后续增加显式 Reopen，服从项目/Engine/Core Gate |
+| 用户 Steer / Arbiter | TUI 输入干预 | `Host` intervention、Arbiter、RunMeta.PendingSteer | Studio 可提交 Steer，结果和状态来自 Core | Full GUI | Wave D 回归 Steer、项目切换与运行门禁组合 |
+| 完本后 Reopen | `/reopen [续写方向]` | `Host.Reopen`、`Progress.ReopenContinue`、PendingSteer | 无 Bridge/API/UI 操作 | Missing GUI | Wave C 生命周期 parity gaps：增加显式 Reopen，服从项目/Engine/Core Gate |
 | 章节树与正文阅读 | TUI 运行输出/章节工件 | `OutlineStore`、`DraftStore`、`ProgressStore` | Studio 章节树、章节阅读器 | Full GUI | Wave A 不加载所有正文；按需读取 |
 | 已完成章节编辑与保存 | 外部编辑后 `/sync` | Draft Store、Revision Service | Studio 编辑器与 Save；不改 ChapterRecord | Full GUI | 保持 Save 与 Sync 分离 |
 | 章节修订检查与 Sync | `/sync --check`、`/sync` | `revision.Service.Sync`、`ChapterRecord`、重建投影 | Revision Center/章节编辑支持 Check/Sync | Full GUI | 保留 Core Sync 为唯一接纳入口 |
@@ -105,11 +105,11 @@
 | Headless 无界面自动化 | `ainovel-cli --headless --prompt/--prompt-file` | `internal/entry/headless.Run`、Host/Engine | Studio 是桌面 GUI，不提供无界面脚本入口 | Intentionally CLI-only | 保留 CLI automation 入口 |
 | 离线 eval harness | `ainovel-cli eval ...` | `internal/eval.Command` | GUI 不提供测试样例执行器 | Intentionally CLI-only | 作为开发/CI 工具保留 |
 | CLI 版本/自更新参数 | `--version`、`update [version]` | `internal/version` | Studio 自有桌面分发与更新流程 | Intentionally CLI-only | 属于安装运维入口，不计作者功能 |
-| TUI `/help` 命令面板 | `/help`、命令 palette | `commandRegistry` | Studio 有侧边栏导航和可见页面 | Partial GUI | 作者功能以具体命令对应矩阵行判定；CLI 语法帮助本身可保留 |
+| TUI `/help` 命令面板 | `/help`、命令 palette | `commandRegistry` | GUI 以侧边栏导航、页面控件和操作按钮替代 TUI 语法发现 | Intentionally CLI-only | `/help` 只属于 TUI 命令语法/发现能力，不构成普通作者 GUI parity 缺口；具体作者功能按对应矩阵行核对 |
 
 ## 审计结论与 Wave 对应
 
 - Wave A：补齐 Story Data Center 与 Continuity Center 的只读视图；源数据已存在于 Core Store/ChapterRecord 投影。当前审计未发现需要新增小说事实或改变 Core 语义的前置条件。
 - Wave B：把仿写画像读取/运行/导入、Rules、Style、Voice 逐项接入现有 Core 能力；每个写操作在实现前再核实现有 Host/Store 互斥和持久化。
-- Wave C：补诊断、配置 schema、Import 选项、Runtime 观测。Context health/compression 等字段是否可从当前 Core 结构安全读取，必须按当时源码单独判定。
+- Wave C：补诊断、配置 schema、Import 选项、Runtime 观测，并纳入生命周期 parity gaps（至少包括 `/reopen` 独立 GUI 入口）。Context health/compression 等字段是否可从当前 Core 结构安全读取，必须按当时源码单独判定。
 - Wave D：从当前源码重新枚举 TUI/README/Host/Store/Config/Import/Export，再逐项复核矩阵与 Windows regression。不得以历史文档替代当时的源码证据。

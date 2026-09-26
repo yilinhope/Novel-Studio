@@ -211,13 +211,13 @@
 - 已保存 Provider 的模型发现由 Bridge 在受信任边界补回 Core Key，修复空 Key 导致的发现失败；Key 不返回前端。
 - 补 Provider Key 解析测试；前端模型发现仍统一使用 OpenAI-compatible `/models` 或 Gemini `/v1beta/models`。
 
-## V2-M2 审计暂停记录（2026-09-26）
+## V2-M2 审计暂停记录（Deferred Research，2026-09-26）
 
 - 已从最新 `origin/main`（包含 M1 与模型配置 PR）完成源码审计，结果见 `docs/V2_M2_FACT_AUDIT.md`。
 - 已确认 Core `ChapterRecord.Facts`、`revision.Service.Sync`、`revision.Projector` 是 M2 的事实源与 Sync 后重建边界。
 - 已确认当前没有 Fact Registry、Character Knowledge、Fact Conflict 或 Explorer 实现。
 - 本轮按用户要求停在审计阶段，未保留任何 M2 代码实现、Bridge API、前端 store/UI 或 schema 迁移。
-- 后续开始实现前，应重新检查分支与 GitNexus impact，并以审计文档中的事实模型、原子 generation 发布、warning 与项目 scope 边界为准。
+- 后续若重新评估原 V2-M2，只能把该审计作为历史研究参考，不构成未来实现约束。任何重新立项必须在 Core GUI Parity 完成后，基于真实产品缺口和最新源码重新审计，并重新定义事实源、持久化、generation、warning、项目 scope 与恢复语义。
 
 ## Core GUI Parity 审计基线（2026-09-26）
 
