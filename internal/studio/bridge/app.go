@@ -1045,7 +1045,16 @@ func (a *App) TestModelConnection(draft viewmodel.ProviderDraft, model string) e
 // DiscoverProviderModels 只读取服务商模型目录，不创建 Host，也不写入配置。
 // 返回结果必须由用户显式保存后才进入 Core 配置。
 func (a *App) DiscoverProviderModels(draft viewmodel.ProviderDraft) ([]viewmodel.ModelConfig, error) {
-	if _, _, err := a.currentProjectPaths(); err != nil {
+	projectDir, _, err := a.currentProjectPaths()
+	if err != nil {
+		return nil, err
+	}
+	// 编辑已保存 Provider 时，表单只携带 apiKeyAction=keep，不把完整凭证
+	// 投影到快照或前端。发现请求在受信任 Bridge 内补回 Core 中的 Key，响应仍只返回模型名。
+	a.projectMu.RLock()
+	draft, err = app.ResolveProviderDraftAPIKey(projectDir, draft)
+	a.projectMu.RUnlock()
+	if err != nil {
 		return nil, err
 	}
 	return app.DiscoverProviderModels(a.contextOrBackground(), draft)

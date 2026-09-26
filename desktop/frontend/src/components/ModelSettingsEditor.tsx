@@ -6,12 +6,20 @@ type SaveProvider = (draft: ProviderDraft) => Promise<void>
 type DiscoverModels = (draft: ProviderDraft) => Promise<ConfigModel[]>
 type TestModelConnection = (draft: ProviderDraft, model: string) => Promise<void>
 
-const providerDefaults: Record<string, {type: string; api: string; baseUrl: string}> = {
-  openai: {type: 'openai', api: 'chat', baseUrl: 'https://api.openai.com/v1'},
-  deepseek: {type: 'openai', api: 'chat', baseUrl: 'https://api.deepseek.com/v1'},
-  gemini: {type: 'gemini', api: 'chat', baseUrl: 'https://generativelanguage.googleapis.com'},
-  ollama: {type: 'openai', api: 'chat', baseUrl: 'http://127.0.0.1:11434/v1'},
-}
+type ProviderPreset = {id: string; label: string; type: string; api: string; baseUrl: string}
+
+// 这些预设只提供 UI 初始值；Provider、模型和凭证最终仍由 Core 配置保存。
+const providerPresets: ProviderPreset[] = [
+  {id: 'openai', label: 'OpenAI', type: 'openai', api: 'chat', baseUrl: 'https://api.openai.com'},
+  {id: 'novelai', label: 'NovelAI', type: 'openai', api: 'chat', baseUrl: 'https://text.novelai.net/oa'},
+  {id: 'deepseek', label: 'DeepSeek', type: 'openai', api: 'chat', baseUrl: 'https://api.deepseek.com'},
+  {id: 'gemini', label: 'Google Gemini', type: 'gemini', api: 'chat', baseUrl: 'https://generativelanguage.googleapis.com'},
+  {id: 'xai', label: 'xAI（Grok）', type: 'openai', api: 'chat', baseUrl: 'https://api.x.ai/v1'},
+  {id: 'siliconflow', label: 'SiliconFlow', type: 'openai', api: 'chat', baseUrl: 'https://api.siliconflow.cn/v1'},
+  {id: 'ollama', label: 'Ollama（本地）', type: 'openai', api: 'chat', baseUrl: 'http://localhost:11434/v1'},
+  {id: 'bigmodel', label: 'BigModel（智谱）', type: 'openai', api: 'chat', baseUrl: 'https://open.bigmodel.cn/api/paas/v4'},
+  {id: 'custom', label: '自定义', type: 'openai', api: 'chat', baseUrl: ''},
+]
 
 const emptyModel = (): ConfigModel => ({name: '', contextWindow: 0})
 
@@ -38,6 +46,7 @@ export function ModelSettingsEditor({
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [models, setModels] = useState<ConfigModel[]>([])
+  const [presetID, setPresetID] = useState('')
   const [editingNew, setEditingNew] = useState(false)
   const [saving, setSaving] = useState(false)
   const [discovering, setDiscovering] = useState(false)
@@ -49,6 +58,7 @@ export function ModelSettingsEditor({
 
   const loadProvider = (name: string) => {
     const selected = config.providers.find(item => item.name === name)
+    setPresetID(providerPresets.some(item => item.id === name) ? name : 'custom')
     setProviderName(name)
     setProviderType(selected?.type ?? '')
     setProviderAPI(selected?.api || 'chat')
@@ -66,22 +76,24 @@ export function ModelSettingsEditor({
 
   const startNew = () => {
     setEditingNew(true)
-    setProviderName('')
-    setProviderType('openai')
-    setProviderAPI('chat')
-    setBaseUrl('https://api.openai.com/v1')
+    applyPreset('openai')
     setApiKey('')
-    setModels([emptyModel()])
+    setModels([])
     setMessage('')
     setError('')
   }
 
-  const applyProviderPreset = (name: string) => {
-    const preset = providerDefaults[name.trim().toLowerCase()]
-    if (!preset || baseUrl.trim()) return
+  const applyPreset = (id: string) => {
+    const preset = providerPresets.find(item => item.id === id) ?? providerPresets[providerPresets.length - 1]
+    setPresetID(preset.id)
+    setProviderName(preset.id === 'custom' ? '' : preset.id)
     setProviderType(preset.type)
     setProviderAPI(preset.api)
     setBaseUrl(preset.baseUrl)
+    setModels([])
+    setApiKey('')
+    setError('')
+    setMessage(`${preset.label} 已填入默认协议和地址，请获取模型列表或手动添加模型。`)
   }
 
   const draft = (): ProviderDraft => ({
@@ -156,15 +168,16 @@ export function ModelSettingsEditor({
       {!editingNew && <button onClick={startNew} disabled={busy || saving}><Plus size={14}/>新建配置</button>}
     </div>
     {!editingNew && config.providers.length > 0 && <label>已保存配置<select value={providerName} onChange={event => loadProvider(event.target.value)}>{config.providers.map(item => <option key={item.name} value={item.name}>{item.name}{item.hasApiKey ? ' · 已配置 Key' : ' · 未配置 Key'}</option>)}</select></label>}
+    <label>服务商<select value={presetID} onChange={event => editingNew && applyPreset(event.target.value)} disabled={!editingNew}>{providerPresets.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
     <div style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 10}}>
-      <label>显示名称 / Provider ID<input value={providerName} onChange={event => {setProviderName(event.target.value); applyProviderPreset(event.target.value)}} placeholder="例如 openai、deepseek、my-proxy" disabled={!editingNew}/></label>
+      <label>显示名称 / Provider ID<input value={providerName} onChange={event => setProviderName(event.target.value)} placeholder="例如 openai、deepseek、my-proxy" disabled={!editingNew || presetID !== 'custom'}/></label>
       <label>调用协议<select value={providerType} onChange={event => setProviderType(event.target.value)}><option value="">Core 自动判断</option><option value="openai">OpenAI-compatible</option><option value="gemini">Gemini</option><option value="anthropic">Anthropic</option></select></label>
     </div>
     <label>API endpoint<select value={providerAPI} onChange={event => setProviderAPI(event.target.value)}><option value="chat">Chat Completions</option><option value="responses">Responses</option></select></label>
     <label>Base URL<input value={baseUrl} onChange={event => setBaseUrl(event.target.value)} placeholder="https://api.openai.com/v1"/></label>
     <label>API Key<input type="password" value={apiKey} onChange={event => setApiKey(event.target.value)} placeholder={provider?.hasApiKey ? `留空保持现有 Key（${provider.apiKeyHint || '已配置'}）` : 'sk-…'} autoComplete="new-password"/></label>
     <div className="panel" style={{display: 'grid', gap: 8, margin: 0}}>
-      <div style={{display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center'}}><strong>模型列表</strong><div style={{display: 'flex', gap: 8}}><button onClick={() => void discover()} disabled={busy || saving || discovering || !providerName.trim() || !baseUrl.trim()}><RefreshCw size={14}/>{discovering ? '读取中…' : '读取模型列表'}</button><button onClick={() => setModels([...models, emptyModel()])} disabled={busy || saving}><Plus size={14}/>手动添加</button></div></div>
+      <div style={{display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center'}}><strong>端点模型列表</strong><div style={{display: 'flex', gap: 8}}><button onClick={() => void discover()} disabled={busy || saving || discovering || !providerName.trim() || !baseUrl.trim()}><RefreshCw size={14}/>{discovering ? '获取中…' : '获取模型列表'}</button><button onClick={() => setModels([...models, emptyModel()])} disabled={busy || saving}><Plus size={14}/>手动添加</button></div></div>
       <p className="muted" style={{margin: 0}}>读取结果不会自动保存；确认列表后点击下方保存。Ollama 等本地服务可直接手动输入模型名。</p>
       {models.map((model, index) => <div key={`${index}-${model.name}`} style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 130px 120px auto auto', gap: 8, alignItems: 'center'}}><input value={model.name} onChange={event => setModels(models.map((item, itemIndex) => itemIndex === index ? {...item, name: event.target.value} : item))} placeholder="model（模型名称）"/><input type="number" min="0" value={model.contextWindow || ''} onChange={event => setModels(models.map((item, itemIndex) => itemIndex === index ? {...item, contextWindow: event.target.value ? Number(event.target.value) : 0} : item))} placeholder="上下文窗口"/><select value={model.jsonSchema === undefined ? '' : model.jsonSchema ? 'true' : 'false'} onChange={event => setModels(models.map((item, itemIndex) => itemIndex === index ? {...item, jsonSchema: event.target.value === '' ? undefined : event.target.value === 'true'} : item))}><option value="">JSON Schema 自动</option><option value="true">支持 JSON Schema</option><option value="false">不支持 JSON Schema</option></select><button onClick={() => void test(model)} disabled={busy || saving || discovering || testing !== '' || !model.name.trim()} title="测试当前草稿，不保存"><Zap size={14}/>{testing === model.name.trim() ? '测试中…' : '测试'}</button><button onClick={() => setModels(models.filter((_, itemIndex) => itemIndex !== index))} disabled={busy || saving || models.length <= 1} title="移除模型"><Trash2 size={14}/></button></div>)}
     </div>

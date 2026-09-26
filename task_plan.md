@@ -204,3 +204,9 @@
 - 实现 `ModelSettingsEditor`、OpenAI-compatible/Gemini 模型发现和 Bridge 委托。
 - 保存失败继续向编辑器传播，避免前端显示伪成功；补 Go 与前端回归测试。
 - 本地验证：Go 1044、前端 47；`go vet`、前端 production build、Wails Windows production build 均通过。
+
+## Session 2026-09-26 — Provider 目录与已保存 Key 发现修正
+
+- 增加 OpenAI、NovelAI、DeepSeek、Google Gemini、xAI、SiliconFlow、Ollama、BigModel 和自定义预设；预设只填充 UI 草稿，不新增配置事实源。
+- 已保存 Provider 的模型发现由 Bridge 在受信任边界补回 Core Key，修复空 Key 导致的发现失败；Key 不返回前端。
+- 补 Provider Key 解析测试；前端模型发现仍统一使用 OpenAI-compatible `/models` 或 Gemini `/v1beta/models`。
